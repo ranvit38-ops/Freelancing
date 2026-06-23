@@ -28,8 +28,10 @@ describe("contactSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  it("treats a filled honeypot as invalid (bots fill 'company')", () => {
+  it("accepts a filled honeypot at the schema level (enforced in the route)", () => {
+    // The schema must NOT reject this — otherwise a legit user whose browser
+    // autofills the hidden field would be blocked. The API route drops it.
     const r = contactSchema.safeParse({ ...valid, company: "Spammer Inc" });
-    expect(r.success).toBe(false);
+    expect(r.success).toBe(true);
   });
 });
