@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="36" viewBox="0 0 160 36" role="img" aria-label="Northwind Studio logo">
+  <!-- SETUP REQUIRED: replace this placeholder with the client's real logo. -->
+  <rect x="0" y="6" width="24" height="24" rx="6" fill="rgb(37 99 235)"/>
+  <path d="M6 24 L12 12 L18 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="34" y="24" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="rgb(15 23 42)">Northwind</text>
+</svg>

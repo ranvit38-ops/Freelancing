@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fallback theme variables. The real values are injected on <html> from
+   site.config.ts in layout.tsx — these just keep things sane if JS-less. */
+:root {
+  --brand: 37 99 235;
+  --brand-fg: 255 255 255;
+  --brand-accent: 14 165 233;
+  --bg: 255 255 255;
+  --surface: 248 250 252;
+  --fg: 15 23 42;
+  --muted: 100 116 139;
+  --border: 226 232 240;
+  --radius: 0.5rem;
+  --font-sans: system-ui;
+  --font-heading: system-ui;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-fg font-sans antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply font-heading;
+  }
+  /* Visible keyboard focus for accessibility. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-bg;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center rounded-brand px-5 py-2.5 text-sm font-semibold transition focus-visible:outline-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-brand-fg hover:opacity-90;
+  }
+  .btn-secondary {
+    @apply btn border border-border bg-surface text-fg hover:bg-border/40;
+  }
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
