@@ -45,11 +45,15 @@ hex colors in components.
 
 ## Before committing
 
-Run all three — CI (`.github/workflows/ci.yml`) enforces them:
+Run all four — CI (`.github/workflows/ci.yml`) enforces them:
 
 ```bash
-npm run typecheck && npm run lint && npm run build
+npm run typecheck && npm run lint && npm test && npm run build
 ```
+
+Unit tests (Vitest) live next to the code as `src/**/*.test.ts` and cover the
+pure logic (config schema, contact validation, rate limit, nav filtering, theme
+vars). Keep business logic in pure, testable functions where practical.
 
 ## Dependencies
 

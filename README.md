@@ -52,6 +52,7 @@ Useful scripts:
 ```bash
 npm run typecheck   # tsc --noEmit
 npm run lint        # next lint
+npm test            # vitest (unit tests for pure logic)
 npm run build       # production build
 ```
 

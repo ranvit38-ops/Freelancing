@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "next": "14.2.35",
@@ -29,6 +30,7 @@
     "tailwindcss": "3.4.6",
     "typescript": "5.5.3",
     "eslint": "8.57.0",
-    "eslint-config-next": "14.2.35"
+    "eslint-config-next": "14.2.35",
+    "vitest": "2.0.5"
   }
 }

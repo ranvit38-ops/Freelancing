@@ -102,7 +102,7 @@ These can't be templated — each client needs their own accounts.
 
 ## 5. Verify before launch
 
-- [ ] `npm run typecheck && npm run lint && npm run build` all pass.
+- [ ] `npm run typecheck && npm run lint && npm test && npm run build` all pass.
 - [ ] Click every nav item; check responsive + keyboard navigation.
 - [ ] Test a Stripe purchase end-to-end in test mode (receipt email arrives).
 - [ ] Submit the contact form (business notification + autoreply arrive).
