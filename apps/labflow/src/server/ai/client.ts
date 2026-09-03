@@ -16,16 +16,17 @@ export class AiRequestError extends Error {}
  * One place that talks to the model. Everything above it passes an already
  * assembled context — no caller gets to hand the model raw database access.
  */
-export async function callModel(input: {
-  system: string;
-  prompt: string;
-  maxTokens?: number;
-}): Promise<{ text: string; model: string }> {
+export type ModelTransport = typeof fetch;
+
+export async function callModel(
+  input: { system: string; prompt: string; maxTokens?: number },
+  fetchImpl: ModelTransport = fetch,
+): Promise<{ text: string; model: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new AiNotConfiguredError();
 
   const model = env().LABFLOW_AI_MODEL;
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetchImpl('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

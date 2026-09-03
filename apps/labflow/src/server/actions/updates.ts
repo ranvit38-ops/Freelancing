@@ -23,9 +23,11 @@ export async function generateUpdateAction(
     const project = await q.getProject(session, projectId);
     // An update belongs to one project: drop anything selected from another,
     // so a stale or hand-edited id list cannot mix projects into one deck.
-    const experiments = (await q.getComparableExperiments(session, ids)).filter(
-      (e) => e.projectId === projectId,
-    );
+    // Chronological order: a research update reads forwards, but the picker
+    // lists the most recent runs first.
+    const experiments = (await q.getComparableExperiments(session, ids))
+      .filter((e) => e.projectId === projectId)
+      .sort((a, b) => a.number - b.number);
     if (experiments.length === 0) {
       return { error: 'None of the selected experiments belong to this project.' };
     }

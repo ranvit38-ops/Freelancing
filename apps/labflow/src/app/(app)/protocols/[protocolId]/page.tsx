@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation';
 import { ProtocolVersionForm } from '@/components/simple-forms';
 import { Badge, Card, CardHeader, PageHeader, Prose } from '@/components/ui';
-import { formatDate } from '@/lib/display';
+import Link from 'next/link';
+import { experimentCode, formatDate, pluralise } from '@/lib/display';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
-import { getProtocolWithVersions } from '@/server/queries';
+import { getProtocolWithVersions, protocolVersionUsage } from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,7 @@ export default async function ProtocolPage({ params }: { params: { protocolId: s
   const session = await requireSession();
   try {
     const { protocol, versions } = await getProtocolWithVersions(session, params.protocolId);
+    const usage = await protocolVersionUsage(session, protocol.id);
 
     return (
       <div className="mx-auto max-w-3xl">
@@ -42,6 +44,32 @@ export default async function ProtocolPage({ params }: { params: { protocolId: s
                   <p className="mt-2 text-sm font-medium">
                     {v.changeNote ?? 'No change note recorded'}
                   </p>
+                  {(() => {
+                    const used = usage.filter((u) => u.versionId === v.id && u.experimentId);
+                    return (
+                      <div className="mt-2">
+                        <p className="text-xs text-subtle">
+                          {used.length === 0
+                            ? 'No experiment recorded using this version.'
+                            : `Used by ${pluralise(used.length, 'experiment')}:`}
+                        </p>
+                        {used.length > 0 ? (
+                          <ul className="mt-1 flex flex-wrap gap-1.5">
+                            {used.map((u) => (
+                              <li key={u.experimentId}>
+                                <Link
+                                  href={`/experiments/${u.experimentId}`}
+                                  className="inline-flex rounded-md border border-line bg-raised px-2 py-0.5 text-xs hover:border-accent/40 hover:text-fg"
+                                >
+                                  {experimentCode(u.experimentNumber!)} · {u.experimentTitle}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                   {v.body ? (
                     <details className="mt-2">
                       <summary className="cursor-pointer text-sm text-muted hover:text-fg">

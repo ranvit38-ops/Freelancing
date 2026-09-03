@@ -1,16 +1,22 @@
 import Link from 'next/link';
 import { ButtonLink, Card, CardHeader, EmptyState, PageHeader } from '@/components/ui';
 import { ExperimentList } from '@/components/records';
+import { NextActionsList } from '@/components/next-actions-list';
+import { buildNextActions } from '@/lib/next-actions';
 import { experimentCode, formatDate, pluralise, projectStatusLabel } from '@/lib/display';
 import { requireSession } from '@/server/authz';
-import { dashboardData } from '@/server/queries';
+import { dashboardData, nextActionSignals } from '@/server/queries';
 
 export const metadata = { title: 'Dashboard' };
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const session = await requireSession();
-  const data = await dashboardData(session);
+  const [data, signals] = await Promise.all([
+    dashboardData(session),
+    nextActionSignals(session),
+  ]);
+  const actions = buildNextActions(signals.experiments, signals.protocols);
   const activeProjects = data.projects.filter((p) => p.status === 'active' || p.status === 'planning');
 
   return (
@@ -90,25 +96,15 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader
-            title="Missing documentation"
-            description="Completed runs with no conclusion recorded."
+            title="Needs attention"
+            description="What is missing from the write-up."
+            action={
+              <Link href="/actions" className="text-sm text-muted underline underline-offset-2 hover:text-fg">
+                View all
+              </Link>
+            }
           />
-          {data.undocumented.length === 0 ? (
-            <EmptyState title="Every completed run has a conclusion." />
-          ) : (
-            <ul className="divide-y divide-line">
-              {data.undocumented.map((e) => (
-                <li key={e.id}>
-                  <Link href={`/experiments/${e.id}`} className="block px-5 py-3 hover:bg-raised">
-                    <span className="block truncate text-sm font-medium">
-                      {experimentCode(e.number)} · {e.title}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-muted">{e.projectName}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          <NextActionsList actions={actions} limit={4} />
         </Card>
 
         <Card>

@@ -73,6 +73,17 @@ describe('buildUpdateDraft', () => {
   });
 });
 
+describe('section ordering', () => {
+  it('renders experiments in the order given, so callers control chronology', () => {
+    const sections = buildUpdateDraft(project, [
+      { ...base, id: 'a', number: 4, summary: 'first' },
+      { ...base, id: 'b', number: 5, summary: 'second' },
+    ]);
+    const results = sections.find((s) => s.heading === 'Results')!.body;
+    expect(results.indexOf('EXP-004')).toBeLessThan(results.indexOf('EXP-005'));
+  });
+});
+
 describe('defaultUpdateTitle', () => {
   it('names a single experiment and a range', () => {
     expect(defaultUpdateTitle('PFAS', [{ number: 4 }])).toBe('PFAS — EXP-004');

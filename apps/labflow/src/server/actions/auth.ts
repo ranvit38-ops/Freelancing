@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword } from '@/lib/password';
 import { normaliseEmail, slugify } from '@/lib/normalise';
 import { loginSchema, signupSchema } from '@/lib/validation';
 import { createSession, destroySession } from '../auth';
+import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
 import { fieldErrorsFrom, formObject, type ActionState } from './types';
 
 /** Computed once; its only job is to make an unknown-email login cost the same. */
@@ -89,9 +90,8 @@ export async function logoutAction() {
  * Always reports the same thing whether or not the address exists, so the form
  * cannot be used to enumerate accounts.
  *
- * SETUP REQUIRED: no email provider is wired up yet, so the reset link is
- * written to the server log rather than delivered. Add a mailer before this is
- * used by real people.
+ * When no email provider is configured the link is written to the server log
+ * instead, and the caller is told plainly that delivery is unavailable.
  */
 export async function requestPasswordResetAction(
   _prev: ActionState,
@@ -114,7 +114,40 @@ export async function requestPasswordResetAction(
     tokenHash: createHash('sha256').update(token).digest('hex'),
     expiresAt: new Date(Date.now() + 60 * 60 * 1000),
   });
-  console.info(`[labflow] password reset link for ${email}: /reset-password?token=${token}`);
+
+  const link = absoluteUrl(`/reset-password?token=${token}`);
+  if (!mailConfigured()) {
+    console.info(`[labflow] email not configured — reset link for ${email}: ${link}`);
+    return {
+      ok: true,
+      message:
+        'Email delivery is not configured on this deployment, so no message was sent. The reset link was written to the server log.',
+    };
+  }
+
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Reset your LabFlow password',
+      text: [
+        'Someone asked to reset the password for your LabFlow account.',
+        '',
+        `Open this link to choose a new one (it expires in one hour):`,
+        link,
+        '',
+        'If this was not you, you can ignore this message — nothing has changed.',
+      ].join('\n'),
+    });
+  } catch (error) {
+    if (error instanceof MailNotConfiguredError) {
+      console.info(`[labflow] reset link for ${email}: ${link}`);
+      return { ok: true, message: error.message };
+    }
+    // Never leak whether the address exists, even when sending fails.
+    console.error('[labflow] password reset email failed', error);
+    return confirmation;
+  }
+
   return confirmation;
 }
 

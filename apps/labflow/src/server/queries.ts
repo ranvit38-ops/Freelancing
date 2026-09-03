@@ -40,7 +40,7 @@ export async function listProjects(s: SessionContext) {
       tags: projects.tags,
       updatedAt: projects.updatedAt,
       experimentCount: sql<number>`(
-        select count(*)::int from ${experiments} e where e.project_id = ${projects.id}
+        select count(*)::int from "experiments" e where e.project_id = projects.id
       )`,
     })
     .from(projects)
@@ -380,7 +380,7 @@ export async function listSamples(s: SessionContext, opts: { projectId?: string 
       parentSampleId: samples.parentSampleId,
       createdAt: samples.createdAt,
       experimentCount: sql<number>`(
-        select count(*)::int from ${experimentSamples} es where es.sample_id = ${samples.id}
+        select count(*)::int from "experiment_samples" es where es.sample_id = samples.id
       )`,
     })
     .from(samples)
@@ -490,7 +490,7 @@ export async function listProtocols(s: SessionContext, opts: { projectId?: strin
       projectId: protocols.projectId,
       projectName: projects.name,
       latestVersion: sql<number | null>`(
-        select max(pv.version) from ${protocolVersions} pv where pv.protocol_id = ${protocols.id}
+        select max(pv.version) from "protocol_versions" pv where pv.protocol_id = protocols.id
       )`,
     })
     .from(protocols)
@@ -1098,4 +1098,175 @@ export async function deleteResearchUpdate(s: SessionContext, updateId: string) 
     .where(and(eq(researchUpdates.id, updateId), eq(researchUpdates.workspaceId, s.workspaceId)))
     .returning({ id: researchUpdates.id });
   assertFound(rows[0], 'Research update');
+}
+
+/* ── connective views ───────────────────────────────────────────────────── */
+
+/** Signals the deterministic next-actions engine runs on. */
+export async function nextActionSignals(s: SessionContext, opts: { projectId?: string } = {}) {
+  const where = opts.projectId
+    ? and(eq(experiments.workspaceId, s.workspaceId), eq(experiments.projectId, opts.projectId))
+    : eq(experiments.workspaceId, s.workspaceId);
+
+  const [experimentRows, protocolRows] = await Promise.all([
+    db
+      .select({
+        id: experiments.id,
+        number: experiments.number,
+        title: experiments.title,
+        status: experiments.status,
+        projectId: experiments.projectId,
+        projectName: projects.name,
+        performedOn: experiments.performedOn,
+        updatedAt: experiments.updatedAt,
+        conclusion: experimentResults.conclusion,
+        nextSteps: experimentResults.nextSteps,
+        observations: experimentResults.observations,
+        conditionCount: sql<number>`(
+          select count(*)::int from "experiment_conditions" ec
+          where ec.experiment_id = experiments.id
+        )`,
+        sampleCount: sql<number>`(
+          select count(*)::int from "experiment_samples" es
+          where es.experiment_id = experiments.id
+        )`,
+        datasetCount: sql<number>`(
+          select count(*)::int from "datasets" d where d.experiment_id = experiments.id
+        )`,
+      })
+      .from(experiments)
+      .innerJoin(projects, eq(projects.id, experiments.projectId))
+      .leftJoin(experimentResults, eq(experimentResults.experimentId, experiments.id))
+      .where(where),
+    db
+      .select({
+        id: protocols.id,
+        name: protocols.name,
+        latestVersion: sql<number | null>`(
+          select max(pv.version) from "protocol_versions" pv where pv.protocol_id = protocols.id
+        )`,
+        experimentCount: sql<number>`(
+          select count(*)::int from "experiments" e
+          join "protocol_versions" pv on pv.id = e.protocol_version_id
+          where pv.protocol_id = protocols.id
+        )`,
+      })
+      .from(protocols)
+      .where(eq(protocols.workspaceId, s.workspaceId)),
+  ]);
+
+  return {
+    experiments: experimentRows.map((row) => ({
+      id: row.id,
+      number: row.number,
+      title: row.title,
+      status: row.status as string,
+      projectId: row.projectId,
+      projectName: row.projectName,
+      performedOn: row.performedOn,
+      updatedAt: row.updatedAt,
+      hasConclusion: Boolean(row.conclusion?.trim()),
+      hasNextSteps: Boolean(row.nextSteps?.trim()),
+      hasObservations: Boolean(row.observations?.trim()),
+      conditionCount: row.conditionCount,
+      sampleCount: row.sampleCount,
+      datasetCount: row.datasetCount,
+    })),
+    protocols: protocolRows,
+  };
+}
+
+/**
+ * Every file in the workspace with the record it belongs to.
+ *
+ * This is the "where is that file?" view — but anchored to the experiment that
+ * produced it, which is the thing a shared drive cannot tell you.
+ */
+export async function listFiles(s: SessionContext) {
+  return db
+    .select({
+      id: files.id,
+      filename: files.filename,
+      contentType: files.contentType,
+      byteSize: files.byteSize,
+      createdAt: files.createdAt,
+      uploaderName: users.name,
+      experimentId: experiments.id,
+      experimentNumber: experiments.number,
+      experimentTitle: experiments.title,
+      projectId: projects.id,
+      projectName: projects.name,
+      datasetId: datasets.id,
+    })
+    .from(files)
+    .leftJoin(users, eq(users.id, files.uploadedById))
+    .leftJoin(experimentFiles, eq(experimentFiles.fileId, files.id))
+    .leftJoin(experiments, eq(experiments.id, experimentFiles.experimentId))
+    .leftJoin(projects, eq(projects.id, experiments.projectId))
+    .leftJoin(datasets, eq(datasets.fileId, files.id))
+    .where(eq(files.workspaceId, s.workspaceId))
+    .orderBy(desc(files.createdAt));
+}
+
+/** Which experiments used each version of a protocol. */
+export async function protocolVersionUsage(s: SessionContext, protocolId: string) {
+  return db
+    .select({
+      versionId: protocolVersions.id,
+      version: protocolVersions.version,
+      experimentId: experiments.id,
+      experimentNumber: experiments.number,
+      experimentTitle: experiments.title,
+      projectName: projects.name,
+    })
+    .from(protocolVersions)
+    .innerJoin(protocols, eq(protocols.id, protocolVersions.protocolId))
+    .leftJoin(experiments, eq(experiments.protocolVersionId, protocolVersions.id))
+    .leftJoin(projects, eq(projects.id, experiments.projectId))
+    .where(
+      and(eq(protocolVersions.protocolId, protocolId), eq(protocols.workspaceId, s.workspaceId)),
+    )
+    .orderBy(desc(protocolVersions.version), experiments.number);
+}
+
+/**
+ * The first dataset among the given experiments that has two numeric columns —
+ * enough to draw one chart for a research update. Returns null when the
+ * experiments carry no plottable data, and the deck simply omits the slide.
+ */
+export async function firstPlottableDataset(s: SessionContext, experimentIds: string[]) {
+  if (experimentIds.length === 0) return null;
+
+  const rows = await db
+    .select({
+      id: datasets.id,
+      name: datasets.name,
+      rows: datasets.rows,
+      experimentNumber: experiments.number,
+      experimentTitle: experiments.title,
+    })
+    .from(datasets)
+    .innerJoin(experiments, eq(experiments.id, datasets.experimentId))
+    .where(
+      and(eq(datasets.workspaceId, s.workspaceId), inArray(datasets.experimentId, experimentIds)),
+    )
+    .orderBy(experiments.number, datasets.createdAt);
+
+  for (const row of rows) {
+    const numeric = await db
+      .select({ name: datasetColumnsTable.name })
+      .from(datasetColumnsTable)
+      .where(
+        and(eq(datasetColumnsTable.datasetId, row.id), eq(datasetColumnsTable.isNumeric, true)),
+      )
+      .orderBy(datasetColumnsTable.position);
+    if (numeric.length >= 2) {
+      return {
+        ...row,
+        xColumn: numeric[0]!.name,
+        yColumn: numeric[1]!.name,
+      };
+    }
+  }
+  return null;
 }

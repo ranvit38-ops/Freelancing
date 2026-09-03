@@ -2,12 +2,16 @@ import Link from 'next/link';
 import { NavList, type NavItem } from '@/components/nav';
 import { Button } from '@/components/ui';
 import { logoutAction } from '@/server/actions/auth';
+import { switchWorkspaceAction } from '@/server/actions/workspace';
+import { listMyWorkspaces } from '@/server/auth';
 import { requireSession } from '@/server/authz';
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/projects', label: 'Projects' },
   { href: '/experiments', label: 'Experiments' },
+  { href: '/actions', label: 'Needs attention' },
+  { href: '/files', label: 'Files' },
   { href: '/samples', label: 'Samples' },
   { href: '/protocols', label: 'Protocols' },
   { href: '/updates', label: 'Research updates' },
@@ -17,6 +21,36 @@ const navItems: NavItem[] = [
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
+  const myWorkspaces = await listMyWorkspaces();
+
+  // Only worth showing once a user actually belongs to more than one lab.
+  const workspacePicker =
+    myWorkspaces.length > 1 ? (
+      <form action={switchWorkspaceAction} className="mt-3">
+        <label htmlFor="workspace-switch" className="sr-only">
+          Switch workspace
+        </label>
+        <select
+          id="workspace-switch"
+          name="workspaceId"
+          defaultValue={session.workspaceId}
+          className="h-8 w-full rounded-lg border border-line bg-surface px-2 text-xs"
+        >
+          {myWorkspaces.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name}
+            </option>
+          ))}
+        </select>
+        <Button type="submit" tone="ghost" size="sm" className="mt-1 w-full justify-start px-2">
+          Switch workspace
+        </Button>
+      </form>
+    ) : (
+      <p className="mt-3 truncate text-xs text-muted" title={session.workspaceName}>
+        {session.workspaceName}
+      </p>
+    );
 
   const identity = (
     <div className="border-t border-line px-3 py-3">
@@ -55,9 +89,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
             LabFlow
           </Link>
-          <p className="mt-3 truncate text-xs text-muted" title={session.workspaceName}>
-            {session.workspaceName}
-          </p>
+          {workspacePicker}
         </div>
         <nav aria-label="Main" className="flex-1 overflow-y-auto px-3">
           <NavList items={navItems} />

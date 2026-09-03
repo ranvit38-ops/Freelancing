@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { aiGenerations } from '@/db/schema';
 import type { SessionContext } from '../auth';
-import { callModel, extractJson } from './client';
+import { callModel, extractJson, type ModelTransport } from './client';
 import { buildExperimentContext, buildProjectContext } from './context';
 import { ANALYSIS_PROMPT_SCHEMA, ANSWER_PROMPT_SCHEMA, GROUND_RULES } from './prompts';
 
@@ -34,7 +34,11 @@ export class AiOutputError extends Error {}
  * Analyses one experiment against its own record and its project siblings.
  * The result is stored with the evidence it was given, so it can be audited.
  */
-export async function analyseExperiment(s: SessionContext, experimentId: string) {
+export async function analyseExperiment(
+  s: SessionContext,
+  experimentId: string,
+  fetchImpl?: ModelTransport,
+) {
   const { record, context, evidence } = await buildExperimentContext(s, experimentId);
 
   const prompt = [
@@ -45,7 +49,7 @@ export async function analyseExperiment(s: SessionContext, experimentId: string)
     `Respond with JSON in exactly this shape:\n${ANALYSIS_PROMPT_SCHEMA}`,
   ].join('\n');
 
-  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 2048 });
+  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 2048 }, fetchImpl);
   const parsed = analysisSchema.safeParse(extractJson(text));
   if (!parsed.success) {
     throw new AiOutputError('The model returned an analysis in an unexpected shape. Nothing was saved.');
@@ -67,7 +71,12 @@ export async function analyseExperiment(s: SessionContext, experimentId: string)
 }
 
 /** Answers a question about a project, citing the records it was shown. */
-export async function askProject(s: SessionContext, projectId: string, question: string) {
+export async function askProject(
+  s: SessionContext,
+  projectId: string,
+  question: string,
+  fetchImpl?: ModelTransport,
+) {
   const { context, evidence, retrievedCount, totalCount } = await buildProjectContext(
     s,
     projectId,
@@ -85,7 +94,7 @@ export async function askProject(s: SessionContext, projectId: string, question:
     `Respond with JSON in exactly this shape:\n${ANSWER_PROMPT_SCHEMA}`,
   ].join('\n');
 
-  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 2048 });
+  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 2048 }, fetchImpl);
   const parsed = answerSchema.safeParse(extractJson(text));
   if (!parsed.success) {
     throw new AiOutputError('The model returned an answer in an unexpected shape. Nothing was saved.');

@@ -4,7 +4,8 @@ import { getSession } from '@/server/auth';
 import { NotFoundInWorkspaceError } from '@/server/authz';
 import * as q from '@/server/queries';
 import { MAX_UPLOAD_BYTES, extensionOf, isAllowedUpload, putFile } from '@/server/storage';
-import { UnsupportedFormatError, parseDelimitedText } from '@/lib/dataset';
+import { UnsupportedFormatError, parseDelimitedText, parseSpreadsheet } from '@/lib/dataset';
+import { XlsxError } from '@/lib/xlsx';
 
 export const runtime = 'nodejs';
 
@@ -49,9 +50,14 @@ export async function POST(
     let notice: string | null = null;
     const extension = extensionOf(file.name);
 
-    if (extension === 'csv' || extension === 'tsv') {
+    const tabular = extension === 'csv' || extension === 'tsv';
+    const spreadsheet = extension === 'xlsx';
+
+    if (tabular || spreadsheet) {
       try {
-        const table = parseDelimitedText(bytes.toString('utf8'));
+        const table = tabular
+          ? parseDelimitedText(bytes.toString('utf8'))
+          : await parseSpreadsheet(bytes);
         datasetId = await q.createDataset(session, params.experimentId, {
           name: file.name,
           fileId,
@@ -62,14 +68,18 @@ export async function POST(
           notice = 'Only the first 5,000 rows are previewed. The full file is stored.';
         }
       } catch (error) {
-        if (!(error instanceof UnsupportedFormatError)) throw error;
-        notice = error.message;
+        // A file we cannot read is still stored and attached; we just say why
+        // no dataset was made rather than failing the whole upload.
+        if (error instanceof UnsupportedFormatError || error instanceof XlsxError) {
+          notice = error.message;
+        } else {
+          throw error;
+        }
       }
-    } else if (extension === 'xlsx' || extension === 'xls') {
-      // SETUP REQUIRED: spreadsheet parsing is not implemented. The file is
-      // stored and attached, but no dataset is created — better than pretending.
+    } else if (extension === 'xls') {
+      // The pre-2007 binary format is a different container entirely.
       notice =
-        'Excel files are stored and attached, but not yet parsed into a dataset. Export as CSV to chart the columns.';
+        'Legacy .xls workbooks are stored but not parsed. Re-save as .xlsx or CSV to chart the columns.';
     }
 
     revalidatePath(`/experiments/${params.experimentId}`);

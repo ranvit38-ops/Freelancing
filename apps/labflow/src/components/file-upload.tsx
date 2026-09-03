@@ -63,7 +63,7 @@ export function FileUpload({ experimentId }: { experimentId: string }) {
         ) : null}
       </div>
       <p className="text-xs text-subtle">
-        CSV, XLSX, PDF, DOCX, PPTX and images, up to 25&nbsp;MB. CSV files are parsed into a dataset.
+        CSV, XLSX, PDF, DOCX, PPTX and images, up to 25&nbsp;MB. CSV and Excel files are parsed into a dataset.
       </p>
       {error ? (
         <p role="alert" className="text-sm text-danger">

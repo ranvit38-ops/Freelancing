@@ -8,6 +8,9 @@ import { env } from '@/lib/env';
 
 const SESSION_DAYS = 30;
 
+/** Remembers which workspace a multi-lab user last worked in. */
+export const WORKSPACE_COOKIE = 'labflow_workspace';
+
 /**
  * Only the hash of the session token is stored, so a database leak does not
  * hand out live sessions.
@@ -44,6 +47,7 @@ export async function destroySession() {
   const token = jar.get(env().SESSION_COOKIE_NAME)?.value;
   if (token) await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
   jar.delete(env().SESSION_COOKIE_NAME);
+  jar.delete(WORKSPACE_COOKIE);
 }
 
 /**
@@ -72,8 +76,31 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
     .innerJoin(workspaceMembers, eq(workspaceMembers.userId, users.id))
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
     .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
-    .orderBy(workspaceMembers.createdAt)
-    .limit(1);
+    .orderBy(workspaceMembers.createdAt);
 
-  return rows[0] ?? null;
+  if (rows.length === 0) return null;
+
+  // Honour the selected workspace only if the user is still a member of it,
+  // so a stale or forged cookie cannot reach another lab's records.
+  const selected = cookies().get(WORKSPACE_COOKIE)?.value;
+  return rows.find((row) => row.workspaceId === selected) ?? rows[0]!;
 });
+
+/** Every workspace the signed-in user belongs to, for the switcher. */
+export const listMyWorkspaces = cache(
+  async (): Promise<{ id: string; name: string; role: string }[]> => {
+    const token = cookies().get(env().SESSION_COOKIE_NAME)?.value;
+    if (!token) return [];
+    return db
+      .select({
+        id: workspaces.id,
+        name: workspaces.name,
+        role: workspaceMembers.role,
+      })
+      .from(sessions)
+      .innerJoin(workspaceMembers, eq(workspaceMembers.userId, sessions.userId))
+      .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+      .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
+      .orderBy(workspaceMembers.createdAt);
+  },
+);

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { UnsupportedFormatError, describeColumn, formatStat, parseDelimitedText } from './dataset';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  UnsupportedFormatError,
+  describeColumn,
+  formatStat,
+  parseDelimitedText,
+  parseSpreadsheet,
+} from './dataset';
 
 describe('describeColumn', () => {
   it('recognises a numeric column and computes descriptive statistics', () => {
@@ -54,5 +62,33 @@ describe('formatStat', () => {
     expect(formatStat(1.23456)).toBe('1.235');
     expect(formatStat(0.00001)).toBe('1.00e-5');
     expect(formatStat(undefined)).toBe('—');
+  });
+});
+
+describe('parseSpreadsheet', () => {
+  const workbook = () => readFileSync(join(__dirname, '__fixtures__', 'basic.xlsx'));
+
+  it('reads an .xlsx into the same shape a CSV produces', async () => {
+    const table = await parseSpreadsheet(workbook());
+    expect(table.columns.map((c) => c.name)).toEqual(['sample', 'conc_ppb', 'note']);
+    expect(table.rows[0]).toEqual({ sample: 'S-104', conc_ppb: '12.5', note: 'ok' });
+  });
+
+  it('types spreadsheet columns the same way as CSV columns', async () => {
+    const table = await parseSpreadsheet(workbook());
+    expect(table.columns[1]?.isNumeric).toBe(true);
+    expect(table.columns[0]?.isNumeric).toBe(false);
+    expect(table.columns[1]?.stats?.max).toBe(12.5);
+  });
+
+  it('agrees with the CSV reader on the same data', async () => {
+    const fromSheet = await parseSpreadsheet(workbook());
+    const fromCsv = parseDelimitedText(
+      'sample,conc_ppb,note\nS-104,12.5,ok\nS-105,9.1,\nS-106,0,below LOD & <check>\n',
+    );
+    expect(fromSheet.rows).toEqual(fromCsv.rows);
+    expect(fromSheet.columns.map((c) => c.isNumeric)).toEqual(
+      fromCsv.columns.map((c) => c.isNumeric),
+    );
   });
 });

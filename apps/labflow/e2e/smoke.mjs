@@ -10,6 +10,8 @@
  * decline honestly when unconfigured.
  */
 import { chromium } from 'playwright';
+import { execFileSync } from 'node:child_process';
+import { existsSync, writeFileSync } from 'node:fs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:3001';
 const CHROME = process.env.E2E_CHROMIUM;
@@ -142,6 +144,60 @@ try {
   if (!search.includes('Column run at 25 C')) throw new Error('search did not find the experiment');
   ok('search finds the experiment by its recorded text');
 
+  // 11a. Upload a spreadsheet and confirm it becomes a chartable dataset.
+  const xlsx = 'e2e/.tmp-upload.xlsx';
+  writeFileSync(
+    xlsx,
+    execFileSync('python3', [
+      '-c',
+      [
+        'import openpyxl,sys',
+        'wb=openpyxl.Workbook(); ws=wb.active',
+        "ws.append(['bed_volumes','c_over_c0'])",
+        '[ws.append([i*5, round(0.01*(1.6**i),4)]) for i in range(10)]',
+        'wb.save(sys.stdout.buffer)',
+      ].join('\n'),
+    ], { maxBuffer: 8 << 20 }),
+  );
+  await page.goto(expUrl);
+  await page.setInputFiles('input[type=file]', xlsx);
+  await page.waitForSelector('a:has-text(".tmp-upload.xlsx")', { timeout: 20000 });
+  ok('uploaded an .xlsx and it was attached to the experiment');
+
+  await page.locator('a[href^="/datasets/"]').first().click();
+  await page.waitForURL(/\/datasets\/[0-9a-f-]{36}/, { timeout: 20000 });
+  const ds = await page.textContent('body');
+  if (!ds.includes('bed_volumes') || !ds.includes('numeric')) {
+    throw new Error('spreadsheet columns were not detected');
+  }
+  if (!ds.includes('points plotted directly from the uploaded file')) {
+    throw new Error('no chart was rendered for the spreadsheet');
+  }
+  ok('spreadsheet was parsed into a dataset with a chart');
+
+  // 11b. The file browser ties the upload back to its experiment.
+  await page.goto(`${BASE}/files`);
+  const filesPage = await page.textContent('body');
+  if (!filesPage.includes('.tmp-upload.xlsx')) throw new Error('file browser missing the upload');
+  if (!filesPage.includes('Column run at 25 C')) {
+    throw new Error('file browser does not link the file to its experiment');
+  }
+  ok('file browser links every file to the experiment that produced it');
+
+  // 11c. Guidance derived from the record, not from a model.
+  await page.goto(`${BASE}/actions`);
+  const actionsPage = await page.textContent('body');
+  // EXP-001 is finished with a conclusion but no next steps recorded, so that
+  // is the item the engine should raise. EXP-002 is freshly in progress and
+  // must NOT be nagged about.
+  if (!actionsPage.includes('Note what follows EXP-001')) {
+    throw new Error('needs-attention did not raise the missing next steps on EXP-001');
+  }
+  if (actionsPage.includes('EXP-002')) {
+    throw new Error('needs-attention nagged about a run that is legitimately in progress');
+  }
+  ok('needs-attention raises real gaps and stays quiet about in-progress work');
+
   // 11. AI without a key must say so, never invent.
   await page.goto(`${expUrl}/analysis`);
   await page.click('button:has-text("Analyse experiment")');
@@ -165,6 +221,7 @@ try {
   ]);
   const path = process.env.E2E_EXPORT_PATH ?? '/tmp/e2e-export.pptx';
   await download.saveAs(path);
+  if (!existsSync(path)) throw new Error('export produced no file');
   ok(`exported ${download.suggestedFilename()}`);
 
   // 13. Log out and confirm the session is really gone.

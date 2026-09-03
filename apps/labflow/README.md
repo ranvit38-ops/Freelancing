@@ -92,8 +92,13 @@ chart geometry, and the research-update draft.
 - Without `ANTHROPIC_API_KEY`, AI features say they are not configured. They
   never fabricate a result to fill the gap.
 
-**Research memory is deliberately not AI.** It is derived from the structured
-record, so every line traces to an experiment someone actually wrote.
+**Research memory and the "needs attention" list are deliberately not AI.** Both
+are derived from the structured record, so every line traces to an experiment
+someone actually wrote, and both work with no API key at all.
+
+The AI chatbot is deliberately *not* the front door. It appears at specific
+points — analyse an experiment, ask a project — because a workspace that
+understands your records is the product; a chat box on top of a database is not.
 
 ---
 
@@ -119,18 +124,34 @@ is already the single choke point, so adding RLS is additive, not a rewrite.
 
 Stated plainly rather than stubbed with buttons that do nothing:
 
-- **.xlsx parsing.** Excel uploads are stored and attached to the experiment,
-  but not parsed into a dataset. The UI says so. CSV/TSV are parsed.
-- **Email delivery.** Password-reset links are written to the server log, and
-  member invitations are unavailable. Both need a mail provider.
-- **Charts in exported decks.** The PPTX carries text and attribution; plots
-  live in the app.
-- **Multi-workspace switching.** A user in several workspaces lands in their
-  earliest one.
+- **Legacy `.xls`** (pre-2007 binary) is stored but not parsed. `.xlsx` and
+  CSV/TSV are parsed into datasets.
+- **Member invitations.** Email delivery works, but the invite flow itself is
+  not built; a workspace owner cannot yet add someone by address.
+- **Live-key AI.** The AI path is covered end to end against a stubbed
+  transport — retrieval, prompt, JSON extraction, schema validation, evidence
+  filtering, persistence and workspace refusal. The network call itself is the
+  only uncovered line.
 - **Full-text search.** Search is `ILIKE` across the record — fast and honest at
   lab scale. A `tsvector` column is the upgrade when a lab has thousands of runs.
+- **External integrations** (Drive, OneDrive, Notion, ELNs, instruments).
+  Deliberately absent until there is a real client and real API docs.
 
----
+## How things connect
+
+The point of LabFlow is that nothing is an island:
+
+- **Files** (`/files`) lists every upload beside the experiment that produced it
+  and the project it belongs to — the thing a shared drive cannot tell you. A
+  parsed CSV or spreadsheet links straight to its dataset and chart.
+- **Protocols** show which experiments used each version, so "what changed
+  between v3 and v4" has an answer and a list of affected runs.
+- **Samples** link back to every experiment that consumed them.
+- **Needs attention** (`/actions`) derives concrete next steps from the record —
+  a finished run with no conclusion, a run left in progress for a fortnight, a
+  protocol nothing references. It is mechanical, not AI, so it is always
+  available and always explainable, and it only ever comments on the
+  *documentation*, never on the science.
 
 ## Extending it
 

@@ -12,6 +12,9 @@ const schema = z.object({
   /** Local disk today; swap the storage adapter for S3/Supabase later. */
   UPLOAD_DIR: z.string().default('.uploads'),
   ANTHROPIC_API_KEY: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().optional(),
   LABFLOW_AI_MODEL: z.string().default('claude-sonnet-5'),
 });
 

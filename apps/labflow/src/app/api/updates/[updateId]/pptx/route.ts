@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/server/auth';
 import { NotFoundInWorkspaceError } from '@/server/not-found';
-import { getResearchUpdate } from '@/server/queries';
+import { firstPlottableDataset, getResearchUpdate } from '@/server/queries';
 import { buildPptx } from '@/lib/pptx';
-import { pluralise } from '@/lib/display';
+import { renderChartPng } from '@/lib/chart-image';
+import { experimentCode, pluralise } from '@/lib/display';
 
 export const runtime = 'nodejs';
 
@@ -14,10 +15,33 @@ export async function GET(_request: Request, { params }: { params: { updateId: s
 
   try {
     const update = await getResearchUpdate(session, params.updateId);
+
+    // One chart, drawn from the first plottable dataset in the selected runs.
+    // No dataset means no chart slide — never an empty placeholder.
+    const dataset = await firstPlottableDataset(session, update.experimentIds);
+    let chart = null;
+    if (dataset) {
+      const points = dataset.rows
+        .map((row) => ({
+          x: Number(row[dataset.xColumn]),
+          y: Number(row[dataset.yColumn]),
+        }))
+        .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+      const png = renderChartPng(points, { connect: true });
+      if (png) {
+        chart = {
+          png,
+          heading: `${dataset.yColumn} vs ${dataset.xColumn}`,
+          caption: `${dataset.name} — ${experimentCode(dataset.experimentNumber)} ${dataset.experimentTitle}. ${points.length} points, plotted as uploaded.`,
+        };
+      }
+    }
+
     const deck = await buildPptx({
       title: update.title,
       subtitle: `${session.workspaceName} · ${pluralise(update.experimentIds.length, 'experiment')}`,
       sections: update.sections,
+      chart,
     });
     const filename = `${update.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') || 'research-update'}.pptx`;
     return new NextResponse(deck, {

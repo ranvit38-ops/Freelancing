@@ -38,6 +38,36 @@ describe('buildPptx', () => {
     expect(slide).not.toContain('<script>');
   });
 
+  it('embeds a chart image as its own slide with a relationship', async () => {
+    const { renderChartPng } = await import('./chart-image');
+    const png = renderChartPng([{ x: 0, y: 1 }, { x: 1, y: 4 }], { connect: true })!;
+    const zip = await JSZip.loadAsync(
+      await buildPptx({
+        title: 'T',
+        subtitle: 'S',
+        sections,
+        chart: { png, heading: 'y vs x', caption: '2 points' },
+      }),
+    );
+    const slides = Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f));
+    expect(slides).toHaveLength(sections.length + 2);
+    const media = Object.keys(zip.files).filter(
+      (f) => f.startsWith('ppt/media/') && !zip.files[f]!.dir,
+    );
+    expect(media).toHaveLength(1);
+    const rels = await zip.file(`ppt/slides/_rels/slide${slides.length}.xml.rels`)!.async('string');
+    expect(rels).toContain('/relationships/image');
+    const types = await zip.file('[Content_Types].xml')!.async('string');
+    expect(types).toContain('image/png');
+  });
+
+  it('omits the chart slide entirely when there is no chart', async () => {
+    const zip = await JSZip.loadAsync(await buildPptx({ title: 'T', subtitle: 'S', sections }));
+    expect(
+      Object.keys(zip.files).filter((f) => f.startsWith('ppt/media/') && !zip.files[f]!.dir),
+    ).toHaveLength(0);
+  });
+
   it('produces a deck even with no sections', async () => {
     const zip = await JSZip.loadAsync(await buildPptx({ title: 'T', subtitle: 'S', sections: [] }));
     expect(zip.file('ppt/slides/slide1.xml')).not.toBeNull();

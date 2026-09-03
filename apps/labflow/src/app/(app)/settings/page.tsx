@@ -1,3 +1,4 @@
+import { CreateWorkspaceForm } from '@/components/workspace-switcher';
 import { Badge, Card, CardHeader, DefinitionList, PageHeader } from '@/components/ui';
 import { aiConfigured } from '@/lib/env';
 import { formatDate } from '@/lib/display';
@@ -46,6 +47,8 @@ export default async function SettingsPage() {
             configured on this deployment.
           </p>
         </Card>
+
+        <CreateWorkspaceForm />
 
         <Card className="p-5 lg:col-span-2">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">AI features</h2>

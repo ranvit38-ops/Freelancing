@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import { readXlsxGrid } from './xlsx';
 
 /**
  * Tabular import.
@@ -70,12 +71,14 @@ export function describeColumn(name: string, values: string[]): ParsedColumn {
   };
 }
 
-/**
- * Parses CSV/TSV text into rows plus per-column descriptions.
- *
- * SETUP REQUIRED: .xlsx is not parsed yet. Uploading one stores the file
- * against the experiment but does not create a dataset — see parseTabularFile.
- */
+/** Shared by the CSV and spreadsheet readers: header row + typed columns. */
+function tableFromRows(names: string[], allRows: Record<string, string>[]): ParsedTable {
+  const rows = allRows.slice(0, MAX_STORED_ROWS);
+  const columns = names.map((name) => describeColumn(name, allRows.map((r) => r[name] ?? '')));
+  return { columns, rows, truncated: allRows.length > rows.length };
+}
+
+/** Parses CSV/TSV text into rows plus per-column descriptions. */
 export function parseDelimitedText(text: string): ParsedTable {
   const result = Papa.parse<Record<string, string>>(text, {
     header: true,
@@ -92,10 +95,32 @@ export function parseDelimitedText(text: string): ParsedTable {
     return clean;
   });
 
-  const rows = allRows.slice(0, MAX_STORED_ROWS);
-  const columns = names.map((name) => describeColumn(name, allRows.map((r) => r[name] ?? '')));
+  return tableFromRows(names, allRows);
+}
 
-  return { columns, rows, truncated: allRows.length > rows.length };
+/**
+ * Parses the first worksheet of an .xlsx workbook. The first row is the header;
+ * everything below it is read as text and typed by describeColumn, exactly as
+ * for CSV, so a spreadsheet and its CSV export produce the same dataset.
+ */
+export async function parseSpreadsheet(data: Buffer): Promise<ParsedTable> {
+  const grid = await readXlsxGrid(data);
+  const header = grid[0] ?? [];
+  const names = header.map((name, i) => name.trim() || `Column ${i + 1}`);
+  if (names.length === 0) throw new UnsupportedFormatError('No column headers found in this file.');
+
+  const allRows = grid
+    .slice(1)
+    .filter((row) => row.some((cell) => cell.trim() !== ''))
+    .map((row) => {
+      const record: Record<string, string> = {};
+      names.forEach((name, i) => {
+        record[name] = row[i] ?? '';
+      });
+      return record;
+    });
+
+  return tableFromRows(names, allRows);
 }
 
 /** Formats a statistic for display without pretending to more precision. */
