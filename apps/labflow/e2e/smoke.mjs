@@ -198,6 +198,51 @@ try {
   }
   ok('needs-attention raises real gaps and stays quiet about in-progress work');
 
+  // 11d. Paste a Google Drive link — stored as a link, not copied.
+  await page.goto(expUrl);
+  await page.fill('#link-url', 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUv/view');
+  await page.fill('#link-label', 'Raw LC-MS export');
+  await page.click('button:has-text("Attach link")');
+  await page.waitForSelector('text=Link attached.', { timeout: 20000 });
+  await page.reload();
+  const withLink = await page.textContent('body');
+  if (!withLink.includes('Raw LC-MS export')) throw new Error('pasted link not attached');
+  if (!withLink.includes('Google Drive')) throw new Error('link provider not recognised');
+  ok('pasted a Google Drive link and it attached to the experiment');
+
+  // 11e. Slack-style discussion on the experiment, with a threaded reply.
+  await page.fill('#new-message', 'Column pressure looked high on this run — worth a second look?');
+  await page.click('button:has-text("Post message")');
+  await page.waitForSelector('text=Column pressure looked high', { timeout: 20000 });
+  await page.click('button:has-text("Reply")');
+  await page.fill('textarea[id^="reply-"]', 'Agreed. Repeating at the same flow rate tomorrow.');
+  await page.locator('form button:has-text("Reply")').click();
+  await page.waitForSelector('text=Repeating at the same flow rate', { timeout: 20000 });
+  ok('posted a discussion message and a threaded reply');
+
+  // 11f. Literature tab reaches PubMed (or fails honestly, never inventing).
+  await page.goto(`${projectUrl}/literature`);
+  await page.fill('#lit-query', 'PFAS sorption activated carbon');
+  await page.click('button:has-text("Search")');
+  await page.waitForFunction(
+    () =>
+      /PMID \\d+/.test(document.body.innerText) ||
+      Array.from(document.querySelectorAll('[role=alert]')).some((n) =>
+        /PubMed/i.test(n.textContent ?? ''),
+      ),
+    undefined,
+    { timeout: 30000 },
+  );
+  const alerts = (await page.locator('[role=alert]').allTextContents()).join(' ');
+  const litBody = await page.textContent('body');
+  if (/PMID \\d+/.test(litBody)) {
+    ok('PubMed returned real citations with PMIDs');
+  } else if (/PubMed/i.test(alerts)) {
+    ok(`PubMed unreachable here — reported honestly, no invented citations ("${alerts.trim()}")`);
+  } else {
+    throw new Error('literature search neither returned results nor reported a failure');
+  }
+
   // 11. AI without a key must say so, never invent.
   await page.goto(`${expUrl}/analysis`);
   await page.click('button:has-text("Analyse experiment")');

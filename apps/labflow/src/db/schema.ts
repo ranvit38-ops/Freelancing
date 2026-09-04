@@ -328,8 +328,12 @@ export const files = pgTable(
     filename: text('filename').notNull(),
     contentType: text('content_type').notNull(),
     byteSize: integer('byte_size').notNull(),
-    /** Opaque key resolved by the storage adapter (local disk today, S3 later). */
-    storageKey: text('storage_key').notNull(),
+    /** Set for uploads; null for links. Resolved by the storage adapter. */
+    storageKey: text('storage_key'),
+    /** Set for links; null for uploads. The two are mutually exclusive. */
+    sourceUrl: text('source_url'),
+    /** "google-drive", "dropbox", "web" … derived from the URL host. */
+    provider: text('provider'),
     uploadedById: uuid('uploaded_by_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },
@@ -464,3 +468,53 @@ export type Dataset = typeof datasets.$inferSelect;
 export type DatasetColumn = typeof datasetColumns.$inferSelect;
 export type ExperimentStatus = (typeof experimentStatus.enumValues)[number];
 export type ProjectStatus = (typeof projectStatus.enumValues)[number];
+
+/** Threaded discussion on a project or an experiment. */
+export const discussions = pgTable(
+  'discussions',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    experimentId: uuid('experiment_id').references(() => experiments.id, { onDelete: 'cascade' }),
+    /** Null for a top-level message; set for a reply. One level deep only. */
+    parentId: uuid('parent_id'),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => ({
+    expIdx: index('discussions_experiment_idx').on(t.experimentId, t.createdAt),
+    projIdx: index('discussions_project_idx').on(t.projectId, t.createdAt),
+    parentIdx: index('discussions_parent_idx').on(t.parentId),
+  }),
+);
+
+/** A PubMed record a researcher pinned to a project. */
+export const literatureRefs = pgTable(
+  'literature_refs',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    pmid: text('pmid').notNull(),
+    title: text('title').notNull(),
+    journal: text('journal'),
+    year: text('year'),
+    authors: text('authors'),
+    note: text('note'),
+    addedById: uuid('added_by_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+  },
+  (t) => ({ uniq: uniqueIndex('literature_refs_project_pmid_key').on(t.projectId, t.pmid) }),
+);
+
+export type Discussion = typeof discussions.$inferSelect;
+export type LiteratureRef = typeof literatureRefs.$inferSelect;

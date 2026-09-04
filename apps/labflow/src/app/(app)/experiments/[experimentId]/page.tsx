@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CompletenessPanel } from '@/components/completeness-panel';
+import { AttachLink } from '@/components/attach-link';
+import { Discussion } from '@/components/discussion';
 import { ConfirmSubmit, FileUpload } from '@/components/file-upload';
 import { StatusBadge } from '@/components/records';
 import {
@@ -18,6 +20,7 @@ import {
 } from '@/components/ui';
 import { checkCompleteness } from '@/lib/completeness';
 import { experimentCode, experimentStatusLabel, formatBytes, formatDate } from '@/lib/display';
+import { providerLabel } from '@/lib/links';
 import type { ExperimentStatus } from '@/db/schema';
 import {
   addNoteAction,
@@ -26,7 +29,7 @@ import {
   setExperimentStatusAction,
 } from '@/server/actions/records';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
-import { getExperimentRecord } from '@/server/queries';
+import { getExperimentRecord, listDiscussion } from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +54,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
   }
 
   const { experiment, conditions, samples, result, notes, files, datasets } = record;
+  const messages = await listDiscussion(session, { experimentId: experiment.id });
 
   const report = checkCompleteness({
     objective: experiment.objective,
@@ -232,8 +236,11 @@ export default async function ExperimentPage({ params }: { params: { experimentI
 
           <Card>
             <CardHeader title="Files and data" description={`${files.length} attached`} />
-            <div className="px-5 py-4">
+            <div className="space-y-5 px-5 py-4">
               <FileUpload experimentId={experiment.id} />
+              <div className="border-t border-line pt-5">
+                <AttachLink experimentId={experiment.id} />
+              </div>
             </div>
             {files.length > 0 ? (
               <ul className="divide-y divide-line border-t border-line">
@@ -245,7 +252,9 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                     >
                       {f.filename}
                     </a>
-                    <span className="shrink-0 text-xs text-subtle">{formatBytes(f.byteSize)}</span>
+                    <span className="shrink-0 text-xs text-subtle">
+                      {f.sourceUrl ? providerLabel[f.provider ?? 'web'] : formatBytes(f.byteSize)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -310,6 +319,13 @@ export default async function ExperimentPage({ params }: { params: { experimentI
               </ul>
             ) : null}
           </Card>
+
+          <Discussion
+            messages={messages}
+            experimentId={experiment.id}
+            currentUserId={session.userId}
+            returnTo={`/experiments/${experiment.id}`}
+          />
         </div>
 
         <div className="space-y-5">

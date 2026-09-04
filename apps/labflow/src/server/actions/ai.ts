@@ -11,6 +11,7 @@ import {
   type ProjectAnswer,
 } from '../ai/analysis';
 import type { Evidence } from '../ai/context';
+import { searchPubMed, type Article } from '@/lib/pubmed';
 
 export type AnalysisState = {
   error?: string;
@@ -28,6 +29,8 @@ export type AnswerState = {
   evidence?: Evidence[];
   retrievedCount?: number;
   totalCount?: number;
+  literature?: Article[];
+  literatureNote?: string;
 };
 
 /** Turns every AI failure into an honest message; never a fabricated result. */
@@ -64,17 +67,32 @@ export async function askProjectAction(
   const question = String(formData.get('question') ?? '').trim();
   if (question.length < 4) return { error: 'Ask a question of at least a few words.' };
 
+  // Literature is best-effort: PubMed being unreachable must not block an
+  // answer grounded in the lab's own records.
+  let papers: Article[] = [];
+  let literatureNote: string | undefined;
+  if (formData.get('includeLiterature') === '1') {
+    try {
+      papers = await searchPubMed(question, { limit: 6 });
+      if (papers.length === 0) literatureNote = 'PubMed returned no matching papers for this question.';
+    } catch {
+      literatureNote = 'PubMed could not be reached, so the answer uses your records only.';
+    }
+  }
+
   try {
-    const result = await askProject(session, projectId, question);
+    const result = await askProject(session, projectId, question, undefined, papers);
     revalidatePath(`/projects/${projectId}/assistant`);
     return {
       question,
       answer: result.answer,
       evidence: result.evidence,
+      literature: result.literature,
+      literatureNote,
       retrievedCount: result.retrievedCount,
       totalCount: result.totalCount,
     };
   } catch (error) {
-    return { question, ...describe(error) };
+    return { question, literatureNote, ...describe(error) };
   }
 }

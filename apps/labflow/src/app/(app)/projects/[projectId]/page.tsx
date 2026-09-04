@@ -59,6 +59,9 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
         actions={
           <>
             <ButtonLink href={`/projects/${project.id}/experiments/new`}>New experiment</ButtonLink>
+            <ButtonLink href={`/projects/${project.id}/discussion`} tone="secondary">
+              Discussion
+            </ButtonLink>
             <ButtonLink href={`/projects/${project.id}/updates`} tone="secondary">
               Generate research update
             </ButtonLink>

@@ -134,8 +134,29 @@ Stated plainly rather than stubbed with buttons that do nothing:
   only uncovered line.
 - **Full-text search.** Search is `ILIKE` across the record — fast and honest at
   lab scale. A `tsvector` column is the upgrade when a lab has thousands of runs.
-- **External integrations** (Drive, OneDrive, Notion, ELNs, instruments).
-  Deliberately absent until there is a real client and real API docs.
+- **Drive/OneDrive file sync.** Links are stored, files are not copied — see
+  above. OAuth sync is a deliberate non-goal until a lab asks for it.
+- **Real-time chat.** Discussion reloads on post; no websockets.
+- **Instrument and ELN integrations.** Absent until there is a real client and
+  real API docs.
+
+## Collaboration, links and literature
+
+- **Discussion** on every experiment and project — threaded one level deep,
+  stored with the record so the reasoning survives the run. Not real-time:
+  a lab conversation happens over days, and websockets would add
+  infrastructure for a problem nobody has yet.
+- **Link attachments.** Paste a Google Drive, Docs, Dropbox, OneDrive,
+  SharePoint, Notion, figshare or Zenodo URL — or any link — and it lands
+  beside the experiment. LabFlow **stores the link, it does not copy the file**:
+  reading a private Drive document needs OAuth and a Google Cloud project per
+  deployment, and almost every lab file is private, so a sync would fail for the
+  common case while breaking your sharing rules.
+- **Literature.** Live PubMed search through NCBI E-utilities (no key needed;
+  `NCBI_API_KEY` only raises the rate limit). Save papers to a project, and the
+  AI assistant is handed them alongside your records — it may cite **only** a
+  PMID it was given, and published work is labelled separately from your own
+  results. If PubMed is unreachable the UI says so; it never invents a citation.
 
 ## How things connect
 

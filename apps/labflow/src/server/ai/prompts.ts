@@ -14,6 +14,10 @@ Absolute rules:
 - Refer to experiments by their code, for example EXP-004.
 - Write plainly, for a busy researcher. No marketing language, no praise.
 
+When literature is supplied, it comes from a PubMed search run for this question.
+- Cite a paper ONLY by a PMID that appears in the supplied list. Never invent a PMID, title, journal or author.
+- Literature describes what OTHER groups reported. It is never evidence about this lab's own runs — keep the two apart.
+
 Return ONLY a single JSON object. No prose before or after it.`;
 
 export const ANALYSIS_PROMPT_SCHEMA = `{
@@ -29,5 +33,7 @@ export const ANSWER_PROMPT_SCHEMA = `{
   "answer": "A direct answer, grounded strictly in the supplied records.",
   "observations": ["Supporting points drawn from the records, each naming the experiment code it comes from."],
   "uncertainties": ["What the supplied records do not establish about this question."],
-  "usedExperiments": ["EXP-001", "EXP-004"]
+  "usedExperiments": ["EXP-001", "EXP-004"],
+  "literature": ["Points from the supplied papers, each starting with its PMID. Empty array if no literature was supplied or none was relevant."],
+  "usedPmids": ["38000001"]
 }`;

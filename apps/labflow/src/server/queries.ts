@@ -3,6 +3,7 @@ import { db } from '@/db';
 import {
   datasetColumns as datasetColumnsTable,
   datasets,
+  discussions,
   experimentConditions,
   experimentFiles,
   experimentNotes,
@@ -10,6 +11,7 @@ import {
   experimentSamples,
   experiments,
   files,
+  literatureRefs,
   projects,
   protocolVersions,
   protocols,
@@ -19,7 +21,7 @@ import {
   workspaceMembers,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
-import { assertFound } from './not-found';
+import { NotFoundInWorkspaceError, assertFound } from './not-found';
 
 /*
  * Every function here takes the caller's SessionContext and filters on
@@ -232,6 +234,8 @@ export async function getExperimentRecord(s: SessionContext, experimentId: strin
         filename: files.filename,
         contentType: files.contentType,
         byteSize: files.byteSize,
+        sourceUrl: files.sourceUrl,
+        provider: files.provider,
         createdAt: files.createdAt,
       })
       .from(experimentFiles)
@@ -1190,6 +1194,8 @@ export async function listFiles(s: SessionContext) {
       contentType: files.contentType,
       byteSize: files.byteSize,
       createdAt: files.createdAt,
+      sourceUrl: files.sourceUrl,
+      provider: files.provider,
       uploaderName: users.name,
       experimentId: experiments.id,
       experimentNumber: experiments.number,
@@ -1269,4 +1275,150 @@ export async function firstPlottableDataset(s: SessionContext, experimentIds: st
     }
   }
   return null;
+}
+
+/* ── link attachments ───────────────────────────────────────────────────── */
+
+export async function recordLink(
+  s: SessionContext,
+  input: { filename: string; sourceUrl: string; provider: string },
+) {
+  const rows = await db
+    .insert(files)
+    .values({
+      workspaceId: s.workspaceId,
+      uploadedById: s.userId,
+      filename: input.filename,
+      contentType: 'text/uri-list',
+      byteSize: 0,
+      storageKey: null,
+      sourceUrl: input.sourceUrl,
+      provider: input.provider,
+    })
+    .returning({ id: files.id });
+  return assertFound(rows[0], 'Link').id;
+}
+
+/* ── discussion ─────────────────────────────────────────────────────────── */
+
+export type DiscussionMessage = {
+  id: string;
+  body: string;
+  createdAt: Date;
+  authorId: string | null;
+  authorName: string | null;
+  parentId: string | null;
+  replies: DiscussionMessage[];
+};
+
+/** Messages for one experiment or project, nested one level deep. */
+export async function listDiscussion(
+  s: SessionContext,
+  scope: { experimentId?: string; projectId?: string },
+): Promise<DiscussionMessage[]> {
+  const target = scope.experimentId
+    ? eq(discussions.experimentId, scope.experimentId)
+    : eq(discussions.projectId, scope.projectId ?? '');
+
+  const rows = await db
+    .select({
+      id: discussions.id,
+      body: discussions.body,
+      createdAt: discussions.createdAt,
+      parentId: discussions.parentId,
+      authorId: discussions.authorId,
+      authorName: users.name,
+    })
+    .from(discussions)
+    .leftJoin(users, eq(users.id, discussions.authorId))
+    .where(and(eq(discussions.workspaceId, s.workspaceId), target))
+    .orderBy(discussions.createdAt);
+
+  const byId = new Map<string, DiscussionMessage>();
+  for (const row of rows) byId.set(row.id, { ...row, replies: [] });
+
+  const roots: DiscussionMessage[] = [];
+  for (const message of byId.values()) {
+    const parent = message.parentId ? byId.get(message.parentId) : undefined;
+    if (parent) parent.replies.push(message);
+    else roots.push(message);
+  }
+  return roots;
+}
+
+export async function postMessage(
+  s: SessionContext,
+  input: { experimentId?: string; projectId?: string; parentId: string | null; body: string },
+) {
+  // Confirms the target is in the caller's workspace before writing.
+  if (input.experimentId) await getExperiment(s, input.experimentId);
+  else if (input.projectId) await getProject(s, input.projectId);
+  else throw new NotFoundInWorkspaceError('Discussion target');
+
+  await db.insert(discussions).values({
+    workspaceId: s.workspaceId,
+    experimentId: input.experimentId ?? null,
+    projectId: input.projectId ?? null,
+    parentId: input.parentId,
+    authorId: s.userId,
+    body: input.body,
+  });
+}
+
+export async function deleteMessage(s: SessionContext, messageId: string) {
+  const rows = await db
+    .delete(discussions)
+    .where(
+      and(
+        eq(discussions.id, messageId),
+        eq(discussions.workspaceId, s.workspaceId),
+        // Only the author can remove their own message.
+        eq(discussions.authorId, s.userId),
+      ),
+    )
+    .returning({ id: discussions.id });
+  assertFound(rows[0], 'Message');
+}
+
+/* ── literature ─────────────────────────────────────────────────────────── */
+
+export async function listLiterature(s: SessionContext, projectId: string) {
+  return db
+    .select({
+      id: literatureRefs.id,
+      pmid: literatureRefs.pmid,
+      title: literatureRefs.title,
+      journal: literatureRefs.journal,
+      year: literatureRefs.year,
+      authors: literatureRefs.authors,
+      note: literatureRefs.note,
+      createdAt: literatureRefs.createdAt,
+      addedByName: users.name,
+    })
+    .from(literatureRefs)
+    .leftJoin(users, eq(users.id, literatureRefs.addedById))
+    .where(
+      and(eq(literatureRefs.workspaceId, s.workspaceId), eq(literatureRefs.projectId, projectId)),
+    )
+    .orderBy(desc(literatureRefs.createdAt));
+}
+
+export async function saveLiterature(
+  s: SessionContext,
+  projectId: string,
+  article: { pmid: string; title: string; journal: string | null; year: string | null; authors: string | null },
+) {
+  await getProject(s, projectId);
+  await db
+    .insert(literatureRefs)
+    .values({ ...article, workspaceId: s.workspaceId, projectId, addedById: s.userId })
+    .onConflictDoNothing({ target: [literatureRefs.projectId, literatureRefs.pmid] });
+}
+
+export async function removeLiterature(s: SessionContext, refId: string) {
+  const rows = await db
+    .delete(literatureRefs)
+    .where(and(eq(literatureRefs.id, refId), eq(literatureRefs.workspaceId, s.workspaceId)))
+    .returning({ id: literatureRefs.id });
+  assertFound(rows[0], 'Reference');
 }

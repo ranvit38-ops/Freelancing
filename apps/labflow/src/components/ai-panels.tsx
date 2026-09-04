@@ -160,6 +160,16 @@ export function ProjectAssistantPanel({ projectId }: { projectId: string }) {
             defaultValue={state.question}
             placeholder="What changed between EXP-002 and EXP-005?"
           />
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              name="includeLiterature"
+              value="1"
+              defaultChecked
+              className="h-4 w-4 accent-[rgb(var(--lf-accent))]"
+            />
+            Also search PubMed for published work on this question
+          </label>
           <SubmitButton pendingLabel="Thinking…">Ask</SubmitButton>
           <div className="flex flex-wrap gap-1.5 pt-1">
             {examples.map((example) => (
@@ -187,7 +197,44 @@ export function ProjectAssistantPanel({ projectId }: { projectId: string }) {
             <p className="text-sm leading-6">{state.answer.answer}</p>
             <LabelledList title="Observed" tone="ok" items={state.answer.observations} />
             <LabelledList title="Not established by the record" tone="warn" items={state.answer.uncertainties} />
+            <LabelledList
+              title="Published literature (other groups)"
+              tone="accent"
+              items={state.answer.literature}
+            />
+            {state.literatureNote ? (
+              <p className="text-xs text-warn">{state.literatureNote}</p>
+            ) : null}
           </div>
+          {state.literature && state.literature.length > 0 ? (
+            <div className="border-t border-line px-5 py-4">
+              <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+                Papers cited
+              </h3>
+              <ul className="mt-2 space-y-2">
+                {state.literature.map((paper) => (
+                  <li key={paper.pmid} className="text-sm">
+                    <a
+                      href={paper.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="underline underline-offset-2"
+                    >
+                      {paper.title}
+                    </a>
+                    <span className="block text-xs text-muted">
+                      {[paper.authors, paper.journal, paper.year].filter(Boolean).join(' · ')} · PMID{' '}
+                      {paper.pmid}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-subtle">
+                Retrieved from PubMed for this question. These describe other groups&rsquo; work,
+                not your own results.
+              </p>
+            </div>
+          ) : null}
           <EvidenceList evidence={state.evidence ?? []} />
         </Card>
       ) : null}

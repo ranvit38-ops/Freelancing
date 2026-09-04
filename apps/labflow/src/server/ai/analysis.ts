@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { renderArticles, type Article } from '@/lib/pubmed';
 import { db } from '@/db';
 import { aiGenerations } from '@/db/schema';
 import type { SessionContext } from '../auth';
@@ -24,6 +25,8 @@ const answerSchema = z.object({
   observations: stringList,
   uncertainties: stringList,
   usedExperiments: stringList,
+  literature: stringList,
+  usedPmids: stringList,
 });
 
 export type ProjectAnswer = z.infer<typeof answerSchema>;
@@ -76,6 +79,7 @@ export async function askProject(
   projectId: string,
   question: string,
   fetchImpl?: ModelTransport,
+  literature: Article[] = [],
 ) {
   const { context, evidence, retrievedCount, totalCount } = await buildProjectContext(
     s,
@@ -90,6 +94,9 @@ export async function askProject(
     'If the answer would require records you were not given, say so.',
     '',
     context,
+    '',
+    'PUBLISHED LITERATURE RETRIEVED FROM PUBMED FOR THIS QUESTION',
+    renderArticles(literature),
     '',
     `Respond with JSON in exactly this shape:\n${ANSWER_PROMPT_SCHEMA}`,
   ].join('\n');
@@ -116,9 +123,15 @@ export async function askProject(
     createdById: s.userId,
   });
 
+  const supplied = new Set(literature.map((a) => a.pmid));
+  const citedPapers = literature.filter((a) =>
+    parsed.data.usedPmids.some((pmid) => supplied.has(pmid.trim()) && pmid.trim() === a.pmid),
+  );
+
   return {
     answer: parsed.data,
     evidence: cited.length > 0 ? cited : evidence,
+    literature: citedPapers,
     retrievedCount,
     totalCount,
     model,
