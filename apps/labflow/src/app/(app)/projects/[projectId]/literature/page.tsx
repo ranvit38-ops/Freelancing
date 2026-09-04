@@ -27,7 +27,7 @@ export default async function LiteraturePage({ params }: { params: { projectId: 
       <PageHeader
         eyebrow={project.name}
         title="Literature"
-        description="Papers from PubMed, kept with the project. The AI assistant cites only papers it was handed — never one it invented."
+        description="Papers from PubMed, kept with the project. LabBot cites only papers it was handed — never one it invented."
       />
       <ProjectTabs projectId={project.id} />
 
