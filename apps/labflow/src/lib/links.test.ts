@@ -44,3 +44,31 @@ describe('googleFileId', () => {
     expect(googleFileId('https://drive.google.com/')).toBeNull();
   });
 });
+
+describe('video links', () => {
+  it('recognises YouTube in every shape people paste', async () => {
+    const { youTubeId, parseLink } = await import('./links');
+    expect(youTubeId('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+    expect(youTubeId('https://youtu.be/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+    expect(youTubeId('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+    expect(youTubeId('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+    expect(parseLink('https://youtu.be/dQw4w9WgXcQ').provider).toBe('youtube');
+  });
+
+  it('returns no id for a YouTube URL that names no video', async () => {
+    const { youTubeId } = await import('./links');
+    expect(youTubeId('https://www.youtube.com/')).toBeNull();
+    expect(youTubeId('not a url')).toBeNull();
+  });
+
+  it('builds a privacy-preserving embed URL, and none for a plain link', async () => {
+    const { embedUrl } = await import('./links');
+    expect(embedUrl('https://youtu.be/dQw4w9WgXcQ', 'youtube')).toBe(
+      'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+    );
+    expect(embedUrl('https://vimeo.com/76979871', 'vimeo')).toBe(
+      'https://player.vimeo.com/video/76979871',
+    );
+    expect(embedUrl('https://drive.google.com/file/d/abc/view', 'google-drive')).toBeNull();
+  });
+});

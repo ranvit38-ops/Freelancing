@@ -147,14 +147,16 @@ Stated plainly rather than stubbed with buttons that do nothing:
   a lab conversation happens over days, and websockets would add
   infrastructure for a problem nobody has yet.
 - **Link attachments.** Paste a Google Drive, Docs, Dropbox, OneDrive,
-  SharePoint, Notion, figshare or Zenodo URL — or any link — and it lands
-  beside the experiment. LabFlow **stores the link, it does not copy the file**:
+  SharePoint, Notion, figshare, Zenodo, DOI, YouTube or Vimeo URL — or any link
+  — and it lands beside the experiment. Videos embed and play inline (via
+  youtube-nocookie, so a lab's viewing does not feed ad profiles).
+  LabFlow **stores the link, it does not copy the file**:
   reading a private Drive document needs OAuth and a Google Cloud project per
   deployment, and almost every lab file is private, so a sync would fail for the
   common case while breaking your sharing rules.
 - **Literature.** Live PubMed search through NCBI E-utilities (no key needed;
   `NCBI_API_KEY` only raises the rate limit). Save papers to a project, and the
-  AI assistant is handed them alongside your records — it may cite **only** a
+  LabBot is handed them alongside your records — it may cite **only** a
   PMID it was given, and published work is labelled separately from your own
   results. If PubMed is unreachable the UI says so; it never invents a citation.
 

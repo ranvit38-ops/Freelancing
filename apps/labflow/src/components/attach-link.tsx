@@ -31,7 +31,7 @@ export function AttachLink({ experimentId }: { experimentId: string }) {
             name="url"
             type="url"
             required
-            placeholder="https://drive.google.com/file/d/…"
+            placeholder="https://drive.google.com/… or https://youtu.be/…"
           />
         </Field>
         <Field label="Label" htmlFor="link-label" optional>
@@ -42,9 +42,10 @@ export function AttachLink({ experimentId }: { experimentId: string }) {
         </SubmitButton>
       </div>
       <p className="text-xs text-subtle">
-        Google Drive, Docs, Dropbox, OneDrive, Notion, figshare, Zenodo or any URL. LabFlow stores
-        the link next to this experiment — it does not copy the file, so sharing permissions stay
-        exactly as you set them.
+        Google Drive, Docs, Dropbox, OneDrive, Notion, figshare, Zenodo, a DOI, a YouTube or Vimeo
+        walkthrough — or any URL. LabFlow stores the link next to this experiment rather than
+        copying the file, so your sharing permissions stay exactly as you set them. Videos play
+        inline.
       </p>
     </form>
   );

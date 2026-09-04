@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
 import { getProject } from '@/server/queries';
 
-export const metadata = { title: 'AI assistant' };
+export const metadata = { title: 'LabBot' };
 export const dynamic = 'force-dynamic';
 
 export default async function AssistantPage({ params }: { params: { projectId: string } }) {
@@ -16,8 +16,8 @@ export default async function AssistantPage({ params }: { params: { projectId: s
       <>
         <PageHeader
           eyebrow={project.name}
-          title="AI assistant"
-          description="Ask about this project. Every answer names the experiment records it came from."
+          title="LabBot"
+          description="Ask about this project. LabBot answers from your records and, when you ask it to, published work on PubMed — and names every source."
         />
         <ProjectTabs projectId={project.id} />
         <div className="max-w-3xl">

@@ -16,7 +16,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
     { href: `${base}/discussion`, label: 'Discussion' },
     { href: `${base}/literature`, label: 'Literature' },
     { href: `${base}/memory`, label: 'Research memory' },
-    { href: `${base}/assistant`, label: 'AI assistant' },
+    { href: `${base}/assistant`, label: 'LabBot' },
     { href: `${base}/updates`, label: 'Research updates' },
   ];
 

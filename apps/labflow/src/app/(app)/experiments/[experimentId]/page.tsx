@@ -20,7 +20,7 @@ import {
 } from '@/components/ui';
 import { checkCompleteness } from '@/lib/completeness';
 import { experimentCode, experimentStatusLabel, formatBytes, formatDate } from '@/lib/display';
-import { providerLabel } from '@/lib/links';
+import { embedUrl, providerLabel } from '@/lib/links';
 import type { ExperimentStatus } from '@/db/schema';
 import {
   addNoteAction,
@@ -244,19 +244,40 @@ export default async function ExperimentPage({ params }: { params: { experimentI
             </div>
             {files.length > 0 ? (
               <ul className="divide-y divide-line border-t border-line">
-                {files.map((f) => (
-                  <li key={f.id} className="flex items-center gap-3 px-5 py-3">
-                    <a
-                      href={`/api/files/${f.id}`}
-                      className="min-w-0 flex-1 truncate text-sm underline underline-offset-2"
-                    >
-                      {f.filename}
-                    </a>
-                    <span className="shrink-0 text-xs text-subtle">
-                      {f.sourceUrl ? providerLabel[f.provider ?? 'web'] : formatBytes(f.byteSize)}
-                    </span>
-                  </li>
-                ))}
+                {files.map((f) => {
+                  const embed = f.sourceUrl ? embedUrl(f.sourceUrl, f.provider ?? 'web') : null;
+                  return (
+                    <li key={f.id} className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <a
+                          href={f.sourceUrl ?? `/api/files/${f.id}`}
+                          target={f.sourceUrl ? '_blank' : undefined}
+                          rel={f.sourceUrl ? 'noreferrer noopener' : undefined}
+                          className="min-w-0 flex-1 truncate text-sm underline underline-offset-2"
+                        >
+                          {f.filename}
+                        </a>
+                        <span className="shrink-0 text-xs text-subtle">
+                          {f.sourceUrl
+                            ? providerLabel[f.provider ?? 'web']
+                            : formatBytes(f.byteSize)}
+                        </span>
+                      </div>
+                      {embed ? (
+                        <div className="mt-2 aspect-video w-full max-w-xl overflow-hidden rounded-lg border border-line">
+                          <iframe
+                            src={embed}
+                            title={f.filename}
+                            allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture"
+                            allowFullScreen
+                            loading="lazy"
+                            className="h-full w-full"
+                          />
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             ) : null}
             {datasets.length > 0 ? (
@@ -354,10 +375,10 @@ export default async function ExperimentPage({ params }: { params: { experimentI
           </Card>
 
           <Card>
-            <CardHeader title="AI analysis" />
+            <CardHeader title="LabBot" />
             <div className="px-5 py-4">
               <p className="text-sm text-muted">
-                Analyse this experiment against its own record and related runs in the project.
+                LabBot reads this experiment against its own record and the related runs in this project.
               </p>
               <ButtonLink
                 href={`/experiments/${experiment.id}/analysis`}
@@ -365,7 +386,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                 size="sm"
                 className="mt-3"
               >
-                Analyse experiment
+                Analyse with LabBot
               </ButtonLink>
             </div>
           </Card>

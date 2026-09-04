@@ -20,7 +20,7 @@ import type { Evidence } from '@/server/ai/context';
 function NotConfigured() {
   return (
     <div className="rounded-lg border border-warn/25 bg-warn/5 px-4 py-3 text-sm text-warn">
-      AI features are not configured on this deployment. Nothing was generated. An administrator
+      LabBot is not configured on this deployment. Nothing was generated. An administrator
       can enable them by setting an API key on the server — see Settings.
     </div>
   );
@@ -85,12 +85,12 @@ export function ExperimentAnalysisPanel({ experimentId }: { experimentId: string
     <div className="space-y-5">
       <Card>
         <CardHeader
-          title="Analyse this experiment"
+          title="Ask LabBot to analyse this experiment"
           description="The model is given this experiment's record, the descriptive statistics of its data, and the previous runs in the project — nothing else."
         />
         <form action={action} className="px-5 py-4">
           <input type="hidden" name="experimentId" value={experimentId} />
-          <SubmitButton pendingLabel="Analysing…">Analyse experiment</SubmitButton>
+          <SubmitButton pendingLabel="Analysing…">Analyse with LabBot</SubmitButton>
           <p className="mt-3 text-xs text-subtle">
             Output is a reading of what you documented. It is not a scientific judgement, and it is
             never written into the experiment record.
@@ -145,7 +145,7 @@ export function ProjectAssistantPanel({ projectId }: { projectId: string }) {
     <div className="space-y-5">
       <Card>
         <CardHeader
-          title="Ask this project"
+          title="Ask LabBot about this project"
           description="Answers come only from the experiment records retrieved for your question."
         />
         <form action={action} className="space-y-3 px-5 py-4">

@@ -210,6 +210,16 @@ try {
   if (!withLink.includes('Google Drive')) throw new Error('link provider not recognised');
   ok('pasted a Google Drive link and it attached to the experiment');
 
+  // 11d-ii. A YouTube link embeds a player inline.
+  await page.fill('#link-url', 'https://youtu.be/dQw4w9WgXcQ');
+  await page.fill('#link-label', 'Column packing walkthrough');
+  await page.click('button:has-text("Attach link")');
+  await page.waitForSelector('text=Link attached.', { timeout: 20000 });
+  await page.reload();
+  const frame = page.locator('iframe[src*="youtube-nocookie.com/embed/dQw4w9WgXcQ"]');
+  if ((await frame.count()) === 0) throw new Error('YouTube link did not render a player');
+  ok('pasted a YouTube link and it embedded a player inline');
+
   // 11e. Slack-style discussion on the experiment, with a threaded reply.
   await page.fill('#new-message', 'Column pressure looked high on this run — worth a second look?');
   await page.click('button:has-text("Post message")');
@@ -245,9 +255,9 @@ try {
 
   // 11. AI without a key must say so, never invent.
   await page.goto(`${expUrl}/analysis`);
-  await page.click('button:has-text("Analyse experiment")');
+  await page.click('button:has-text("Analyse with LabBot")');
   await page.waitForSelector('text=not configured', { timeout: 20000 });
-  ok('AI analysis reports "not configured" instead of fabricating');
+  ok('LabBot reports "not configured" instead of fabricating');
 
   // 12. Generate a research update and export it.
   await page.goto(`${projectUrl}/updates`);

@@ -27,7 +27,41 @@ const PROVIDERS: { host: RegExp; provider: string; label: string }[] = [
   { host: /(^|\.)github\.com$/, provider: 'github', label: 'GitHub' },
   { host: /(^|\.)figshare\.com$/, provider: 'figshare', label: 'figshare' },
   { host: /(^|\.)zenodo\.org$/, provider: 'zenodo', label: 'Zenodo' },
+  { host: /(^|\.)(youtube\.com|youtu\.be)$/, provider: 'youtube', label: 'YouTube' },
+  { host: /(^|\.)vimeo\.com$/, provider: 'vimeo', label: 'Vimeo' },
+  { host: /(^|\.)doi\.org$/, provider: 'doi', label: 'DOI' },
 ];
+
+/** YouTube video id from any of the link shapes people actually paste. */
+export function youTubeId(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const id =
+    parsed.hostname.endsWith('youtu.be')
+      ? parsed.pathname.slice(1)
+      : (parsed.searchParams.get('v') ??
+        parsed.pathname.match(/\/(?:embed|shorts|live)\/([^/?]+)/)?.[1] ??
+        null);
+  return id && /^[A-Za-z0-9_-]{6,}$/.test(id) ? id : null;
+}
+
+/** Embeddable player URL, or null when the link is not a video we can embed. */
+export function embedUrl(url: string, provider: string): string | null {
+  if (provider === 'youtube') {
+    const id = youTubeId(url);
+    // youtube-nocookie keeps a lab's viewing out of ad profiles.
+    return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
+  }
+  if (provider === 'vimeo') {
+    const id = new URL(url).pathname.split('/').filter(Boolean).pop();
+    return id && /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
+  }
+  return null;
+}
 
 /** Google file ids appear as /d/<id>/ or ?id=<id>. */
 export function googleFileId(url: string): string | null {
