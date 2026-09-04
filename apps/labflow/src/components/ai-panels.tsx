@@ -146,7 +146,7 @@ export function ProjectAssistantPanel({ projectId }: { projectId: string }) {
       <Card>
         <CardHeader
           title="Ask LabBot about this project"
-          description="Answers come only from the experiment records retrieved for your question."
+          description="Answers come only from the experiment records retrieved for your question, plus any PubMed papers when you tick the box below."
         />
         <form action={action} className="space-y-3 px-5 py-4">
           <input type="hidden" name="projectId" value={projectId} />

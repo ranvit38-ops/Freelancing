@@ -30,3 +30,21 @@ describe('display helpers', () => {
     expect(pluralise(0, 'experiment')).toBe('0 experiments');
   });
 });
+
+describe('greetingName', () => {
+  it('skips an academic title', async () => {
+    const { greetingName } = await import('./display');
+    expect(greetingName('Dr Elena Marsh')).toBe('Elena');
+    expect(greetingName('Prof. Joseph Okafor')).toBe('Joseph');
+  });
+
+  it('uses the first name when there is no title', async () => {
+    const { greetingName } = await import('./display');
+    expect(greetingName('Rin Tanaka')).toBe('Rin');
+  });
+
+  it('falls back to the whole name when it is only a title', async () => {
+    const { greetingName } = await import('./display');
+    expect(greetingName('Dr')).toBe('Dr');
+  });
+});

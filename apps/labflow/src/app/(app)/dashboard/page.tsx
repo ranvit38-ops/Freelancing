@@ -3,7 +3,13 @@ import { ButtonLink, Card, CardHeader, EmptyState, PageHeader } from '@/componen
 import { ExperimentList } from '@/components/records';
 import { NextActionsList } from '@/components/next-actions-list';
 import { buildNextActions } from '@/lib/next-actions';
-import { experimentCode, formatDate, pluralise, projectStatusLabel } from '@/lib/display';
+import {
+  experimentCode,
+  formatDate,
+  greetingName,
+  pluralise,
+  projectStatusLabel,
+} from '@/lib/display';
 import { requireSession } from '@/server/authz';
 import { dashboardData, nextActionSignals } from '@/server/queries';
 
@@ -23,7 +29,7 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         eyebrow={session.workspaceName}
-        title={`Good to see you, ${session.userName.split(' ')[0]}`}
+        title={`Good to see you, ${greetingName(session.userName)}`}
         description={`${pluralise(data.projects.length, 'project')} · ${pluralise(
           data.experimentCount,
           'experiment',

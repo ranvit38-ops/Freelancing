@@ -69,3 +69,13 @@ export function formatBytes(bytes: number): string {
 export function pluralise(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
+
+/**
+ * First name for a greeting. "Dr Elena Marsh" → "Elena", not "Dr" — academic
+ * names carry titles far more often than most products assume.
+ */
+export function greetingName(fullName: string): string {
+  const TITLES = /^(dr|prof|professor|mr|mrs|ms|mx|sir|dame)\.?$/i;
+  const parts = fullName.trim().split(/\s+/).filter((p) => !TITLES.test(p));
+  return parts[0] ?? fullName.trim() ?? 'there';
+}
