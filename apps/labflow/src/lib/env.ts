@@ -14,6 +14,8 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   NCBI_API_KEY: z.string().optional(),
+  LABFLOW_DISABLE_PAYWALL: z.string().optional(),
+  LABFLOW_OWNER_UNLOCK: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PRICE_LAB: z.string().optional(),

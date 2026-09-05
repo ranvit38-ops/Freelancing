@@ -31,7 +31,9 @@ export async function startCheckoutAction(
   }
 
   const plan = String(formData.get('plan') ?? '');
-  if (!isPlanId(plan)) return { error: 'Choose one of the listed plans.' };
+  if (!isPlanId(plan) || plan === 'free') {
+    return { error: 'Choose one of the paid plans.' };
+  }
   const extraSeats = Math.max(0, Math.min(200, Number(formData.get('extraSeats') ?? 0) || 0));
 
   if (!billingConfigured()) {

@@ -18,7 +18,7 @@ export async function POST(
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
-  const blocked = await blockedReason(session);
+  const blocked = await blockedReason(session, 'upload');
   if (blocked) return NextResponse.json({ error: blocked }, { status: 402 });
 
   const form = await request.formData();

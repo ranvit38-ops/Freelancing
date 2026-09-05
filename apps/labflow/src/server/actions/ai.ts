@@ -49,7 +49,7 @@ export async function analyseExperimentAction(
   formData: FormData,
 ): Promise<AnalysisState> {
   const session = await requireSession();
-  const blocked = await blockedReason(session);
+  const blocked = await blockedReason(session, 'ai');
   if (blocked) return { error: blocked };
 
   const experimentId = String(formData.get('experimentId') ?? '');
@@ -67,7 +67,7 @@ export async function askProjectAction(
   formData: FormData,
 ): Promise<AnswerState> {
   const session = await requireSession();
-  const blocked = await blockedReason(session);
+  const blocked = await blockedReason(session, 'ai');
   if (blocked) return { error: blocked };
 
   const projectId = String(formData.get('projectId') ?? '');

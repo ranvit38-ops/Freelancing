@@ -1610,3 +1610,35 @@ export async function claimStripeEvent(eventId: string): Promise<boolean> {
     .returning({ id: processedStripeEvents.id });
   return rows.length > 0;
 }
+
+/** Counts the free tier is measured against. */
+export async function usageCounts(s: SessionContext) {
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+
+  const [projectRows, experimentRows, storageRows, aiRows] = await Promise.all([
+    db.select({ n: count() }).from(projects).where(eq(projects.workspaceId, s.workspaceId)),
+    db.select({ n: count() }).from(experiments).where(eq(experiments.workspaceId, s.workspaceId)),
+    db
+      .select({ bytes: sql<number>`coalesce(sum(byte_size), 0)::bigint` })
+      .from(files)
+      .where(eq(files.workspaceId, s.workspaceId)),
+    db
+      .select({ n: count() })
+      .from(aiGenerations)
+      .where(
+        and(
+          eq(aiGenerations.workspaceId, s.workspaceId),
+          gt(aiGenerations.createdAt, monthStart),
+        ),
+      ),
+  ]);
+
+  return {
+    projects: projectRows[0]?.n ?? 0,
+    experiments: experimentRows[0]?.n ?? 0,
+    storageBytes: Number(storageRows[0]?.bytes ?? 0),
+    aiThisMonth: aiRows[0]?.n ?? 0,
+  };
+}

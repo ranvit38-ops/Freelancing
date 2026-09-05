@@ -15,6 +15,15 @@ citing the records it was given.
 
 ## Running it
 
+New to this? **[RUNNING.md](RUNNING.md)** is the step-by-step version, including
+why `localhost:3001` will not work unless you run the app yourself.
+Payments setup lives in **[BILLING.md](BILLING.md)**.
+
+```bash
+npm install && npm run setup && npm run dev
+```
+
+
 Requires Node 20+ and PostgreSQL 14+ (Supabase connection strings work
 unchanged).
 

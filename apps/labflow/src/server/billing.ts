@@ -25,11 +25,14 @@ export class BillingNotConfiguredError extends Error {
   }
 }
 
-const PRICE_ENV: Record<PlanId, string> = {
+/** Free has no Stripe price; it is what a workspace falls back to. */
+const PRICE_ENV: Record<PaidPlanId, string> = {
   lab: 'STRIPE_PRICE_LAB',
   group: 'STRIPE_PRICE_GROUP',
   department: 'STRIPE_PRICE_DEPARTMENT',
 };
+
+type PaidPlanId = Exclude<PlanId, 'free'>;
 
 export function billingConfigured(): boolean {
   return Boolean(
@@ -44,7 +47,7 @@ export function stripe(): Stripe {
   return new Stripe(key, { apiVersion: '2024-06-20' });
 }
 
-export function priceIdFor(plan: PlanId): string {
+export function priceIdFor(plan: PaidPlanId): string {
   const id = process.env[PRICE_ENV[plan]];
   if (!id) throw new BillingNotConfiguredError();
   return id;
@@ -57,7 +60,7 @@ export function seatPriceId(): string | null {
 
 /** Maps a Stripe price id back to the plan it represents. */
 export function planForPrice(priceId: string): PlanId | null {
-  for (const plan of Object.keys(PRICE_ENV) as PlanId[]) {
+  for (const plan of Object.keys(PRICE_ENV) as PaidPlanId[]) {
     if (process.env[PRICE_ENV[plan]] === priceId) return plan;
   }
   return null;

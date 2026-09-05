@@ -19,12 +19,16 @@ const base: SubscriptionState = {
   currentPeriodEnd: '2026-06-01',
 };
 
-describe('usable', () => {
-  it('allows an active plan and blocks none/canceled', () => {
+describe('canWrite', () => {
+  it('allows an active plan and stops a lapsed one', () => {
     expect(usable(base, NOW)).toBe(true);
     expect(usable({ ...base, status: 'canceled' }, NOW)).toBe(false);
     expect(usable({ ...base, plan: null, status: 'none' }, NOW)).toBe(false);
-    expect(usable(null, NOW)).toBe(false);
+  });
+
+  it('lets a workspace with no subscription row write on the free plan', () => {
+    // Free is a real state, not a lockout. Only a lapsed *paid* plan is read-only.
+    expect(usable(null, NOW)).toBe(true);
   });
 
   it('keeps a past-due workspace working — a failed card is not a lockout', () => {
@@ -44,15 +48,15 @@ describe('seatLimit', () => {
     expect(seatLimit({ ...base, plan: 'group', extraSeats: 3 })).toBe(PLANS.group.seats + 3);
   });
 
-  it('gives a live trial the smallest plan, so a lab can try it as a team', () => {
-    expect(seatLimit({ ...base, plan: null, status: 'trialing', trialEndsAt: '2026-05-10' })).toBe(
-      PLANS.lab.seats,
-    );
+  it('gives a live trial the smallest paid plan, so a lab can try it as a team', () => {
+    expect(
+      seatLimit({ ...base, plan: null, status: 'trialing', trialEndsAt: '2026-05-10' }, NOW),
+    ).toBe(PLANS.lab.seats);
   });
 
-  it('gives nothing without a usable subscription', () => {
-    expect(seatLimit(null)).toBe(0);
-    expect(seatLimit({ ...base, status: 'canceled' })).toBe(0);
+  it('falls back to the free plan’s single seat when nothing is active', () => {
+    expect(seatLimit(null, NOW)).toBe(PLANS.free.seats);
+    expect(seatLimit({ ...base, status: 'canceled' }, NOW)).toBe(PLANS.free.seats);
   });
 });
 
@@ -80,9 +84,11 @@ describe('subscriptionNotice', () => {
     ).toContain('trial has ended');
   });
 
-  it('warns on a failed payment and on no plan at all', () => {
+  it('warns on a failed payment, and says read-only rather than deleted', () => {
     expect(subscriptionNotice({ ...base, status: 'past_due' }, NOW)).toContain('payment failed');
-    expect(subscriptionNotice(null, NOW)).toContain('no plan');
+    const lapsed = subscriptionNotice({ ...base, status: 'canceled' }, NOW);
+    expect(lapsed).toContain('read-only');
+    expect(lapsed).toContain('stays readable');
   });
 });
 
@@ -101,10 +107,11 @@ describe('toSubscriptionState', () => {
   });
 
   it('treats an unknown plan name as no plan, not as a free upgrade', async () => {
-    const { toSubscriptionState, seatLimit } = await import('./plans');
+    const { toSubscriptionState, seatLimit, PLANS } = await import('./plans');
     const state = toSubscriptionState({ ...row, plan: 'enterprise-retired' });
     expect(state?.plan).toBeNull();
-    expect(seatLimit(state)).toBe(0);
+    // Falls back to free, never to the seats of a plan that no longer exists.
+    expect(seatLimit(state)).toBe(PLANS.free.seats);
   });
 
   it('passes null straight through', async () => {
@@ -117,5 +124,42 @@ describe('monthlyTotal', () => {
   it('adds extra seats at the per-seat price', () => {
     expect(monthlyTotal('lab', 0)).toBe(PLANS.lab.monthly);
     expect(monthlyTotal('lab', 3)).toBe(PLANS.lab.monthly + 3 * EXTRA_SEAT_PRICE);
+  });
+});
+
+describe('free tier and read-only lockout', () => {
+  it('is the plan in force when nothing is subscribed', async () => {
+    const { effectivePlan, limitsFor } = await import('./plans');
+    expect(effectivePlan(null, NOW)).toBe('free');
+    expect(limitsFor(null, NOW).projects).toBe(1);
+    expect(limitsFor(null, NOW).experiments).toBe(10);
+  });
+
+  it('withholds the paid features from free', async () => {
+    const { limitsFor } = await import('./plans');
+    const free = limitsFor(null, NOW);
+    expect(free.compare).toBe(false);
+    expect(free.pptxExport).toBe(false);
+    expect(free.pubmed).toBe(false);
+    expect(free.researchMemory).toBe(false);
+  });
+
+  it('makes a lapsed paid workspace read-only, not free-tier writable', async () => {
+    const { canWrite, effectivePlan } = await import('./plans');
+    const lapsed = { ...base, status: 'canceled' as const };
+    expect(canWrite(lapsed, NOW)).toBe(false);
+    expect(effectivePlan(lapsed, NOW)).toBe('free');
+  });
+
+  it('keeps a past-due workspace writable through the retry window', async () => {
+    const { canWrite } = await import('./plans');
+    expect(canWrite({ ...base, status: 'past_due' }, NOW)).toBe(true);
+  });
+
+  it('formats storage limits for display', async () => {
+    const { formatLimitBytes } = await import('./plans');
+    expect(formatLimitBytes(50 * 1024 * 1024)).toBe('50 MB');
+    expect(formatLimitBytes(10 * 1024 ** 3)).toBe('10 GB');
+    expect(formatLimitBytes(null)).toBe('Unlimited');
   });
 });

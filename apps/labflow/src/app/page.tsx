@@ -78,6 +78,9 @@ export default async function LandingPage() {
             >
               Features
             </Link>
+            <Link href="/pricing" className="rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
+              Pricing
+            </Link>
             {session ? null : (
               <Link href="/login" className="rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
                 Log in

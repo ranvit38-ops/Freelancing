@@ -1,4 +1,5 @@
 import { BillingPortalButton, PlanPicker } from '@/components/billing-forms';
+import { UnlockForm } from '@/components/unlock-form';
 import { Badge, Card, CardHeader, DefinitionList, PageHeader } from '@/components/ui';
 import { formatDate } from '@/lib/display';
 import {
@@ -123,6 +124,12 @@ export default async function BillingPage({
 
       <h2 className="mb-3 text-sm font-semibold tracking-tight">Plans</h2>
       <PlanPicker currentPlan={sub?.plan ?? null} canManage={canManage} />
+
+      {process.env.LABFLOW_OWNER_UNLOCK && canManage ? (
+        <div className="mt-6 max-w-md">
+          <UnlockForm />
+        </div>
+      ) : null}
     </>
   );
 }

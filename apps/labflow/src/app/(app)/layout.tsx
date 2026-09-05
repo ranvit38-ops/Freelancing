@@ -5,7 +5,7 @@ import { logoutAction } from '@/server/actions/auth';
 import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
 import { requireSession } from '@/server/authz';
-import { requireActiveWorkspace } from '@/server/paywall';
+import { workspacePlan } from '@/server/paywall';
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -23,7 +23,8 @@ const navItems: NavItem[] = [
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
-  await requireActiveWorkspace(session);
+  // Read access is never blocked — only writes. The banner says what applies.
+  const { plan, writable } = await workspacePlan(session);
   const myWorkspaces = await listMyWorkspaces();
 
   // Only worth showing once a user actually belongs to more than one lab.
@@ -101,6 +102,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
 
       <main className="min-w-0 flex-1">
+        {writable ? null : (
+          <div className="border-b border-warn/25 bg-warn/5 px-5 py-3 text-sm text-warn sm:px-8">
+            This workspace is read-only — its plan has ended. Nothing has been deleted.{' '}
+            <Link href="/billing" className="font-medium underline underline-offset-2">
+              Choose a plan
+            </Link>{' '}
+            to record again.
+          </div>
+        )}
+        {plan === 'free' ? (
+          <div className="border-b border-line bg-raised px-5 py-2 text-xs text-muted sm:px-8">
+            Free plan — 1 project, 10 experiments, 5 LabBot questions a month.{' '}
+            <Link href="/billing" className="underline underline-offset-2 hover:text-fg">
+              See plans
+            </Link>
+          </div>
+        ) : null}
         <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">{children}</div>
       </main>
     </div>

@@ -37,7 +37,7 @@ export async function createProjectAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
-  const blocked = await blockedReason(session);
+  const blocked = await blockedReason(session, 'project');
   if (blocked) return { error: blocked };
   const parsed = projectSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
@@ -103,7 +103,7 @@ export async function createExperimentAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
-  const blocked = await blockedReason(session);
+  const blocked = await blockedReason(session, 'experiment');
   if (blocked) return { error: blocked };
   const projectId = String(formData.get('projectId') ?? '');
   const parsed = experimentSchema.safeParse(formObject(formData, CONDITION_KEYS));
