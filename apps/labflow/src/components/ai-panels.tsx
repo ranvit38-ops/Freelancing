@@ -1,0 +1,284 @@
+'use client';
+
+import Link from 'next/link';
+import { useFormState } from 'react-dom';
+import { Badge, Card, CardHeader, FormError, Textarea } from './ui';
+import { SubmitButton } from './submit-button';
+import {
+  analyseExperimentAction,
+  askProjectAction,
+  type AnalysisState,
+  type AnswerState,
+} from '@/server/actions/ai';
+
+// Declared here rather than in the action module: a "use server" file may
+// export async functions only.
+const emptyAnalysisState: AnalysisState = {};
+const emptyAnswerState: AnswerState = {};
+import type { Evidence } from '@/server/ai/context';
+
+function NotConfigured() {
+  return (
+    <div className="rounded-lg border border-warn/25 bg-warn/5 px-4 py-3 text-sm text-warn">
+      LabBot is not configured on this deployment. Nothing was generated. An administrator
+      can enable them by setting an API key on the server — see Settings.
+    </div>
+  );
+}
+
+function EvidenceList({ evidence }: { evidence: Evidence[] }) {
+  if (evidence.length === 0) return null;
+  return (
+    <div className="border-t border-line px-5 py-4">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">Evidence</h3>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {evidence.map((item) => (
+          <li key={item.id}>
+            <Link
+              href={`/experiments/${item.id}`}
+              className="inline-flex rounded-md border border-line bg-raised px-2 py-1 text-xs hover:border-accent/40 hover:text-fg"
+            >
+              {item.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-xs text-subtle">
+        These are the records the model was given. Open any of them to check the answer against the
+        source.
+      </p>
+    </div>
+  );
+}
+
+const DESTINATIONS: Record<string, (projectId: string) => string> = {
+  Timeline: (p) => `/projects/${p}/timeline`,
+  Compare: (p) => `/projects/${p}/compare`,
+  'Research memory': (p) => `/projects/${p}/memory`,
+  Literature: (p) => `/projects/${p}/literature`,
+  Discussion: (p) => `/projects/${p}/discussion`,
+  'Research updates': (p) => `/projects/${p}/updates`,
+  Samples: (p) => `/projects/${p}/samples`,
+  'Needs attention': () => '/actions',
+  Files: () => '/files',
+  Protocols: () => '/protocols',
+};
+
+/** Turns LabBot's suggested destinations into links, ignoring unknown ones. */
+function WhereToLook({ labels, projectId }: { labels: string[]; projectId: string }) {
+  const known = labels.filter((label) => DESTINATIONS[label.trim()]);
+  if (known.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-2">
+        <Badge tone="accent">Where to look next</Badge>
+      </div>
+      <ul className="flex flex-wrap gap-2">
+        {known.map((label) => (
+          <li key={label}>
+            <Link
+              href={DESTINATIONS[label.trim()]!(projectId)}
+              className="inline-flex rounded-md border border-line bg-raised px-2 py-1 text-xs hover:border-accent/40 hover:text-fg"
+            >
+              {label.trim()}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function LabelledList({
+  title,
+  tone,
+  items,
+}: {
+  title: string;
+  tone: 'ok' | 'warn' | 'accent' | 'neutral';
+  items: string[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <Badge tone={tone}>{title}</Badge>
+      </div>
+      <ul className="space-y-1.5 text-sm leading-6">
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-2">
+            <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-subtle" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function ExperimentAnalysisPanel({ experimentId }: { experimentId: string }) {
+  const [state, action] = useFormState(analyseExperimentAction, emptyAnalysisState);
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardHeader
+          title="Ask LabBot to analyse this experiment"
+          description="The model is given this experiment's record, the descriptive statistics of its data, and the previous runs in the project — nothing else."
+        />
+        <form action={action} className="px-5 py-4">
+          <input type="hidden" name="experimentId" value={experimentId} />
+          <SubmitButton pendingLabel="Analysing…">Analyse with LabBot</SubmitButton>
+          <p className="mt-3 text-xs text-subtle">
+            Output is a reading of what you documented. It is not a scientific judgement, and it is
+            never written into the experiment record.
+          </p>
+        </form>
+      </Card>
+
+      {state.notConfigured ? <NotConfigured /> : <FormError>{state.error}</FormError>}
+
+      {state.analysis ? (
+        <Card>
+          <CardHeader title="Analysis" description={state.model ? `Generated by ${state.model}` : undefined} />
+          <div className="space-y-6 px-5 py-5">
+            <div>
+              <div className="mb-2">
+                <Badge tone="neutral">Summary</Badge>
+              </div>
+              <p className="text-sm leading-6">{state.analysis.summary}</p>
+            </div>
+            <LabelledList title="Observed" tone="ok" items={state.analysis.observations} />
+            <LabelledList title="Possible issues (inferred)" tone="warn" items={state.analysis.possibleIssues} />
+            <LabelledList title="Missing information" tone="neutral" items={state.analysis.missingInformation} />
+            {state.analysis.comparison ? (
+              <div>
+                <div className="mb-2">
+                  <Badge tone="accent">Comparison</Badge>
+                </div>
+                <p className="text-sm leading-6">{state.analysis.comparison}</p>
+              </div>
+            ) : null}
+            <LabelledList title="Suggested next questions" tone="accent" items={state.analysis.suggestedQuestions} />
+          </div>
+          <EvidenceList evidence={state.evidence ?? []} />
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+const examples = [
+  'What experiments have we performed?',
+  'What changed between EXP-002 and EXP-005?',
+  'Which experiments were repeated, and why?',
+  'What were the major problems encountered?',
+  'What information is missing from EXP-003?',
+];
+
+export function ProjectAssistantPanel({ projectId }: { projectId: string }) {
+  const [state, action] = useFormState(askProjectAction, emptyAnswerState);
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardHeader
+          title="Ask LabBot about this project"
+          description="Answers come only from the experiment records retrieved for your question, plus any PubMed papers when you tick the box below."
+        />
+        <form action={action} className="space-y-3 px-5 py-4">
+          <input type="hidden" name="projectId" value={projectId} />
+          <label htmlFor="question" className="sr-only">
+            Your question
+          </label>
+          <Textarea
+            id="question"
+            name="question"
+            required
+            defaultValue={state.question}
+            placeholder="What changed between EXP-002 and EXP-005?"
+          />
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              name="includeLiterature"
+              value="1"
+              defaultChecked
+              className="h-4 w-4 accent-[rgb(var(--lf-accent))]"
+            />
+            Also search PubMed for published work on this question
+          </label>
+          <SubmitButton pendingLabel="Thinking…">Ask</SubmitButton>
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {examples.map((example) => (
+              <span key={example} className="rounded-md border border-line bg-raised px-2 py-1 text-xs text-muted">
+                {example}
+              </span>
+            ))}
+          </div>
+        </form>
+      </Card>
+
+      {state.notConfigured ? <NotConfigured /> : <FormError>{state.error}</FormError>}
+
+      {state.answer ? (
+        <Card>
+          <CardHeader
+            title="Answer"
+            description={
+              state.retrievedCount !== undefined
+                ? `Based on ${state.retrievedCount} of ${state.totalCount} experiment records in this project`
+                : undefined
+            }
+          />
+          <div className="space-y-6 px-5 py-5">
+            <p className="text-sm leading-6">{state.answer.answer}</p>
+            <LabelledList title="Observed" tone="ok" items={state.answer.observations} />
+            <LabelledList title="Not established by the record" tone="warn" items={state.answer.uncertainties} />
+            <LabelledList
+              title="Published literature (other groups)"
+              tone="accent"
+              items={state.answer.literature}
+            />
+            <LabelledList title="Suggested next steps" tone="accent" items={state.answer.suggestions} />
+            <LabelledList title="Who to ask" tone="ok" items={state.answer.whoToAsk} />
+            <WhereToLook labels={state.answer.whereToLook} projectId={projectId} />
+            {state.literatureNote ? (
+              <p className="text-xs text-warn">{state.literatureNote}</p>
+            ) : null}
+          </div>
+          {state.literature && state.literature.length > 0 ? (
+            <div className="border-t border-line px-5 py-4">
+              <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+                Papers cited
+              </h3>
+              <ul className="mt-2 space-y-2">
+                {state.literature.map((paper) => (
+                  <li key={paper.pmid} className="text-sm">
+                    <a
+                      href={paper.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="underline underline-offset-2"
+                    >
+                      {paper.title}
+                    </a>
+                    <span className="block text-xs text-muted">
+                      {[paper.authors, paper.journal, paper.year].filter(Boolean).join(' · ')} · PMID{' '}
+                      {paper.pmid}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-subtle">
+                Retrieved from PubMed for this question. These describe other groups&rsquo; work,
+                not your own results.
+              </p>
+            </div>
+          ) : null}
+          <EvidenceList evidence={state.evidence ?? []} />
+        </Card>
+      ) : null}
+    </div>
+  );
+}
