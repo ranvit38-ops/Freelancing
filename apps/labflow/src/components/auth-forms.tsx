@@ -12,10 +12,11 @@ import {
 } from '@/server/actions/auth';
 import { noState } from '@/server/actions/types';
 
-export function LoginForm() {
+export function LoginForm({ inviteToken }: { inviteToken?: string }) {
   const [state, action] = useFormState(loginAction, noState);
   return (
     <form action={action} className="space-y-4">
+      {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
       <FormError>{state.error}</FormError>
       <Field label="Email" htmlFor="email" error={state.fieldErrors?.email}>
         <Input id="email" name="email" type="email" autoComplete="email" required autoFocus />
@@ -35,16 +36,30 @@ export function LoginForm() {
   );
 }
 
-export function SignupForm() {
+export function SignupForm({
+  inviteToken,
+  invitedEmail,
+}: {
+  inviteToken?: string;
+  invitedEmail?: string;
+}) {
   const [state, action] = useFormState(signupAction, noState);
   return (
     <form action={action} className="space-y-4">
+      {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
       <FormError>{state.error}</FormError>
       <Field label="Your name" htmlFor="name" error={state.fieldErrors?.name}>
         <Input id="name" name="name" autoComplete="name" required autoFocus />
       </Field>
       <Field label="Email" htmlFor="email" error={state.fieldErrors?.email}>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          defaultValue={invitedEmail}
+          required
+        />
       </Field>
       <Field
         label="Password"

@@ -161,11 +161,31 @@ export async function buildProjectContext(s: SessionContext, projectId: string, 
     label: `${experimentCode(r.experiment.number)} — ${r.experiment.title}`,
   }));
 
+  // Who ran what, so "who should I ask about this" is answerable from the
+  // record rather than guessed from a name that sounds plausible.
+  const byResearcher = new Map<string, string[]>();
+  for (const r of records) {
+    const who = r.experiment.researcherName;
+    if (!who) continue;
+    const list = byResearcher.get(who) ?? [];
+    list.push(`${experimentCode(r.experiment.number)} (${r.experiment.title})`);
+    byResearcher.set(who, list);
+  }
+  const people =
+    byResearcher.size === 0
+      ? 'No researcher is recorded against the supplied experiments.'
+      : [...byResearcher.entries()]
+          .map(([who, runs]) => `${who} — ran ${runs.join(', ')}`)
+          .join('\n');
+
   const context = [
     `PROJECT: ${project.name}`,
     `RESEARCH QUESTION: ${project.researchQuestion ?? 'not recorded'}`,
     `TOTAL EXPERIMENTS IN PROJECT: ${all.length}`,
     `RECORDS PROVIDED BELOW: ${records.length}`,
+    '',
+    'PEOPLE (the only names you may suggest asking)',
+    people,
     '',
     ...records.map((r) => `---\n${renderRecord(r, { full: true })}`),
   ].join('\n');

@@ -160,7 +160,7 @@ try {
     ], { maxBuffer: 8 << 20 }),
   );
   await page.goto(expUrl);
-  await page.setInputFiles('input[type=file]', xlsx);
+  await page.setInputFiles('input[type=file]', xlsx);  // the drop zone's hidden input
   await page.waitForSelector('a:has-text(".tmp-upload.xlsx")', { timeout: 20000 });
   ok('uploaded an .xlsx and it was attached to the experiment');
 
@@ -251,6 +251,60 @@ try {
     ok(`PubMed unreachable here — reported honestly, no invented citations ("${alerts.trim()}")`);
   } else {
     throw new Error('literature search neither returned results nor reported a failure');
+  }
+
+  // 11g. Drag-and-drop: build a real DataTransfer and drop a file on the zone.
+  await page.goto(expUrl);
+  const dropZone = page.locator('label[for^="upload-"]');
+  if ((await dropZone.count()) === 0) throw new Error('no drop zone rendered');
+
+  const dt = await page.evaluateHandle(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(
+      new File(['bed_volumes,c_over_c0\n1,0.01\n2,0.02\n'], 'dropped.csv', { type: 'text/csv' }),
+    );
+    return transfer;
+  });
+  await dropZone.dispatchEvent('dragover', { dataTransfer: dt });
+  const highlighted = await dropZone.evaluate((el) => el.className.includes('border-accent'));
+  if (!highlighted) throw new Error('drop zone does not highlight on drag-over');
+  await dropZone.dispatchEvent('drop', { dataTransfer: dt });
+  await page.waitForSelector('a:has-text("dropped.csv")', { timeout: 25000 });
+  ok('dropped a file straight onto the zone and it uploaded and parsed');
+
+  // 11h. Invite a teammate to the workspace.
+  await page.goto(`${BASE}/settings`);
+  await page.fill('#invite-email', `invitee-${stamp}@labflow.test`);
+  await page.click('button:has-text("Send invite")');
+  await page.waitForSelector('[role=status]', { timeout: 20000 });
+  const inviteMsg = (await page.locator('[role=status]').first().textContent()) ?? '';
+  if (!/\/join\?token=|Invitation sent/.test(inviteMsg)) {
+    throw new Error(`invite produced no link or confirmation: ${inviteMsg}`);
+  }
+  await page.reload();
+  if (!(await page.textContent('body')).includes(`invitee-${stamp}@labflow.test`)) {
+    throw new Error('pending invitation not listed');
+  }
+  ok('invited a teammate and the pending invite is listed');
+
+  // 11i. The invite link actually lets a second person join that workspace.
+  const joinLink = inviteMsg.match(/https?:\/\/\S*\/join\?token=[^\s]+/)?.[0];
+  if (joinLink) {
+    const second = await browser.newPage();
+    await second.goto(joinLink.replace(/[.,]$/, ''));
+    await second.fill('#name', 'Second Researcher');
+    await second.fill('#password', 'another-long-password');
+    await second.fill('#workspaceName', 'Their Own Lab');
+    await second.click('button:has-text("Start a lab")');
+    await second.waitForURL('**/dashboard', { timeout: 20000 });
+    const body2 = await second.textContent('body');
+    if (!body2.includes('Switch workspace')) {
+      throw new Error('invited user did not end up in two workspaces');
+    }
+    await second.close();
+    ok('a second person accepted the invite and belongs to both workspaces');
+  } else {
+    ok('invite link not shown (mail configured) — link flow not exercised');
   }
 
   // 11. AI without a key must say so, never invent.

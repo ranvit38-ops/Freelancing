@@ -1,16 +1,22 @@
+import { InviteForm } from '@/components/invite-form';
 import { CreateWorkspaceForm } from '@/components/workspace-switcher';
-import { Badge, Card, CardHeader, DefinitionList, PageHeader } from '@/components/ui';
+import { Badge, Button, Card, CardHeader, DefinitionList, PageHeader } from '@/components/ui';
 import { aiConfigured } from '@/lib/env';
 import { formatDate } from '@/lib/display';
 import { requireSession } from '@/server/authz';
-import { listWorkspaceMembers } from '@/server/queries';
+import { revokeInviteAction } from '@/server/actions/invites';
+import { listInvites, listWorkspaceMembers } from '@/server/queries';
 
 export const metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const session = await requireSession();
-  const members = await listWorkspaceMembers(session);
+  const [members, invites] = await Promise.all([
+    listWorkspaceMembers(session),
+    listInvites(session),
+  ]);
+  const canInvite = session.role !== 'member';
 
   return (
     <>
@@ -41,12 +47,32 @@ export default async function SettingsPage() {
               </li>
             ))}
           </ul>
-          {/* SETUP REQUIRED: inviting teammates needs transactional email. */}
-          <p className="border-t border-line px-5 py-3 text-xs text-muted">
-            Inviting new members by email is not available yet — it needs an email provider
-            configured on this deployment.
-          </p>
+          {invites.length > 0 ? (
+            <div className="border-t border-line px-5 py-3">
+              <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+                Pending invitations
+              </h3>
+              <ul className="mt-2 space-y-2">
+                {invites.map((invite) => (
+                  <li key={invite.id} className="flex items-center gap-3 text-sm">
+                    <span className="min-w-0 flex-1 truncate">{invite.email}</span>
+                    <Badge>{invite.role}</Badge>
+                    {canInvite ? (
+                      <form action={revokeInviteAction}>
+                        <input type="hidden" name="inviteId" value={invite.id} />
+                        <Button type="submit" tone="ghost" size="sm" className="px-1 text-xs">
+                          Revoke
+                        </Button>
+                      </form>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </Card>
+
+        <InviteForm canInvite={canInvite} />
 
         <CreateWorkspaceForm />
 

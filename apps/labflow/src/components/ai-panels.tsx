@@ -51,6 +51,44 @@ function EvidenceList({ evidence }: { evidence: Evidence[] }) {
   );
 }
 
+const DESTINATIONS: Record<string, (projectId: string) => string> = {
+  Timeline: (p) => `/projects/${p}/timeline`,
+  Compare: (p) => `/projects/${p}/compare`,
+  'Research memory': (p) => `/projects/${p}/memory`,
+  Literature: (p) => `/projects/${p}/literature`,
+  Discussion: (p) => `/projects/${p}/discussion`,
+  'Research updates': (p) => `/projects/${p}/updates`,
+  Samples: (p) => `/projects/${p}/samples`,
+  'Needs attention': () => '/actions',
+  Files: () => '/files',
+  Protocols: () => '/protocols',
+};
+
+/** Turns LabBot's suggested destinations into links, ignoring unknown ones. */
+function WhereToLook({ labels, projectId }: { labels: string[]; projectId: string }) {
+  const known = labels.filter((label) => DESTINATIONS[label.trim()]);
+  if (known.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-2">
+        <Badge tone="accent">Where to look next</Badge>
+      </div>
+      <ul className="flex flex-wrap gap-2">
+        {known.map((label) => (
+          <li key={label}>
+            <Link
+              href={DESTINATIONS[label.trim()]!(projectId)}
+              className="inline-flex rounded-md border border-line bg-raised px-2 py-1 text-xs hover:border-accent/40 hover:text-fg"
+            >
+              {label.trim()}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function LabelledList({
   title,
   tone,
@@ -202,6 +240,9 @@ export function ProjectAssistantPanel({ projectId }: { projectId: string }) {
               tone="accent"
               items={state.answer.literature}
             />
+            <LabelledList title="Suggested next steps" tone="accent" items={state.answer.suggestions} />
+            <LabelledList title="Who to ask" tone="ok" items={state.answer.whoToAsk} />
+            <WhereToLook labels={state.answer.whereToLook} projectId={projectId} />
             {state.literatureNote ? (
               <p className="text-xs text-warn">{state.literatureNote}</p>
             ) : null}

@@ -300,12 +300,43 @@ suite('AI analysis pipeline', () => {
           observations: ['EXP-001 is marked completed.'],
           uncertainties: ['No conditions are documented.'],
           usedExperiments: ['EXP-001'],
+          literature: [],
+          usedPmids: [],
+          suggestions: ['Record the conditions before repeating.'],
+          whoToAsk: ['Ada A ran EXP-001, the run under test'],
+          whereToLook: ['Timeline', 'Not A Real Page'],
         }),
       ),
     );
     expect(result.answer.answer).toContain('One experiment');
     expect(result.evidence).toHaveLength(1);
     expect(result.retrievedCount).toBe(1);
+    expect(result.answer.suggestions[0]).toContain('Record the conditions');
+    expect(result.answer.whoToAsk[0]).toContain('Ada A');
+  });
+
+  it('tells the model who ran what, so "who to ask" is not guesswork', async () => {
+    const { askProject } = await import('./ai/analysis');
+    await askProject(
+      ctx.sessionA,
+      projectId,
+      'Who should I talk to?',
+      stub(
+        JSON.stringify({
+          answer: 'x',
+          observations: [],
+          uncertainties: [],
+          usedExperiments: [],
+          literature: [],
+          usedPmids: [],
+          suggestions: [],
+          whoToAsk: [],
+          whereToLook: [],
+        }),
+      ),
+    );
+    expect(sent?.prompt).toContain('PEOPLE (the only names you may suggest asking)');
+    expect(sent?.prompt).toContain('Ada A — ran EXP-001');
   });
 
   it('refuses another workspace even with a working transport', async () => {

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gt, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   aiGenerations,
@@ -19,7 +19,9 @@ import {
   researchUpdates,
   samples,
   users,
+  workspaceInvites,
   workspaceMembers,
+  workspaces,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { NotFoundInWorkspaceError, assertFound } from './not-found';
@@ -1442,4 +1444,79 @@ export async function recordAiGeneration(
   },
 ) {
   await db.insert(aiGenerations).values({ ...input, workspaceId: s.workspaceId, createdById: s.userId });
+}
+
+/* ── invitations ────────────────────────────────────────────────────────── */
+
+export async function listInvites(s: SessionContext) {
+  return db
+    .select({
+      id: workspaceInvites.id,
+      email: workspaceInvites.email,
+      role: workspaceInvites.role,
+      createdAt: workspaceInvites.createdAt,
+      expiresAt: workspaceInvites.expiresAt,
+      invitedByName: users.name,
+    })
+    .from(workspaceInvites)
+    .leftJoin(users, eq(users.id, workspaceInvites.invitedById))
+    .where(
+      and(eq(workspaceInvites.workspaceId, s.workspaceId), isNull(workspaceInvites.acceptedAt)),
+    )
+    .orderBy(desc(workspaceInvites.createdAt));
+}
+
+export async function createInvite(
+  s: SessionContext,
+  input: { email: string; role: 'admin' | 'member'; tokenHash: string; expiresAt: Date },
+) {
+  await db
+    .insert(workspaceInvites)
+    .values({ ...input, workspaceId: s.workspaceId, invitedById: s.userId })
+    .onConflictDoNothing();
+}
+
+export async function revokeInvite(s: SessionContext, inviteId: string) {
+  const rows = await db
+    .delete(workspaceInvites)
+    .where(and(eq(workspaceInvites.id, inviteId), eq(workspaceInvites.workspaceId, s.workspaceId)))
+    .returning({ id: workspaceInvites.id });
+  assertFound(rows[0], 'Invitation');
+}
+
+/** Looks an invite up by token — used before a session exists. */
+export async function findInviteByToken(tokenHash: string) {
+  const rows = await db
+    .select({
+      id: workspaceInvites.id,
+      email: workspaceInvites.email,
+      role: workspaceInvites.role,
+      workspaceId: workspaceInvites.workspaceId,
+      workspaceName: workspaces.name,
+    })
+    .from(workspaceInvites)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceInvites.workspaceId))
+    .where(
+      and(
+        eq(workspaceInvites.tokenHash, tokenHash),
+        isNull(workspaceInvites.acceptedAt),
+        gt(workspaceInvites.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Joins a user to the invited workspace and burns the invite. */
+export async function acceptInvite(inviteId: string, workspaceId: string, userId: string, role: 'owner' | 'admin' | 'member') {
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(workspaceMembers)
+      .values({ workspaceId, userId, role })
+      .onConflictDoNothing();
+    await tx
+      .update(workspaceInvites)
+      .set({ acceptedAt: new Date() })
+      .where(eq(workspaceInvites.id, inviteId));
+  });
 }

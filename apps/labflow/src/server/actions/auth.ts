@@ -8,6 +8,7 @@ import { passwordResetTokens, users, workspaceMembers, workspaces } from '@/db/s
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { normaliseEmail, slugify } from '@/lib/normalise';
 import { loginSchema, signupSchema } from '@/lib/validation';
+import { acceptInvite, findInviteByToken } from '../queries';
 import { createSession, destroySession } from '../auth';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
 import { headers } from 'next/headers';
@@ -42,6 +43,13 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     return { fieldErrors: { email: 'An account with this email already exists' } };
   }
 
+  // An invite link may have carried them here; joining that workspace is then
+  // the whole point, and creating a second empty one would be wrong.
+  const inviteToken = String(formData.get('inviteToken') ?? '');
+  const invite = inviteToken
+    ? await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'))
+    : null;
+
   const passwordHash = await hashPassword(parsed.data.password);
   const userId = await db.transaction(async (tx) => {
     const [user] = await tx
@@ -64,6 +72,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     return user.id;
   });
 
+  if (invite) await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
   await createSession(userId);
   redirect('/dashboard');
 }
@@ -95,6 +104,14 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     .limit(1);
   if (membership.length === 0) {
     return { error: 'This account is not a member of any workspace. Ask a lab owner to invite you.' };
+  }
+
+  const inviteToken = String(formData.get('inviteToken') ?? '');
+  if (inviteToken) {
+    const invite = await findInviteByToken(
+      createHash('sha256').update(inviteToken).digest('hex'),
+    );
+    if (invite) await acceptInvite(invite.id, invite.workspaceId, user.id, invite.role);
   }
 
   await createSession(user.id);

@@ -518,3 +518,28 @@ export const literatureRefs = pgTable(
 
 export type Discussion = typeof discussions.$inferSelect;
 export type LiteratureRef = typeof literatureRefs.$inferSelect;
+
+/** An outstanding invitation to join a workspace. */
+export const workspaceInvites = pgTable(
+  'workspace_invites',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    role: workspaceRole('role').notNull().default('member'),
+    /** Only the hash is stored; the raw token lives in the invite link. */
+    tokenHash: text('token_hash').notNull(),
+    invitedById: uuid('invited_by_id').references(() => users.id, { onDelete: 'set null' }),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => ({
+    tokenIdx: uniqueIndex('workspace_invites_token_key').on(t.tokenHash),
+    emailIdx: index('workspace_invites_email_idx').on(t.email),
+  }),
+);
+
+export type WorkspaceInvite = typeof workspaceInvites.$inferSelect;

@@ -126,8 +126,6 @@ Stated plainly rather than stubbed with buttons that do nothing:
 
 - **Legacy `.xls`** (pre-2007 binary) is stored but not parsed. `.xlsx` and
   CSV/TSV are parsed into datasets.
-- **Member invitations.** Email delivery works, but the invite flow itself is
-  not built; a workspace owner cannot yet add someone by address.
 - **Live-key AI.** The AI path is covered end to end against a stubbed
   transport — retrieval, prompt, JSON extraction, schema validation, evidence
   filtering, persistence and workspace refusal. The network call itself is the
@@ -141,6 +139,15 @@ Stated plainly rather than stubbed with buttons that do nothing:
   real API docs.
 
 ## Collaboration, links and literature
+
+- **Workspaces and invitations.** Anyone can start a lab; owners and admins
+  invite by email. The link carries a token whose hash alone is stored, so a
+  database leak cannot be used to join a lab. Accepting works signed-in or
+  signed-out — a new account created from an invite joins that workspace rather
+  than an empty one. A user in several labs gets a switcher, and the selected
+  workspace is re-checked against membership on every request.
+- **Uploads.** Drop files onto the experiment, or click to choose. Several at
+  once upload in sequence so each failure names its own file.
 
 - **Discussion** on every experiment and project — threaded one level deep,
   stored with the record so the reasoning survives the run. Not real-time:

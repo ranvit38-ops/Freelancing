@@ -26,6 +26,9 @@ const answerSchema = z.object({
   usedExperiments: stringList,
   literature: stringList,
   usedPmids: stringList,
+  suggestions: stringList,
+  whoToAsk: stringList,
+  whereToLook: stringList,
 });
 
 export type ProjectAnswer = z.infer<typeof answerSchema>;
