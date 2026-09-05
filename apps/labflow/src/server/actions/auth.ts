@@ -10,12 +10,29 @@ import { normaliseEmail, slugify } from '@/lib/normalise';
 import { loginSchema, signupSchema } from '@/lib/validation';
 import { createSession, destroySession } from '../auth';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
+import { headers } from 'next/headers';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { fieldErrorsFrom, formObject, type ActionState } from './types';
+
+/**
+ * Credential endpoints are throttled per client IP. Without this, login is an
+ * unbounded password oracle — scrypt makes each guess expensive for us too,
+ * so the cost of not limiting is denial of service as well as brute force.
+ */
+function throttle(bucket: string, limit: number): ActionState | null {
+  const ip = clientIp(headers());
+  const { ok, retryAfterSec } = rateLimit(`${bucket}:${ip}`, { limit, windowMs: 60_000 });
+  if (ok) return null;
+  return { error: `Too many attempts. Try again in ${retryAfterSec} seconds.` };
+}
 
 /** Computed once; its only job is to make an unknown-email login cost the same. */
 const decoyHash = hashPassword('labflow-decoy-password-never-matches');
 
 export async function signupAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const limited = throttle('signup', 5);
+  if (limited) return limited;
+
   const parsed = signupSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
@@ -52,6 +69,9 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
 }
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const limited = throttle('login', 10);
+  if (limited) return limited;
+
   const parsed = loginSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
@@ -97,6 +117,9 @@ export async function requestPasswordResetAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const limited = throttle('reset', 5);
+  if (limited) return limited;
+
   const email = normaliseEmail(String(formData.get('email') ?? ''));
   const confirmation = {
     ok: true as const,
@@ -155,6 +178,9 @@ export async function resetPasswordAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const limited = throttle('reset-confirm', 10);
+  if (limited) return limited;
+
   const token = String(formData.get('token') ?? '');
   const password = String(formData.get('password') ?? '');
   if (password.length < 10) return { fieldErrors: { password: 'Use at least 10 characters' } };

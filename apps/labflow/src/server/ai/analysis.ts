@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { renderArticles, type Article } from '@/lib/pubmed';
-import { db } from '@/db';
-import { aiGenerations } from '@/db/schema';
 import type { SessionContext } from '../auth';
+import { recordAiGeneration } from '../queries';
 import { callModel, extractJson, type ModelTransport } from './client';
 import { buildExperimentContext, buildProjectContext } from './context';
 import { ANALYSIS_PROMPT_SCHEMA, ANSWER_PROMPT_SCHEMA, GROUND_RULES } from './prompts';
@@ -58,8 +57,7 @@ export async function analyseExperiment(
     throw new AiOutputError('The model returned an analysis in an unexpected shape. Nothing was saved.');
   }
 
-  await db.insert(aiGenerations).values({
-    workspaceId: s.workspaceId,
+  await recordAiGeneration(s, {
     projectId: record.experiment.projectId,
     experimentId,
     kind: 'experiment_analysis',
@@ -67,7 +65,6 @@ export async function analyseExperiment(
     output: parsed.data,
     evidence,
     model,
-    createdById: s.userId,
   });
 
   return { analysis: parsed.data, evidence, model };
@@ -112,15 +109,14 @@ export async function askProject(
     parsed.data.usedExperiments.some((code) => e.label.startsWith(code.trim())),
   );
 
-  await db.insert(aiGenerations).values({
-    workspaceId: s.workspaceId,
+  await recordAiGeneration(s, {
     projectId,
+    experimentId: null,
     kind: 'project_answer',
     prompt: question,
     output: parsed.data,
     evidence: cited.length > 0 ? cited : evidence,
     model,
-    createdById: s.userId,
   });
 
   const supplied = new Set(literature.map((a) => a.pmid));

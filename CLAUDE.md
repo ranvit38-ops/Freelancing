@@ -12,8 +12,11 @@ Two independent products live here. They share nothing but a stack.
   Separate `package.json`, database, CI job and rules. See
   `apps/labflow/README.md`. The golden rule below does **not** apply there:
   LabFlow is one product with real state, not a template. Its equivalent rule is
-  that every database read and write goes through `src/server/queries.ts` scoped
-  by workspace.
+  that every read and write of *workspace* data goes through
+  `src/server/queries.ts`, scoped by `session.workspaceId`. The only direct
+  writes outside it are identity — users, workspaces, memberships, sessions and
+  password-reset tokens in `src/server/auth.ts` and `src/server/actions/auth.ts`
+  — which by definition run before a workspace context exists.
 
 Root `tsconfig.json`, `.eslintignore` and `.github/workflows/ci.yml` all exclude
 `apps/` so the two never interfere.

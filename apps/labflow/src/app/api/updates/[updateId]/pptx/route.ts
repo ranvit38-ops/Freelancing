@@ -5,6 +5,7 @@ import { firstPlottableDataset, getResearchUpdate } from '@/server/queries';
 import { buildPptx } from '@/lib/pptx';
 import { renderChartPng } from '@/lib/chart-image';
 import { experimentCode, pluralise } from '@/lib/display';
+import { headerSafeFilename } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -43,7 +44,9 @@ export async function GET(_request: Request, { params }: { params: { updateId: s
       sections: update.sections,
       chart,
     });
-    const filename = `${update.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') || 'research-update'}.pptx`;
+    const filename = headerSafeFilename(
+      `${update.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') || 'research-update'}.pptx`,
+    );
     return new NextResponse(deck, {
       headers: {
         'Content-Type':

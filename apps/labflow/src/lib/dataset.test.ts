@@ -92,3 +92,20 @@ describe('parseSpreadsheet', () => {
     );
   });
 });
+
+describe('oversized input', () => {
+  it('refuses a file with more rows than it will hold in memory', () => {
+    // A 25 MB upload can decompress into far more rows than this.
+    const header = 'a,b\n';
+    const body = '1,2\n'.repeat(200_001);
+    expect(() => parseDelimitedText(header + body)).toThrow(UnsupportedFormatError);
+  });
+
+  it('still accepts a large but reasonable file', () => {
+    const table = parseDelimitedText('a,b\n' + '1,2\n'.repeat(10_000));
+    // Only the first 5,000 rows are kept for preview; the rest are counted.
+    expect(table.rows).toHaveLength(5000);
+    expect(table.truncated).toBe(true);
+    expect(table.columns[0]?.stats?.count).toBe(10_000);
+  });
+});

@@ -65,6 +65,9 @@ export async function attachLinkAction(
   }
 
   try {
+    // Check the experiment first: recording a link then failing to attach it
+    // would leave a row nothing points at.
+    await q.getExperiment(session, experimentId);
     const fileId = await q.recordLink(session, {
       filename: label || info.suggestedName,
       sourceUrl: info.url,

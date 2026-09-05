@@ -29,6 +29,12 @@ export type ParsedTable = {
 /** Rows kept inline with the dataset record; the original file is authoritative. */
 const MAX_STORED_ROWS = 5000;
 
+/**
+ * Hard ceiling on rows read from one file. A 25 MB upload can decompress into
+ * far more than that, and the whole grid is held in memory while parsing.
+ */
+const MAX_PARSED_ROWS = 200_000;
+
 export class UnsupportedFormatError extends Error {}
 
 function toNumber(value: string): number | null {
@@ -89,6 +95,12 @@ export function parseDelimitedText(text: string): ParsedTable {
   const names = (result.meta.fields ?? []).filter((f) => f.trim() !== '');
   if (names.length === 0) throw new UnsupportedFormatError('No column headers found in this file.');
 
+  if (result.data.length > MAX_PARSED_ROWS) {
+    throw new UnsupportedFormatError(
+      `This file has more than ${MAX_PARSED_ROWS.toLocaleString('en-GB')} rows. Split it, or upload a summary.`,
+    );
+  }
+
   const allRows = result.data.map((row) => {
     const clean: Record<string, string> = {};
     for (const name of names) clean[name] = String(row[name] ?? '');
@@ -108,6 +120,12 @@ export async function parseSpreadsheet(data: Buffer): Promise<ParsedTable> {
   const header = grid[0] ?? [];
   const names = header.map((name, i) => name.trim() || `Column ${i + 1}`);
   if (names.length === 0) throw new UnsupportedFormatError('No column headers found in this file.');
+
+  if (grid.length > MAX_PARSED_ROWS) {
+    throw new UnsupportedFormatError(
+      `This sheet has more than ${MAX_PARSED_ROWS.toLocaleString('en-GB')} rows. Split it, or upload a summary.`,
+    );
+  }
 
   const allRows = grid
     .slice(1)

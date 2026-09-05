@@ -1,6 +1,7 @@
 import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
+  aiGenerations,
   datasetColumns as datasetColumnsTable,
   datasets,
   discussions,
@@ -1316,9 +1317,13 @@ export async function listDiscussion(
   s: SessionContext,
   scope: { experimentId?: string; projectId?: string },
 ): Promise<DiscussionMessage[]> {
+  // An empty string is not a uuid; Postgres would reject the whole query.
   const target = scope.experimentId
     ? eq(discussions.experimentId, scope.experimentId)
-    : eq(discussions.projectId, scope.projectId ?? '');
+    : scope.projectId
+      ? eq(discussions.projectId, scope.projectId)
+      : null;
+  if (!target) return [];
 
   const rows = await db
     .select({
@@ -1421,4 +1426,20 @@ export async function removeLiterature(s: SessionContext, refId: string) {
     .where(and(eq(literatureRefs.id, refId), eq(literatureRefs.workspaceId, s.workspaceId)))
     .returning({ id: literatureRefs.id });
   assertFound(rows[0], 'Reference');
+}
+
+/** Persists one AI response with the evidence it was shown. */
+export async function recordAiGeneration(
+  s: SessionContext,
+  input: {
+    projectId: string | null;
+    experimentId: string | null;
+    kind: 'experiment_analysis' | 'project_answer' | 'research_memory' | 'research_update';
+    prompt: string | null;
+    output: unknown;
+    evidence: { type: string; id: string; label: string }[];
+    model: string | null;
+  },
+) {
+  await db.insert(aiGenerations).values({ ...input, workspaceId: s.workspaceId, createdById: s.userId });
 }
