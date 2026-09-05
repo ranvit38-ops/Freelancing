@@ -3,6 +3,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { normaliseEmail } from '@/lib/normalise';
+import { seatLimit, seatsRemaining, toSubscriptionState, usable } from '@/lib/plans';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
 import { requireSession } from '../authz';
 import * as q from '../queries';
@@ -31,6 +32,18 @@ export async function inviteMemberAction(
     return { fieldErrors: { email: 'Enter a valid email address' } };
   }
   const role = formData.get('role') === 'admin' ? 'admin' : 'member';
+
+  // A seat is consumed by a member or by an invite that has not been accepted.
+  const [row, usage] = await Promise.all([q.getSubscription(session), q.seatUsage(session)]);
+  const subscription = toSubscriptionState(row);
+  if (!usable(subscription)) {
+    return { error: 'This workspace needs an active plan before you can invite people.' };
+  }
+  if (seatsRemaining(subscription, usage.members, usage.pending) < 1) {
+    return {
+      error: `All ${seatLimit(subscription)} seats on this plan are taken. Upgrade, or revoke a pending invitation, to add someone.`,
+    };
+  }
 
   const token = randomBytes(32).toString('base64url');
   await q.createInvite(session, {

@@ -51,6 +51,14 @@ export const aiKind = pgEnum('ai_kind', [
 
 export const updateStatus = pgEnum('research_update_status', ['draft', 'final']);
 
+export const subscriptionStatus = pgEnum('subscription_status', [
+  'trialing',
+  'active',
+  'past_due',
+  'canceled',
+  'none',
+]);
+
 /* ── identity ───────────────────────────────────────────────────────────── */
 
 export const users = pgTable(
@@ -543,3 +551,32 @@ export const workspaceInvites = pgTable(
 );
 
 export type WorkspaceInvite = typeof workspaceInvites.$inferSelect;
+
+/** One subscription per workspace. Seats are enforced from here. */
+export const workspaceSubscriptions = pgTable(
+  'workspace_subscriptions',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    plan: text('plan'),
+    status: subscriptionStatus('status').notNull().default('trialing'),
+    extraSeats: integer('extra_seats').notNull().default(0),
+    trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => ({ wsUniq: uniqueIndex('workspace_subscriptions_workspace_key').on(t.workspaceId) }),
+);
+
+/** Stripe retries webhooks; recording ids makes a replay a no-op. */
+export const processedStripeEvents = pgTable('processed_stripe_events', {
+  id: text('id').primaryKey(),
+  createdAt: createdAt(),
+});
+
+export type WorkspaceSubscription = typeof workspaceSubscriptions.$inferSelect;

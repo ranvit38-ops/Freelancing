@@ -13,6 +13,7 @@ import {
   zipConditions,
 } from '@/lib/validation';
 import { requireSession, NotFoundInWorkspaceError } from '../authz';
+import { blockedReason } from '../paywall';
 import * as q from '../queries';
 import { fieldErrorsFrom, formObject, type ActionState } from './types';
 
@@ -36,6 +37,8 @@ export async function createProjectAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
   const parsed = projectSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
@@ -49,6 +52,8 @@ export async function updateProjectAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
   const projectId = String(formData.get('projectId') ?? '');
   const parsed = projectSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
@@ -61,6 +66,7 @@ export async function updateProjectAction(
 
 export async function deleteProjectAction(formData: FormData) {
   const session = await requireSession();
+  if (await blockedReason(session)) return;
   await q.deleteProject(session, String(formData.get('projectId') ?? ''));
   revalidatePath('/projects');
   redirect('/projects');
@@ -97,6 +103,8 @@ export async function createExperimentAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
   const projectId = String(formData.get('projectId') ?? '');
   const parsed = experimentSchema.safeParse(formObject(formData, CONDITION_KEYS));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
@@ -129,6 +137,8 @@ export async function updateExperimentAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
   const experimentId = String(formData.get('experimentId') ?? '');
   const parsed = experimentSchema.safeParse(formObject(formData, CONDITION_KEYS));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
@@ -159,6 +169,7 @@ export async function updateExperimentAction(
 
 export async function setExperimentStatusAction(formData: FormData) {
   const session = await requireSession();
+  if (await blockedReason(session)) return;
   const experimentId = String(formData.get('experimentId') ?? '');
   const status = String(formData.get('status') ?? '');
   const parsed = experimentSchema.shape.status.safeParse(status);
@@ -169,6 +180,7 @@ export async function setExperimentStatusAction(formData: FormData) {
 
 export async function addNoteAction(formData: FormData) {
   const session = await requireSession();
+  if (await blockedReason(session)) return;
   const experimentId = String(formData.get('experimentId') ?? '');
   const body = String(formData.get('body') ?? '').trim();
   if (body === '') return;
@@ -178,6 +190,7 @@ export async function addNoteAction(formData: FormData) {
 
 export async function deleteNoteAction(formData: FormData) {
   const session = await requireSession();
+  if (await blockedReason(session)) return;
   const experimentId = String(formData.get('experimentId') ?? '');
   await q.deleteNote(session, experimentId, String(formData.get('noteId') ?? ''));
   revalidatePath(`/experiments/${experimentId}`);
@@ -185,6 +198,7 @@ export async function deleteNoteAction(formData: FormData) {
 
 export async function deleteExperimentAction(formData: FormData) {
   const session = await requireSession();
+  if (await blockedReason(session)) return;
   const experimentId = String(formData.get('experimentId') ?? '');
   const { projectId } = await q.getExperiment(session, experimentId);
   await q.deleteExperiment(session, experimentId);
@@ -199,6 +213,8 @@ export async function createSampleAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
   const parsed = sampleSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
@@ -217,6 +233,8 @@ export async function createProtocolAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
   const parsed = protocolSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
@@ -235,6 +253,8 @@ export async function addProtocolVersionAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
   const protocolId = String(formData.get('protocolId') ?? '');
   const parsed = protocolVersionSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };

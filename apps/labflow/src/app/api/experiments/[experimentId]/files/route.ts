@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getSession } from '@/server/auth';
 import { NotFoundInWorkspaceError } from '@/server/authz';
+import { blockedReason } from '@/server/paywall';
 import * as q from '@/server/queries';
 import { MAX_UPLOAD_BYTES, extensionOf, isAllowedUpload, putFile } from '@/server/storage';
 import { UnsupportedFormatError, parseDelimitedText, parseSpreadsheet } from '@/lib/dataset';
@@ -16,6 +17,9 @@ export async function POST(
 ) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+  const blocked = await blockedReason(session);
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 402 });
 
   const form = await request.formData();
   const file = form.get('file');

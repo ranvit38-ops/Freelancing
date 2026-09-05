@@ -7,6 +7,8 @@ import { randomBytes } from 'node:crypto';
 import { db } from '@/db';
 import { workspaceMembers, workspaces } from '@/db/schema';
 import { slugify } from '@/lib/normalise';
+import { TRIAL_DAYS } from '@/lib/plans';
+import { startTrial } from '../queries';
 import { WORKSPACE_COOKIE, listMyWorkspaces } from '../auth';
 import { requireSession } from '../authz';
 import type { ActionState } from './types';
@@ -52,6 +54,9 @@ export async function createWorkspaceAction(
       .values({ workspaceId: workspace.id, userId: session.userId, role: 'owner' });
     return workspace.id;
   });
+
+  // Every new lab gets a trial rather than a locked door.
+  await startTrial(workspaceId, TRIAL_DAYS);
 
   cookies().set(WORKSPACE_COOKIE, workspaceId, {
     httpOnly: true,

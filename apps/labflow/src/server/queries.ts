@@ -15,12 +15,14 @@ import {
   literatureRefs,
   projects,
   protocolVersions,
+  processedStripeEvents,
   protocols,
   researchUpdates,
   samples,
   users,
   workspaceInvites,
   workspaceMembers,
+  workspaceSubscriptions,
   workspaces,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
@@ -1519,4 +1521,92 @@ export async function acceptInvite(inviteId: string, workspaceId: string, userId
       .set({ acceptedAt: new Date() })
       .where(eq(workspaceInvites.id, inviteId));
   });
+}
+
+/* ── billing ────────────────────────────────────────────────────────────── */
+
+/** The workspace's subscription, or null when it somehow has none. */
+export async function getSubscription(s: SessionContext) {
+  const rows = await db
+    .select()
+    .from(workspaceSubscriptions)
+    .where(eq(workspaceSubscriptions.workspaceId, s.workspaceId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Members plus outstanding invites — both consume a seat. */
+export async function seatUsage(s: SessionContext) {
+  const [members, invites] = await Promise.all([
+    db
+      .select({ n: count() })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.workspaceId, s.workspaceId)),
+    db
+      .select({ n: count() })
+      .from(workspaceInvites)
+      .where(
+        and(eq(workspaceInvites.workspaceId, s.workspaceId), isNull(workspaceInvites.acceptedAt)),
+      ),
+  ]);
+  return { members: members[0]?.n ?? 0, pending: invites[0]?.n ?? 0 };
+}
+
+/** Starts every new workspace on a trial rather than a locked door. */
+export async function startTrial(workspaceId: string, days: number) {
+  await db
+    .insert(workspaceSubscriptions)
+    .values({
+      workspaceId,
+      status: 'trialing',
+      trialEndsAt: new Date(Date.now() + days * 86_400_000),
+    })
+    .onConflictDoNothing({ target: workspaceSubscriptions.workspaceId });
+}
+
+export async function setStripeCustomer(s: SessionContext, customerId: string) {
+  await db
+    .update(workspaceSubscriptions)
+    .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+    .where(eq(workspaceSubscriptions.workspaceId, s.workspaceId));
+}
+
+/**
+ * Applied from a Stripe webhook, so it is keyed on the Stripe ids rather than
+ * a session — there is no user in that request.
+ */
+export async function applySubscriptionEvent(input: {
+  workspaceId: string;
+  plan: string | null;
+  status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'none';
+  extraSeats: number;
+  currentPeriodEnd: Date | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+}) {
+  await db
+    .insert(workspaceSubscriptions)
+    .values({ ...input, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: workspaceSubscriptions.workspaceId,
+      set: {
+        plan: input.plan,
+        status: input.status,
+        extraSeats: input.extraSeats,
+        currentPeriodEnd: input.currentPeriodEnd,
+        stripeCustomerId: input.stripeCustomerId,
+        stripeSubscriptionId: input.stripeSubscriptionId,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+/** True the first time an event id is seen; false on a replay. */
+export async function claimStripeEvent(eventId: string): Promise<boolean> {
+  const rows = await db
+    .insert(processedStripeEvents)
+    .values({ id: eventId })
+    .onConflictDoNothing()
+    .returning({ id: processedStripeEvents.id });
+  return rows.length > 0;
 }

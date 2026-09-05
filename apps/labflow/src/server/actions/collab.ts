@@ -5,6 +5,7 @@ import { InvalidLinkError, parseLink } from '@/lib/links';
 import { PubMedError, searchPubMed, type Article } from '@/lib/pubmed';
 import { requireSession } from '../authz';
 import { NotFoundInWorkspaceError } from '../not-found';
+import { blockedReason } from '../paywall';
 import * as q from '../queries';
 import type { ActionState } from './types';
 
@@ -18,6 +19,7 @@ export type LiteratureState = {
 
 export async function postMessageAction(formData: FormData) {
   const session = await requireSession();
+  if (await blockedReason(session)) return;
   const body = String(formData.get('body') ?? '').trim();
   if (body === '') return;
 
@@ -52,6 +54,9 @@ export async function attachLinkAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
+
   const experimentId = String(formData.get('experimentId') ?? '');
   const raw = String(formData.get('url') ?? '');
   const label = String(formData.get('label') ?? '').trim();

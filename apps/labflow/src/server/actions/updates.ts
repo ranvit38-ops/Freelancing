@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { buildUpdateDraft, defaultUpdateTitle } from '@/lib/research-update';
 import { requireSession } from '../authz';
 import { NotFoundInWorkspaceError } from '../not-found';
+import { blockedReason } from '../paywall';
 import * as q from '../queries';
 import type { ActionState } from './types';
 
@@ -14,6 +15,9 @@ export async function generateUpdateAction(
   formData: FormData,
 ): Promise<ActionState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
+
   const projectId = String(formData.get('projectId') ?? '');
   const ids = formData.getAll('ids').map(String).filter(Boolean);
   if (ids.length === 0) return { error: 'Select at least one experiment to include.' };

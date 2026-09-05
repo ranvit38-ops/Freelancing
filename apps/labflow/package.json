@@ -2,7 +2,7 @@
   "name": "labflow",
   "version": "0.1.0",
   "private": true,
-  "description": "LabFlow \u2014 turn experiments into a living research record.",
+  "description": "LabFlow — turn experiments into a living research record.",
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
@@ -22,6 +22,7 @@
     "pg": "8.12.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "stripe": "^16.2.0",
     "zod": "3.23.8"
   },
   "devDependencies": {

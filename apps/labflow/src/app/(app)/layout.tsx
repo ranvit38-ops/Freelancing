@@ -5,6 +5,7 @@ import { logoutAction } from '@/server/actions/auth';
 import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
 import { requireSession } from '@/server/authz';
+import { requireActiveWorkspace } from '@/server/paywall';
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -16,11 +17,13 @@ const navItems: NavItem[] = [
   { href: '/protocols', label: 'Protocols' },
   { href: '/updates', label: 'Research updates' },
   { href: '/search', label: 'Search' },
+  { href: '/billing', label: 'Billing' },
   { href: '/settings', label: 'Settings' },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
+  await requireActiveWorkspace(session);
   const myWorkspaces = await listMyWorkspaces();
 
   // Only worth showing once a user actually belongs to more than one lab.

@@ -8,7 +8,8 @@ import { passwordResetTokens, users, workspaceMembers, workspaces } from '@/db/s
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { normaliseEmail, slugify } from '@/lib/normalise';
 import { loginSchema, signupSchema } from '@/lib/validation';
-import { acceptInvite, findInviteByToken } from '../queries';
+import { TRIAL_DAYS } from '@/lib/plans';
+import { acceptInvite, findInviteByToken, startTrial } from '../queries';
 import { createSession, destroySession } from '../auth';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
 import { headers } from 'next/headers';
@@ -64,6 +65,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     : null;
 
   const passwordHash = await hashPassword(parsed.data.password);
+  let workspaceIdCreated = '';
   const userId = await db.transaction(async (tx) => {
     const [user] = await tx
       .insert(users)
@@ -82,9 +84,11 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     await tx
       .insert(workspaceMembers)
       .values({ workspaceId: workspace.id, userId: user.id, role: 'owner' });
+    workspaceIdCreated = workspace.id;
     return user.id;
   });
 
+  await startTrial(workspaceIdCreated, TRIAL_DAYS);
   if (invite) await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
   await createSession(userId);
   redirect('/dashboard');

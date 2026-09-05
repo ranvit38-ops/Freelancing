@@ -12,6 +12,7 @@ import {
 } from '../ai/analysis';
 import type { Evidence } from '../ai/context';
 import { searchPubMed, type Article } from '@/lib/pubmed';
+import { blockedReason } from '../paywall';
 
 export type AnalysisState = {
   error?: string;
@@ -48,6 +49,9 @@ export async function analyseExperimentAction(
   formData: FormData,
 ): Promise<AnalysisState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
+
   const experimentId = String(formData.get('experimentId') ?? '');
   try {
     const { analysis, evidence, model } = await analyseExperiment(session, experimentId);
@@ -63,6 +67,9 @@ export async function askProjectAction(
   formData: FormData,
 ): Promise<AnswerState> {
   const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
+
   const projectId = String(formData.get('projectId') ?? '');
   const question = String(formData.get('question') ?? '').trim();
   if (question.length < 4) return { error: 'Ask a question of at least a few words.' };
