@@ -16,22 +16,35 @@ import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { fieldErrorsFrom, formObject, type ActionState } from './types';
 
 /**
- * Credential endpoints are throttled per client IP. Without this, login is an
- * unbounded password oracle — scrypt makes each guess expensive for us too,
- * so the cost of not limiting is denial of service as well as brute force.
+ * Credential endpoints are throttled. Without this, login is an unbounded
+ * password oracle — and because scrypt is deliberately slow, that is a
+ * denial-of-service surface as well as a brute-force one.
+ *
+ * Keyed on the account first, IP second. A university sits behind one NAT
+ * address, so an IP-only limit would let ten wrong guesses lock out the whole
+ * campus; the per-IP cap is therefore loose and only catches spraying across
+ * many accounts.
  */
-function throttle(bucket: string, limit: number): ActionState | null {
+function throttle(
+  bucket: string,
+  { perAccount, perIp, account }: { perAccount: number; perIp: number; account?: string },
+): ActionState | null {
   const ip = clientIp(headers());
-  const { ok, retryAfterSec } = rateLimit(`${bucket}:${ip}`, { limit, windowMs: 60_000 });
-  if (ok) return null;
-  return { error: `Too many attempts. Try again in ${retryAfterSec} seconds.` };
+  const checks = [
+    account ? rateLimit(`${bucket}:acct:${account}`, { limit: perAccount, windowMs: 60_000 }) : null,
+    rateLimit(`${bucket}:ip:${ip}`, { limit: perIp, windowMs: 60_000 }),
+  ].filter(Boolean);
+
+  const blocked = checks.find((c) => !c!.ok);
+  if (!blocked) return null;
+  return { error: `Too many attempts. Try again in ${blocked!.retryAfterSec} seconds.` };
 }
 
 /** Computed once; its only job is to make an unknown-email login cost the same. */
 const decoyHash = hashPassword('labflow-decoy-password-never-matches');
 
 export async function signupAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const limited = throttle('signup', 5);
+  const limited = throttle('signup', { perAccount: 5, perIp: 20 });
   if (limited) return limited;
 
   const parsed = signupSchema.safeParse(formObject(formData));
@@ -78,7 +91,8 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
 }
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const limited = throttle('login', 10);
+  const attempted = normaliseEmail(String(formData.get('email') ?? ''));
+  const limited = throttle('login', { perAccount: 10, perIp: 60, account: attempted });
   if (limited) return limited;
 
   const parsed = loginSchema.safeParse(formObject(formData));
@@ -134,10 +148,10 @@ export async function requestPasswordResetAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const limited = throttle('reset', 5);
+  const email = normaliseEmail(String(formData.get('email') ?? ''));
+  const limited = throttle('reset', { perAccount: 5, perIp: 30, account: email });
   if (limited) return limited;
 
-  const email = normaliseEmail(String(formData.get('email') ?? ''));
   const confirmation = {
     ok: true as const,
     message: 'If an account exists for that address, a reset link is on its way.',
@@ -195,7 +209,7 @@ export async function resetPasswordAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const limited = throttle('reset-confirm', 10);
+  const limited = throttle('reset-confirm', { perAccount: 10, perIp: 40 });
   if (limited) return limited;
 
   const token = String(formData.get('token') ?? '');
