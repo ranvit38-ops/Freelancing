@@ -1,0 +1,30 @@
+# Codespaces / Dev Containers: an editor container plus a Postgres beside it.
+# Nothing here is used when running LabFlow on your own machine.
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm
+    command: sleep infinity
+    volumes:
+      - ../..:/workspaces:cached
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/labflow
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: labflow
+    volumes:
+      - labflow-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d labflow']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  labflow-db:

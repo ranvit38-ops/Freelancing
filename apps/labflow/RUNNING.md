@@ -1,10 +1,36 @@
-# Running LabFlow on your own computer
+# Running LabFlow
+
+## The quickest way: run it in your browser, install nothing
+
+GitHub Codespaces gives you a Linux machine in the cloud with the editor and a
+terminal in a browser tab. This repository is configured for it, so the database
+and the demo data are set up for you.
+
+1. Go to <https://github.com/ranvit38-ops/Freelancing>
+2. Switch the branch dropdown to `claude/labflow-product-spec-665sne`
+3. Click the green **Code** button → **Codespaces** tab → **Create codespace**
+4. Wait a few minutes. It installs dependencies and seeds the demo lab for you.
+5. In the terminal at the bottom, run:
+
+```bash
+cd apps/labflow && npm run dev
+```
+
+6. A popup offers to **Open in Browser**. Click it. Log in as
+   `demo@labflow.test` / `demo-password-1`.
+
+Free accounts get 60 hours a month. The codespace keeps its data between
+visits, and stopping it costs nothing.
+
+To let someone else see it, open the **Ports** tab, right-click port 3001 →
+**Port Visibility** → **Public**, then send them the URL. Make it private again
+afterwards — a public port is reachable by anyone with the link.
+
+## On your own machine
 
 **`localhost` means *your* machine.** If someone else ran the app on a server,
 `http://localhost:3001` in your browser will not reach it — you have to run it
-here. That is what this page is for.
-
-## Once
+yourself.
 
 You need [Node 20+](https://nodejs.org) and either Postgres or
 [Docker Desktop](https://www.docker.com/products/docker-desktop/). Docker is
@@ -89,3 +115,9 @@ is still going and shows no error. It must stay open.
 
 **Changed `.env.local`** — restart `npm run dev`; environment variables are
 read at startup.
+
+**A form does nothing when you submit it, on Codespaces or behind a tunnel** —
+Server Actions reject a request whose browser origin differs from the server's
+host. `next.config.mjs` already allows `*.app.github.dev` and `*.gitpod.io`; for
+any other proxy set `LABFLOW_ALLOWED_ORIGINS="my-tunnel.example.com"` in
+`.env.local` and restart.
