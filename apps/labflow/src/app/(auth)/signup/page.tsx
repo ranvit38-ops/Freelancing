@@ -1,12 +1,17 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SignupForm } from '@/components/auth-forms';
+import { GoogleButton } from '@/components/google-button';
 import { Card } from '@/components/ui';
 import { getSession } from '@/server/auth';
 
 export const metadata = { title: 'Start a lab' };
 
-export default async function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: { error?: string };
+}) {
   if (await getSession()) redirect('/dashboard');
   return (
     <>
@@ -14,7 +19,8 @@ export default async function SignupPage() {
       <p className="mt-1.5 text-sm text-muted">
         Creates your account and a workspace for your research group.
       </p>
-      <Card className="mt-6 p-6">
+      <Card className="mt-6 space-y-4 p-6">
+        <GoogleButton error={searchParams.error} />
         <SignupForm />
       </Card>
       <p className="mt-6 text-center text-sm text-muted">

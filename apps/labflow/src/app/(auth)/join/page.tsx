@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createHash } from 'node:crypto';
 import { redirect } from 'next/navigation';
 import { SignupForm } from '@/components/auth-forms';
+import { GoogleButton } from '@/components/google-button';
 import { Card } from '@/components/ui';
 import { getSession } from '@/server/auth';
 import { acceptInvite, findInviteByToken } from '@/server/queries';
@@ -51,7 +52,8 @@ export default async function JoinPage({ searchParams }: { searchParams: { token
         You were invited as {invite.role === 'admin' ? 'an admin' : 'a member'}. Create your account
         and you will land in that lab.
       </p>
-      <Card className="mt-6 p-6">
+      <Card className="mt-6 space-y-4 p-6">
+        <GoogleButton invite={token} />
         <SignupForm inviteToken={token} invitedEmail={invite.email} />
       </Card>
       <p className="mt-6 text-center text-sm text-muted">

@@ -31,6 +31,33 @@ Otherwise go to `/signup` and make your own workspace.
 `npm run setup` is safe to re-run. It never overwrites an existing
 `.env.local`, and it asks before replacing your data.
 
+## Signing in with Google (optional)
+
+Google sign-in only appears once it is configured. Without it, the button is
+not rendered at all — a login button that cannot work is worse than none.
+
+1. Go to [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials),
+   create a project, then **Create credentials → OAuth client ID → Web application**.
+2. Under **Authorised redirect URIs** add exactly:
+   `http://localhost:3001/api/auth/google/callback`
+   (add your real domain's version too when you deploy).
+3. Put the client ID and secret in `.env.local`:
+
+```bash
+GOOGLE_CLIENT_ID="....apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="...."
+NEXT_PUBLIC_APP_URL="http://localhost:3001"
+LABFLOW_OWNER_EMAIL="you@gmail.com"
+```
+
+4. Restart `npm run dev`.
+
+`LABFLOW_OWNER_EMAIL` is the owner account. The first time that address signs
+in with Google, its workspace is comped onto the Department plan. It is an
+environment variable rather than a value in the source, because an address
+written into the repository is permanent, public in the git history, and a
+spam target.
+
 ## Exploring the paid product
 
 `npm run setup` writes `LABFLOW_DISABLE_PAYWALL="1"` into `.env.local`, so
