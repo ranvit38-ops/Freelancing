@@ -26,7 +26,7 @@ import {
   workspaces,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
-import { NotFoundInWorkspaceError, assertFound } from './not-found';
+import { NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
 
 /*
  * Every function here takes the caller's SessionContext and filters on
@@ -56,6 +56,7 @@ export async function listProjects(s: SessionContext) {
 }
 
 export async function getProject(s: SessionContext, projectId: string) {
+  assertId(projectId, 'Project');
   const rows = await db
     .select({
       id: projects.id,
@@ -104,6 +105,7 @@ export async function updateProject(
     tags: string[];
   }>,
 ) {
+  assertId(projectId, 'Project');
   const rows = await db
     .update(projects)
     .set({ ...input, updatedAt: new Date() })
@@ -113,6 +115,7 @@ export async function updateProject(
 }
 
 export async function deleteProject(s: SessionContext, projectId: string) {
+  assertId(projectId, 'Project');
   const rows = await db
     .delete(projects)
     .where(and(eq(projects.id, projectId), eq(projects.workspaceId, s.workspaceId)))
@@ -161,6 +164,7 @@ export async function listExperiments(
 
 /** Next free experiment number within a project (001, 002 …). */
 export async function nextExperimentNumber(s: SessionContext, projectId: string) {
+  assertId(projectId, 'Project');
   const rows = await db
     .select({ max: sql<number | null>`max(${experiments.number})` })
     .from(experiments)
@@ -169,6 +173,7 @@ export async function nextExperimentNumber(s: SessionContext, projectId: string)
 }
 
 export async function getExperiment(s: SessionContext, experimentId: string) {
+  assertId(experimentId, 'Experiment');
   const rows = await db
     .select({
       id: experiments.id,
@@ -204,6 +209,7 @@ export async function getExperiment(s: SessionContext, experimentId: string) {
 
 /** Everything the detail page, the checker and the comparison view need. */
 export async function getExperimentRecord(s: SessionContext, experimentId: string) {
+  assertId(experimentId, 'Experiment');
   const experiment = await getExperiment(s, experimentId);
   const [conditions, attachedSamples, result, notes, attachedFiles, dataSets] = await Promise.all([
     db
@@ -281,6 +287,7 @@ export async function createExperiment(
     repeatsExperimentId: string | null;
   },
 ) {
+  assertId(projectId, 'Project');
   // Confirms the project is in the caller's workspace before anything is written.
   await getProject(s, projectId);
   const number = await nextExperimentNumber(s, projectId);
@@ -311,6 +318,7 @@ export async function updateExperiment(
     repeatsExperimentId: string | null;
   }>,
 ) {
+  assertId(experimentId, 'Experiment');
   const rows = await db
     .update(experiments)
     .set({ ...input, updatedAt: new Date() })
@@ -320,6 +328,7 @@ export async function updateExperiment(
 }
 
 export async function deleteExperiment(s: SessionContext, experimentId: string) {
+  assertId(experimentId, 'Experiment');
   const rows = await db
     .delete(experiments)
     .where(and(eq(experiments.id, experimentId), eq(experiments.workspaceId, s.workspaceId)))
@@ -332,6 +341,7 @@ export async function replaceConditions(
   experimentId: string,
   rows: { name: string; value: string; unit: string | null }[],
 ) {
+  assertId(experimentId, 'Experiment');
   await getExperiment(s, experimentId);
   await db.delete(experimentConditions).where(eq(experimentConditions.experimentId, experimentId));
   if (rows.length === 0) return;
@@ -350,6 +360,7 @@ export async function upsertResult(
     nextSteps: string | null;
   },
 ) {
+  assertId(experimentId, 'Experiment');
   await getExperiment(s, experimentId);
   await db
     .insert(experimentResults)
@@ -361,11 +372,13 @@ export async function upsertResult(
 }
 
 export async function addNote(s: SessionContext, experimentId: string, body: string) {
+  assertId(experimentId, 'Experiment');
   await getExperiment(s, experimentId);
   await db.insert(experimentNotes).values({ experimentId, body, authorId: s.userId });
 }
 
 export async function deleteNote(s: SessionContext, experimentId: string, noteId: string) {
+  assertId(experimentId, 'Experiment');
   await getExperiment(s, experimentId);
   await db
     .delete(experimentNotes)
@@ -399,6 +412,7 @@ export async function listSamples(s: SessionContext, opts: { projectId?: string 
 }
 
 export async function getSample(s: SessionContext, sampleId: string) {
+  assertId(sampleId, 'Sample');
   const rows = await db
     .select()
     .from(samples)
@@ -454,6 +468,7 @@ export async function setExperimentSamples(
   experimentId: string,
   sampleIds: string[],
 ) {
+  assertId(experimentId, 'Experiment');
   await getExperiment(s, experimentId);
   await db.delete(experimentSamples).where(eq(experimentSamples.experimentId, experimentId));
   if (sampleIds.length === 0) return;
@@ -464,6 +479,7 @@ export async function setExperimentSamples(
 }
 
 export async function experimentsForSample(s: SessionContext, sampleId: string) {
+  assertId(sampleId, 'Sample');
   return db
     .select({
       id: experiments.id,
@@ -509,6 +525,7 @@ export async function listProtocols(s: SessionContext, opts: { projectId?: strin
 }
 
 export async function getProtocolWithVersions(s: SessionContext, protocolId: string) {
+  assertId(protocolId, 'Protocol');
   const rows = await db
     .select()
     .from(protocols)
@@ -574,6 +591,7 @@ export async function addProtocolVersion(
   protocolId: string,
   input: { body: string | null; changeNote: string },
 ) {
+  assertId(protocolId, 'Protocol');
   const { versions } = await getProtocolWithVersions(s, protocolId);
   const next = (versions[0]?.version ?? 0) + 1;
   await db.insert(protocolVersions).values({
@@ -604,11 +622,13 @@ export async function attachFileToExperiment(
   experimentId: string,
   fileId: string,
 ) {
+  assertId(experimentId, 'Experiment');
   await getExperiment(s, experimentId);
   await db.insert(experimentFiles).values({ experimentId, fileId }).onConflictDoNothing();
 }
 
 export async function getFileForDownload(s: SessionContext, fileId: string) {
+  assertId(fileId, 'File');
   const rows = await db
     .select()
     .from(files)
@@ -640,6 +660,7 @@ export async function createDataset(
     }[];
   },
 ) {
+  assertId(experimentId, 'Experiment');
   await getExperiment(s, experimentId);
   const inserted = await db
     .insert(datasets)
@@ -662,6 +683,7 @@ export async function createDataset(
 }
 
 export async function getDataset(s: SessionContext, datasetId: string) {
+  assertId(datasetId, 'Dataset');
   const rows = await db
     .select()
     .from(datasets)
@@ -985,6 +1007,7 @@ export async function getComparableExperiments(s: SessionContext, ids: string[])
 
 /** Structured inputs for the deterministic research memory page. */
 export async function memoryInputs(s: SessionContext, projectId: string) {
+  assertId(projectId, 'Project');
   await getProject(s, projectId);
   const [experimentRows, changeRows] = await Promise.all([
     db
@@ -1050,6 +1073,7 @@ export async function listResearchUpdates(s: SessionContext, opts: { projectId?:
 }
 
 export async function getResearchUpdate(s: SessionContext, updateId: string) {
+  assertId(updateId, 'Update');
   const rows = await db
     .select({
       id: researchUpdates.id,
@@ -1073,6 +1097,7 @@ export async function createResearchUpdate(
   projectId: string,
   input: { title: string; experimentIds: string[]; sections: UpdateSectionRow[] },
 ) {
+  assertId(projectId, 'Project');
   await getProject(s, projectId);
   const rows = await db
     .insert(researchUpdates)
@@ -1093,6 +1118,7 @@ export async function saveResearchUpdate(
   updateId: string,
   input: { title: string; sections: UpdateSectionRow[]; status: 'draft' | 'final' },
 ) {
+  assertId(updateId, 'Update');
   const rows = await db
     .update(researchUpdates)
     .set({ ...input, updatedAt: new Date() })
@@ -1102,6 +1128,7 @@ export async function saveResearchUpdate(
 }
 
 export async function deleteResearchUpdate(s: SessionContext, updateId: string) {
+  assertId(updateId, 'Update');
   const rows = await db
     .delete(researchUpdates)
     .where(and(eq(researchUpdates.id, updateId), eq(researchUpdates.workspaceId, s.workspaceId)))
@@ -1221,6 +1248,7 @@ export async function listFiles(s: SessionContext) {
 
 /** Which experiments used each version of a protocol. */
 export async function protocolVersionUsage(s: SessionContext, protocolId: string) {
+  assertId(protocolId, 'Protocol');
   return db
     .select({
       versionId: protocolVersions.id,
@@ -1375,6 +1403,7 @@ export async function postMessage(
 }
 
 export async function deleteMessage(s: SessionContext, messageId: string) {
+  assertId(messageId, 'Message');
   const rows = await db
     .delete(discussions)
     .where(
@@ -1392,6 +1421,7 @@ export async function deleteMessage(s: SessionContext, messageId: string) {
 /* ── literature ─────────────────────────────────────────────────────────── */
 
 export async function listLiterature(s: SessionContext, projectId: string) {
+  assertId(projectId, 'Project');
   return db
     .select({
       id: literatureRefs.id,
@@ -1417,6 +1447,7 @@ export async function saveLiterature(
   projectId: string,
   article: { pmid: string; title: string; journal: string | null; year: string | null; authors: string | null },
 ) {
+  assertId(projectId, 'Project');
   await getProject(s, projectId);
   await db
     .insert(literatureRefs)
@@ -1425,6 +1456,7 @@ export async function saveLiterature(
 }
 
 export async function removeLiterature(s: SessionContext, refId: string) {
+  assertId(refId, 'Ref');
   const rows = await db
     .delete(literatureRefs)
     .where(and(eq(literatureRefs.id, refId), eq(literatureRefs.workspaceId, s.workspaceId)))
@@ -1479,6 +1511,7 @@ export async function createInvite(
 }
 
 export async function revokeInvite(s: SessionContext, inviteId: string) {
+  assertId(inviteId, 'Invite');
   const rows = await db
     .delete(workspaceInvites)
     .where(and(eq(workspaceInvites.id, inviteId), eq(workspaceInvites.workspaceId, s.workspaceId)))
