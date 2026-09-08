@@ -20,6 +20,8 @@ export type ComparableExperiment = {
   protocolVersion: number | null;
   conditions: { name: string; value: string; unit: string | null }[];
   sampleCodes: string[];
+  /** Reagent lots recorded against the run, as "item lot code". */
+  lots: { itemName: string; lotCode: string }[];
   summary: string | null;
   observations: string | null;
   conclusion: string | null;
@@ -29,7 +31,7 @@ export type ComparableExperiment = {
 export type ComparisonRow = {
   key: string;
   label: string;
-  group: 'Setup' | 'Conditions' | 'Outcome';
+  group: 'Setup' | 'Conditions' | 'Reagents' | 'Outcome';
   /** One cell per experiment, in the order given. */
   values: (string | null)[];
   /** True when at least two experiments have different recorded values. */
@@ -103,6 +105,25 @@ export function buildComparison(experiments: ComparableExperiment[]): Comparison
     }),
   );
 
+  // One row per reagent, showing which lot each run used. A row that differs
+  // here is the most common explanation for a run that stopped reproducing,
+  // and no purchasing system can produce it: it needs the experiment record.
+  const reagentNames = Array.from(
+    new Set(experiments.flatMap((e) => e.lots.map((l) => l.itemName))),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const reagents = reagentNames.map((name) =>
+    markDiffering({
+      key: `reagent:${name}`,
+      label: name,
+      group: 'Reagents',
+      values: experiments.map((e) => {
+        const used = e.lots.filter((l) => l.itemName === name).map((l) => l.lotCode);
+        return used.length > 0 ? used.join(', ') : null;
+      }),
+    }),
+  );
+
   const outcome: ComparisonRow[] = (
     [
       ['summary', 'Result summary'],
@@ -119,7 +140,7 @@ export function buildComparison(experiments: ComparableExperiment[]): Comparison
     }),
   );
 
-  return [...setup, ...conditions, ...outcome];
+  return [...setup, ...conditions, ...reagents, ...outcome];
 }
 
 /** "25 °C → 25 °C → 30 °C" — the compact form used in summaries. */

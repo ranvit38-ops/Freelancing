@@ -140,3 +140,51 @@ export function zipConditions(input: {
     .filter((c) => c.name !== '' && c.value !== '')
     .slice(0, 100);
 }
+
+/* ── inventory ──────────────────────────────────────────────────────────── */
+
+const decimal = z
+  .string()
+  .trim()
+  .transform((v) => (v === '' ? null : v))
+  .nullable()
+  .default(null)
+  .refine(
+    (v) => v === null || /^\d+(\.\d{1,3})?$/.test(v),
+    'Enter a number, for example 12 or 0.5.',
+  );
+
+const isoDate = z
+  .string()
+  .trim()
+  .transform((v) => (v === '' ? null : v))
+  .nullable()
+  .default(null)
+  .refine((v) => v === null || /^\d{4}-\d{2}-\d{2}$/.test(v), 'Use the date picker.');
+
+export const inventoryItemSchema = z.object({
+  name: trimmed(200).min(1, 'Give the item a name.'),
+  category: optionalText(80),
+  supplier: optionalText(120),
+  catalogNumber: optionalText(80),
+  unit: trimmed(24)
+    .transform((v) => (v === '' ? 'unit' : v))
+    .default('unit'),
+  reorderAt: decimal,
+  storage: optionalText(120),
+  notes: optionalText(2000),
+});
+
+export const inventoryLotSchema = z.object({
+  lotCode: trimmed(120).min(1, 'Enter the lot or batch number.'),
+  quantity: decimal,
+  receivedOn: isoDate,
+  expiresOn: isoDate,
+  openedOn: isoDate,
+});
+
+export const lotUseSchema = z.object({
+  experimentId: z.string().uuid(),
+  lotId: z.string().uuid('Choose a lot.'),
+  quantity: decimal,
+});

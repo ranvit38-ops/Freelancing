@@ -14,6 +14,7 @@ const navItems: NavItem[] = [
   { href: '/actions', label: 'Needs attention' },
   { href: '/files', label: 'Files' },
   { href: '/samples', label: 'Samples' },
+  { href: '/inventory', label: 'Inventory' },
   { href: '/protocols', label: 'Protocols' },
   { href: '/updates', label: 'Research updates' },
   { href: '/search', label: 'Search' },

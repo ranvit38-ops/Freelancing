@@ -13,6 +13,7 @@ const base: ComparableExperiment = {
   protocolName: 'PFAS Extraction',
   protocolVersion: 4,
   conditions: [{ name: 'Temperature', value: '25', unit: '°C' }],
+  lots: [],
   sampleCodes: ['S-104'],
   summary: 'Breakthrough at 34 BV',
   observations: null,

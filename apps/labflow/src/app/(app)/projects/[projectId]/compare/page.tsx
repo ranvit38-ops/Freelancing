@@ -43,7 +43,7 @@ export default async function ComparePage({
       status: experimentStatusLabel[e.status as ExperimentStatus] ?? e.status,
     })),
   );
-  const groups = ['Setup', 'Conditions', 'Outcome'] as const;
+  const groups = ['Setup', 'Conditions', 'Reagents', 'Outcome'] as const;
 
   return (
     <>

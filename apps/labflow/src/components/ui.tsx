@@ -88,15 +88,35 @@ export function PageHeader({
   title,
   description,
   actions,
+  back,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
+  /** Where this page came from. Rendered as a back link above the title. */
+  back?: { href: string; label: string };
 }) {
   return (
     <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
+        {back ? (
+          <Link
+            href={back.href}
+            className="mb-2 -ml-1 inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm text-muted transition-colors hover:bg-raised hover:text-fg"
+          >
+            <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+              <path
+                d="M10 3 5 8l5 5"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {back.label}
+          </Link>
+        ) : null}
         {eyebrow ? (
           <div className="mb-1 text-xs font-medium uppercase tracking-wider text-subtle">
             {eyebrow}

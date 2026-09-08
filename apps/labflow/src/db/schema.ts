@@ -1,5 +1,7 @@
 import {
   boolean,
+  date,
+  numeric,
   index,
   integer,
   jsonb,
@@ -580,3 +582,84 @@ export const processedStripeEvents = pgTable('processed_stripe_events', {
 });
 
 export type WorkspaceSubscription = typeof workspaceSubscriptions.$inferSelect;
+
+/* ── inventory ──────────────────────────────────────────────────────────── */
+
+/**
+ * What the lab keeps on the shelf. One row per item, not per lot: "Anti-GFP
+ * (Abcam ab290)" is the item, and each bottle of it is a lot below.
+ */
+export const inventoryItems = pgTable(
+  'inventory_items',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    category: text('category'),
+    supplier: text('supplier'),
+    catalogNumber: text('catalog_number'),
+    unit: text('unit').notNull().default('unit'),
+    reorderAt: numeric('reorder_at', { precision: 12, scale: 3 }),
+    storage: text('storage'),
+    notes: text('notes'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => ({ workspaceIdx: index('inventory_items_workspace_idx').on(t.workspaceId) }),
+);
+
+/**
+ * A specific lot. Traceability lives here: two lots of the same antibody are
+ * not the same reagent, and a lot change is the usual reason a run that
+ * worked in March stops reproducing in June.
+ */
+export const inventoryLots = pgTable(
+  'inventory_lots',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => inventoryItems.id, { onDelete: 'cascade' }),
+    lotCode: text('lot_code').notNull(),
+    quantity: numeric('quantity', { precision: 12, scale: 3 }).notNull().default('0'),
+    receivedOn: date('received_on'),
+    expiresOn: date('expires_on'),
+    openedOn: date('opened_on'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => ({
+    itemIdx: index('inventory_lots_item_idx').on(t.itemId),
+    workspaceIdx: index('inventory_lots_workspace_idx').on(t.workspaceId),
+    codeUniq: uniqueIndex('inventory_lots_code_key').on(t.itemId, t.lotCode),
+  }),
+);
+
+/** Which lot went into which run, and how much of it. */
+export const experimentLots = pgTable(
+  'experiment_lots',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    experimentId: uuid('experiment_id')
+      .notNull()
+      .references(() => experiments.id, { onDelete: 'cascade' }),
+    lotId: uuid('lot_id')
+      .notNull()
+      .references(() => inventoryLots.id, { onDelete: 'cascade' }),
+    quantity: numeric('quantity', { precision: 12, scale: 3 }),
+    createdAt: createdAt(),
+  },
+  (t) => ({
+    experimentIdx: index('experiment_lots_experiment_idx').on(t.experimentId),
+    lotIdx: index('experiment_lots_lot_idx').on(t.lotId),
+    pairUniq: uniqueIndex('experiment_lots_pair_key').on(t.experimentId, t.lotId),
+  }),
+);

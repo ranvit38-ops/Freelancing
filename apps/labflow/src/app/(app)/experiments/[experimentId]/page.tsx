@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RecordLotUseForm, RemoveLotUseButton } from '@/components/inventory-forms';
 import { notFound } from 'next/navigation';
 import { CompletenessPanel } from '@/components/completeness-panel';
 import { AttachLink } from '@/components/attach-link';
@@ -29,7 +30,10 @@ import {
   setExperimentStatusAction,
 } from '@/server/actions/records';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
-import { getExperimentRecord, listDiscussion } from '@/server/queries';
+import { getExperimentRecord, listDiscussion,
+  lotsForExperiment,
+  lotOptions,
+} from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +59,10 @@ export default async function ExperimentPage({ params }: { params: { experimentI
 
   const { experiment, conditions, samples, result, notes, files, datasets } = record;
   const messages = await listDiscussion(session, { experimentId: experiment.id });
+  const [lotsUsed, availableLots] = await Promise.all([
+    lotsForExperiment(session, experiment.id),
+    lotOptions(session),
+  ]);
 
   const report = checkCompleteness({
     objective: experiment.objective,
@@ -372,6 +380,36 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                 ))}
               </ul>
             )}
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Reagent lots"
+              description={
+                lotsUsed.length === 0
+                  ? 'Nothing recorded'
+                  : `${lotsUsed.length} recorded`
+              }
+            />
+            {lotsUsed.length > 0 ? (
+              <ul className="divide-y divide-line">
+                {lotsUsed.map((l) => (
+                  <li key={l.id} className="flex items-center gap-3 px-5 py-2.5">
+                    <Link href={`/inventory/${l.itemId}`} className="min-w-0 flex-1 hover:text-fg">
+                      <span className="block truncate text-sm">{l.itemName}</span>
+                      <span className="block truncate font-mono text-xs text-subtle">
+                        lot {l.lotCode}
+                        {l.quantity ? ` · ${Number(l.quantity)} ${l.unit}` : ''}
+                      </span>
+                    </Link>
+                    <RemoveLotUseButton experimentId={experiment.id} lotId={l.lotId} />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className={lotsUsed.length > 0 ? 'border-t border-line' : ''}>
+              <RecordLotUseForm experimentId={experiment.id} options={availableLots} />
+            </div>
           </Card>
 
           <Card>

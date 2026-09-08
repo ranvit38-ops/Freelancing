@@ -24,6 +24,9 @@ import {
   workspaceMembers,
   workspaceSubscriptions,
   workspaces,
+  inventoryItems,
+  inventoryLots,
+  experimentLots,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
@@ -972,7 +975,7 @@ export async function getComparableExperiments(s: SessionContext, ids: string[])
     .leftJoin(experimentResults, eq(experimentResults.experimentId, experiments.id))
     .where(and(eq(experiments.workspaceId, s.workspaceId), inArray(experiments.id, ids)));
 
-  const [conditionRows, sampleRows] = await Promise.all([
+  const [conditionRows, sampleRows, lotRows] = await Promise.all([
     db
       .select({
         experimentId: experimentConditions.experimentId,
@@ -988,6 +991,17 @@ export async function getComparableExperiments(s: SessionContext, ids: string[])
       .innerJoin(samples, eq(samples.id, experimentSamples.sampleId))
       .where(inArray(experimentSamples.experimentId, rows.map((r) => r.id)))
       .orderBy(samples.code),
+    db
+      .select({
+        experimentId: experimentLots.experimentId,
+        itemName: inventoryItems.name,
+        lotCode: inventoryLots.lotCode,
+      })
+      .from(experimentLots)
+      .innerJoin(inventoryLots, eq(inventoryLots.id, experimentLots.lotId))
+      .innerJoin(inventoryItems, eq(inventoryItems.id, inventoryLots.itemId))
+      .where(inArray(experimentLots.experimentId, rows.map((r) => r.id)))
+      .orderBy(inventoryItems.name),
   ]);
 
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -1000,6 +1014,9 @@ export async function getComparableExperiments(s: SessionContext, ids: string[])
         .filter((c) => c.experimentId === row.id)
         .map((c) => ({ name: c.name, value: c.value, unit: c.unit })),
       sampleCodes: sampleRows.filter((sr) => sr.experimentId === row.id).map((sr) => sr.code),
+      lots: lotRows
+        .filter((l) => l.experimentId === row.id)
+        .map((l) => ({ itemName: l.itemName, lotCode: l.lotCode })),
     }));
 }
 
@@ -1674,4 +1691,304 @@ export async function usageCounts(s: SessionContext) {
     storageBytes: Number(storageRows[0]?.bytes ?? 0),
     aiThisMonth: aiRows[0]?.n ?? 0,
   };
+}
+
+/* ── 17. inventory ──────────────────────────────────────────────────────── */
+
+/**
+ * Stock is kept for traceability first and purchasing second. Every read here
+ * carries the lots, because "how much is left" and "which bottle was it" are
+ * the same question asked by two different people.
+ */
+export async function listInventory(s: SessionContext) {
+  const items = await db
+    .select({
+      id: inventoryItems.id,
+      name: inventoryItems.name,
+      category: inventoryItems.category,
+      supplier: inventoryItems.supplier,
+      catalogNumber: inventoryItems.catalogNumber,
+      unit: inventoryItems.unit,
+      reorderAt: inventoryItems.reorderAt,
+      storage: inventoryItems.storage,
+      notes: inventoryItems.notes,
+      onHand: sql<string>`coalesce((
+        select sum(l.quantity) from "inventory_lots" l where l.item_id = inventory_items.id
+      ), 0)`,
+      lotCount: sql<number>`(
+        select count(*)::int from "inventory_lots" l where l.item_id = inventory_items.id
+      )`,
+      nextExpiry: sql<string | null>`(
+        select min(l.expires_on) from "inventory_lots" l
+        where l.item_id = inventory_items.id and l.quantity > 0
+      )`,
+      runsUsing: sql<number>`(
+        select count(distinct el.experiment_id)::int
+        from "experiment_lots" el
+        join "inventory_lots" l on l.id = el.lot_id
+        where l.item_id = inventory_items.id
+      )`,
+    })
+    .from(inventoryItems)
+    .where(eq(inventoryItems.workspaceId, s.workspaceId))
+    .orderBy(inventoryItems.name);
+  return items;
+}
+
+export async function getInventoryItem(s: SessionContext, itemId: string) {
+  assertId(itemId, 'Item');
+  const rows = await db
+    .select()
+    .from(inventoryItems)
+    .where(and(eq(inventoryItems.id, itemId), eq(inventoryItems.workspaceId, s.workspaceId)))
+    .limit(1);
+  const item = assertFound(rows[0], 'Item');
+
+  const lots = await db
+    .select({
+      id: inventoryLots.id,
+      lotCode: inventoryLots.lotCode,
+      quantity: inventoryLots.quantity,
+      receivedOn: inventoryLots.receivedOn,
+      expiresOn: inventoryLots.expiresOn,
+      openedOn: inventoryLots.openedOn,
+      runsUsing: sql<number>`(
+        select count(*)::int from "experiment_lots" el where el.lot_id = inventory_lots.id
+      )`,
+    })
+    .from(inventoryLots)
+    .where(and(eq(inventoryLots.itemId, itemId), eq(inventoryLots.workspaceId, s.workspaceId)))
+    .orderBy(desc(inventoryLots.createdAt));
+
+  // Which runs consumed this item, newest first. This is the answer to "what
+  // else used that bottle" when a lot turns out to be bad.
+  const usage = await db
+    .select({
+      experimentId: experiments.id,
+      number: experiments.number,
+      title: experiments.title,
+      performedOn: experiments.performedOn,
+      projectId: experiments.projectId,
+      projectName: projects.name,
+      lotCode: inventoryLots.lotCode,
+      quantity: experimentLots.quantity,
+    })
+    .from(experimentLots)
+    .innerJoin(inventoryLots, eq(inventoryLots.id, experimentLots.lotId))
+    .innerJoin(experiments, eq(experiments.id, experimentLots.experimentId))
+    .leftJoin(projects, eq(projects.id, experiments.projectId))
+    .where(and(eq(inventoryLots.itemId, itemId), eq(experimentLots.workspaceId, s.workspaceId)))
+    .orderBy(desc(experiments.number));
+
+  return { item, lots, usage };
+}
+
+export async function createInventoryItem(
+  s: SessionContext,
+  input: {
+    name: string;
+    category?: string | null;
+    supplier?: string | null;
+    catalogNumber?: string | null;
+    unit?: string | null;
+    reorderAt?: string | null;
+    storage?: string | null;
+    notes?: string | null;
+  },
+) {
+  const rows = await db
+    .insert(inventoryItems)
+    .values({
+      workspaceId: s.workspaceId,
+      name: input.name,
+      category: input.category ?? null,
+      supplier: input.supplier ?? null,
+      catalogNumber: input.catalogNumber ?? null,
+      unit: input.unit?.trim() || 'unit',
+      reorderAt: input.reorderAt ?? null,
+      storage: input.storage ?? null,
+      notes: input.notes ?? null,
+    })
+    .returning({ id: inventoryItems.id });
+  return rows[0]!.id;
+}
+
+export async function updateInventoryItem(
+  s: SessionContext,
+  itemId: string,
+  input: Partial<{
+    name: string;
+    category: string | null;
+    supplier: string | null;
+    catalogNumber: string | null;
+    unit: string;
+    reorderAt: string | null;
+    storage: string | null;
+    notes: string | null;
+  }>,
+) {
+  assertId(itemId, 'Item');
+  const rows = await db
+    .update(inventoryItems)
+    .set({ ...input, updatedAt: new Date() })
+    .where(and(eq(inventoryItems.id, itemId), eq(inventoryItems.workspaceId, s.workspaceId)))
+    .returning({ id: inventoryItems.id });
+  return assertFound(rows[0], 'Item').id;
+}
+
+export async function deleteInventoryItem(s: SessionContext, itemId: string) {
+  assertId(itemId, 'Item');
+  const rows = await db
+    .delete(inventoryItems)
+    .where(and(eq(inventoryItems.id, itemId), eq(inventoryItems.workspaceId, s.workspaceId)))
+    .returning({ id: inventoryItems.id });
+  return assertFound(rows[0], 'Item').id;
+}
+
+export async function addInventoryLot(
+  s: SessionContext,
+  itemId: string,
+  input: {
+    lotCode: string;
+    quantity?: string | null;
+    receivedOn?: string | null;
+    expiresOn?: string | null;
+    openedOn?: string | null;
+  },
+) {
+  assertId(itemId, 'Item');
+  // Scope check before writing: the lot inherits the item's workspace, so an
+  // item from another workspace must never reach the insert.
+  const owner = await db
+    .select({ id: inventoryItems.id })
+    .from(inventoryItems)
+    .where(and(eq(inventoryItems.id, itemId), eq(inventoryItems.workspaceId, s.workspaceId)))
+    .limit(1);
+  assertFound(owner[0], 'Item');
+
+  const rows = await db
+    .insert(inventoryLots)
+    .values({
+      workspaceId: s.workspaceId,
+      itemId,
+      lotCode: input.lotCode,
+      quantity: input.quantity ?? '0',
+      receivedOn: input.receivedOn ?? null,
+      expiresOn: input.expiresOn ?? null,
+      openedOn: input.openedOn ?? null,
+    })
+    .returning({ id: inventoryLots.id });
+  return rows[0]!.id;
+}
+
+export async function adjustLotQuantity(s: SessionContext, lotId: string, quantity: string) {
+  assertId(lotId, 'Lot');
+  const rows = await db
+    .update(inventoryLots)
+    .set({ quantity, updatedAt: new Date() })
+    .where(and(eq(inventoryLots.id, lotId), eq(inventoryLots.workspaceId, s.workspaceId)))
+    .returning({ id: inventoryLots.id });
+  return assertFound(rows[0], 'Lot').id;
+}
+
+export async function deleteInventoryLot(s: SessionContext, lotId: string) {
+  assertId(lotId, 'Lot');
+  const rows = await db
+    .delete(inventoryLots)
+    .where(and(eq(inventoryLots.id, lotId), eq(inventoryLots.workspaceId, s.workspaceId)))
+    .returning({ id: inventoryLots.id });
+  return assertFound(rows[0], 'Lot').id;
+}
+
+/** Lots recorded against one run, for the experiment page. */
+export async function lotsForExperiment(s: SessionContext, experimentId: string) {
+  assertId(experimentId, 'Experiment');
+  return db
+    .select({
+      id: experimentLots.id,
+      lotId: inventoryLots.id,
+      lotCode: inventoryLots.lotCode,
+      quantity: experimentLots.quantity,
+      itemId: inventoryItems.id,
+      itemName: inventoryItems.name,
+      supplier: inventoryItems.supplier,
+      catalogNumber: inventoryItems.catalogNumber,
+      unit: inventoryItems.unit,
+      expiresOn: inventoryLots.expiresOn,
+    })
+    .from(experimentLots)
+    .innerJoin(inventoryLots, eq(inventoryLots.id, experimentLots.lotId))
+    .innerJoin(inventoryItems, eq(inventoryItems.id, inventoryLots.itemId))
+    .where(
+      and(
+        eq(experimentLots.experimentId, experimentId),
+        eq(experimentLots.workspaceId, s.workspaceId),
+      ),
+    )
+    .orderBy(inventoryItems.name);
+}
+
+export async function recordLotUse(
+  s: SessionContext,
+  experimentId: string,
+  lotId: string,
+  quantity: string | null,
+) {
+  assertId(experimentId, 'Experiment');
+  assertId(lotId, 'Lot');
+  // Both sides must belong to this workspace before they are joined.
+  const [run, lot] = await Promise.all([
+    db
+      .select({ id: experiments.id })
+      .from(experiments)
+      .where(and(eq(experiments.id, experimentId), eq(experiments.workspaceId, s.workspaceId)))
+      .limit(1),
+    db
+      .select({ id: inventoryLots.id })
+      .from(inventoryLots)
+      .where(and(eq(inventoryLots.id, lotId), eq(inventoryLots.workspaceId, s.workspaceId)))
+      .limit(1),
+  ]);
+  assertFound(run[0], 'Experiment');
+  assertFound(lot[0], 'Lot');
+
+  await db
+    .insert(experimentLots)
+    .values({ workspaceId: s.workspaceId, experimentId, lotId, quantity })
+    .onConflictDoUpdate({
+      target: [experimentLots.experimentId, experimentLots.lotId],
+      set: { quantity },
+    });
+}
+
+export async function removeLotUse(s: SessionContext, experimentId: string, lotId: string) {
+  assertId(experimentId, 'Experiment');
+  assertId(lotId, 'Lot');
+  await db
+    .delete(experimentLots)
+    .where(
+      and(
+        eq(experimentLots.experimentId, experimentId),
+        eq(experimentLots.lotId, lotId),
+        eq(experimentLots.workspaceId, s.workspaceId),
+      ),
+    );
+}
+
+/** Every lot available to record against a run, grouped by item. */
+export async function lotOptions(s: SessionContext) {
+  return db
+    .select({
+      lotId: inventoryLots.id,
+      lotCode: inventoryLots.lotCode,
+      quantity: inventoryLots.quantity,
+      expiresOn: inventoryLots.expiresOn,
+      itemId: inventoryItems.id,
+      itemName: inventoryItems.name,
+      unit: inventoryItems.unit,
+    })
+    .from(inventoryLots)
+    .innerJoin(inventoryItems, eq(inventoryItems.id, inventoryLots.itemId))
+    .where(eq(inventoryLots.workspaceId, s.workspaceId))
+    .orderBy(inventoryItems.name, desc(inventoryLots.createdAt));
 }
