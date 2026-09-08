@@ -4,6 +4,7 @@ import { Button } from '@/components/ui';
 import { logoutAction } from '@/server/actions/auth';
 import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
+import { isOwnerEmail } from '@/server/google';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
 
@@ -27,6 +28,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Read access is never blocked, only writes. The banner says what applies.
   const { plan, writable } = await workspacePlan(session);
   const myWorkspaces = await listMyWorkspaces();
+
+  // The owner link is added for the owner alone. Everyone else never sees the
+  // route exists, and the page itself refuses them regardless of the nav.
+  const items = isOwnerEmail(session.userEmail)
+    ? [...navItems, { href: '/owner', label: 'Owner' }]
+    : navItems;
 
   // Only worth showing once a user actually belongs to more than one lab.
   const workspacePicker =
@@ -82,7 +89,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="hidden text-sm text-muted group-open:inline">Close</span>
         </summary>
         <nav aria-label="Main" className="px-3 pb-3">
-          <NavList items={navItems} />
+          <NavList items={items} />
         </nav>
         {identity}
       </details>
@@ -97,7 +104,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {workspacePicker}
         </div>
         <nav aria-label="Main" className="flex-1 overflow-y-auto px-3">
-          <NavList items={navItems} />
+          <NavList items={items} />
         </nav>
         {identity}
       </aside>
