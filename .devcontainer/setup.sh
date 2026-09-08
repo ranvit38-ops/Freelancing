@@ -17,8 +17,13 @@ START=1
 SUDO=""
 [ "$(id -u)" != "0" ] && command -v sudo >/dev/null 2>&1 && SUDO="sudo"
 
+# Codespaces grants passwordless sudo only when the target user is root, so
+# `sudo -u postgres` stops and asks for a password nobody has. Become root
+# first, then su to postgres.
 as_postgres () {
-  if [ -n "$SUDO" ]; then $SUDO -u postgres "$@"; else su postgres -c "$(printf '%q ' "$@")"; fi
+  local command
+  command=$(printf '%q ' "$@")
+  if [ -n "$SUDO" ]; then $SUDO su postgres -c "$command"; else su postgres -c "$command"; fi
 }
 
 reachable () {
