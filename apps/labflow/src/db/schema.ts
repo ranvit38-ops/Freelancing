@@ -520,6 +520,7 @@ export const literatureRefs = pgTable(
     year: text('year'),
     authors: text('authors'),
     note: text('note'),
+    abstract: text('abstract'),
     addedById: uuid('added_by_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },

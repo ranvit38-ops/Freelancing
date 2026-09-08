@@ -30,6 +30,8 @@ export type AnswerState = {
   evidence?: Evidence[];
   retrievedCount?: number;
   totalCount?: number;
+  paperCount?: number;
+  savedPaperCount?: number;
   literature?: Article[];
   literatureNote?: string;
 };
@@ -98,6 +100,8 @@ export async function askProjectAction(
       literatureNote,
       retrievedCount: result.retrievedCount,
       totalCount: result.totalCount,
+      paperCount: result.paperCount,
+      savedPaperCount: result.savedPaperCount,
     };
   } catch (error) {
     return { question, literatureNote, ...describe(error) };

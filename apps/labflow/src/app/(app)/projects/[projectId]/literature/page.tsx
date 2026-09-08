@@ -35,7 +35,14 @@ export default async function LiteraturePage({ params }: { params: { projectId: 
         <LiteratureSearch projectId={project.id} />
 
         <Card>
-          <CardHeader title="Saved to this project" description={`${saved.length} papers`} />
+          <CardHeader
+            title="Saved to this project"
+            description={
+              saved.length === 0
+                ? 'No papers yet'
+                : `${saved.length} papers. LabBot is given the ones relevant to your question, kept separate from this lab's own runs.`
+            }
+          />
           {saved.length === 0 ? (
             <EmptyState
               title="Nothing saved yet"
@@ -56,6 +63,20 @@ export default async function LiteraturePage({ params }: { params: { projectId: 
                   <p className="mt-1 text-xs text-muted">
                     {[ref.authors, ref.journal, ref.year].filter(Boolean).join(' · ')}
                   </p>
+                  {ref.abstract ? (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs text-muted hover:text-fg">
+                        Abstract, which LabBot is given when it answers about this project
+                      </summary>
+                      <p className="mt-1.5 whitespace-pre-line text-sm leading-6 text-muted">
+                        {ref.abstract}
+                      </p>
+                    </details>
+                  ) : (
+                    <p className="mt-2 text-xs text-subtle">
+                      No abstract on the PubMed record, so LabBot is given the citation only.
+                    </p>
+                  )}
                   <div className="mt-2 flex items-center gap-2">
                     <Badge>PMID {ref.pmid}</Badge>
                     <span className="text-xs text-subtle">

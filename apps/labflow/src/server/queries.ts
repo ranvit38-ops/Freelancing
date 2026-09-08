@@ -1448,6 +1448,7 @@ export async function listLiterature(s: SessionContext, projectId: string) {
       year: literatureRefs.year,
       authors: literatureRefs.authors,
       note: literatureRefs.note,
+      abstract: literatureRefs.abstract,
       createdAt: literatureRefs.createdAt,
       addedByName: users.name,
     })
@@ -1462,7 +1463,14 @@ export async function listLiterature(s: SessionContext, projectId: string) {
 export async function saveLiterature(
   s: SessionContext,
   projectId: string,
-  article: { pmid: string; title: string; journal: string | null; year: string | null; authors: string | null },
+  article: {
+    pmid: string;
+    title: string;
+    journal: string | null;
+    year: string | null;
+    authors: string | null;
+    abstract?: string | null;
+  },
 ) {
   assertId(projectId, 'Project');
   await getProject(s, projectId);

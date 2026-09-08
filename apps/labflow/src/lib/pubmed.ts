@@ -96,3 +96,53 @@ export function renderArticles(articles: Article[]): string {
     .map((a) => `PMID ${a.pmid} — ${a.title} (${a.authors ?? 'unknown authors'}, ${a.journal ?? 'unknown journal'}, ${a.year ?? 'n.d.'})`)
     .join('\n');
 }
+
+/**
+ * Abstracts for saved papers.
+ *
+ * esummary has no abstract, so this is efetch, which returns XML rather than
+ * JSON. A tolerant extraction is the right shape here: a missing abstract is
+ * normal (many records have none), and a parse that returns nothing must
+ * degrade to "we have the citation but not the text", never to an error that
+ * loses the citation.
+ */
+export async function fetchAbstracts(
+  pmids: string[],
+  options: { fetchImpl?: typeof fetch } = {},
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = pmids.filter((id) => /^\d+$/.test(id));
+  if (ids.length === 0) return out;
+
+  const doFetch = options.fetchImpl ?? fetch;
+  const key = process.env.NCBI_API_KEY ? `&api_key=${process.env.NCBI_API_KEY}` : '';
+  const response = await doFetch(
+    `${BASE}/efetch.fcgi?db=pubmed&retmode=xml&rettype=abstract&id=${ids.join(',')}${key}`,
+  );
+  if (!response.ok) throw new PubMedError(`PubMed abstract lookup failed (${response.status}).`);
+  const xml = await response.text();
+
+  for (const article of xml.split('<PubmedArticle>').slice(1)) {
+    const pmid = /<PMID[^>]*>(\d+)<\/PMID>/.exec(article)?.[1];
+    if (!pmid) continue;
+    const parts = [...article.matchAll(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/g)].map((m) =>
+      stripXml(m[1] ?? ''),
+    );
+    const text = parts.filter(Boolean).join('\n\n').trim();
+    if (text) out.set(pmid, text);
+  }
+  return out;
+}
+
+/** Removes inline markup and decodes the handful of entities NCBI emits. */
+function stripXml(value: string): string {
+  return value
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}

@@ -81,7 +81,8 @@ export async function askProject(
   fetchImpl?: ModelTransport,
   literature: Article[] = [],
 ) {
-  const { context, evidence, retrievedCount, totalCount } = await buildProjectContext(
+  const { context, evidence, retrievedCount, totalCount, paperCount, savedPaperCount } =
+    await buildProjectContext(
     s,
     projectId,
     question,
@@ -91,6 +92,9 @@ export async function askProject(
     `The researcher asks: ${question}`,
     '',
     `You have been given ${retrievedCount} of the ${totalCount} experiment records in this project.`,
+    paperCount > 0
+      ? `You have also been given ${paperCount} of the ${savedPaperCount} papers this lab saved to the project. Those describe other groups' work and are never evidence about this lab's own runs.`
+      : '',
     'If the answer would require records you were not given, say so.',
     '',
     context,
@@ -133,6 +137,8 @@ export async function askProject(
     literature: citedPapers,
     retrievedCount,
     totalCount,
+    paperCount,
+    savedPaperCount,
     model,
   };
 }

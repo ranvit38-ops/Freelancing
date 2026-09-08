@@ -155,6 +155,20 @@ export async function buildProjectContext(s: SessionContext, projectId: string, 
 
   const records = await Promise.all(chosen.map((e) => q.getExperimentRecord(s, e.id)));
 
+  // Papers the lab saved to this project. Ranked against the question the same
+  // way experiments are, so a project with forty references does not drown the
+  // records. Abstracts are truncated: the model needs the finding, not the
+  // methods section.
+  const saved = await q.listLiterature(s, projectId);
+  const rankedPapers = saved
+    .map((paper) => {
+      const haystack = `${paper.title} ${paper.journal ?? ''} ${paper.abstract ?? ''} ${paper.note ?? ''}`.toLowerCase();
+      return { paper, score: terms.filter((t) => haystack.includes(t)).length };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map((row) => row.paper);
+
   const evidence: Evidence[] = records.map((r) => ({
     type: 'experiment',
     id: r.experiment.id,
@@ -188,7 +202,34 @@ export async function buildProjectContext(s: SessionContext, projectId: string, 
     people,
     '',
     ...records.map((r) => `---\n${renderRecord(r, { full: true })}`),
+    ...(rankedPapers.length > 0
+      ? [
+          '',
+          'SAVED LITERATURE (what OTHER groups reported; never evidence about this lab\'s runs)',
+          ...rankedPapers.map(
+            (paper) =>
+              `PMID ${paper.pmid}: ${paper.title} (${paper.authors ?? 'unknown authors'}, ${
+                paper.journal ?? 'unknown journal'
+              }, ${paper.year ?? 'n.d.'})` +
+              (paper.note ? `\n  Lab note: ${paper.note}` : '') +
+              (paper.abstract ? `\n  Abstract: ${truncate(paper.abstract, 1200)}` : '\n  No abstract available.'),
+          ),
+        ]
+      : []),
   ].join('\n');
 
-  return { project, context, evidence, retrievedCount: records.length, totalCount: all.length };
+  return {
+    project,
+    context,
+    evidence,
+    retrievedCount: records.length,
+    totalCount: all.length,
+    paperCount: rankedPapers.length,
+    savedPaperCount: saved.length,
+  };
+}
+
+/** Keeps one abstract from crowding out the records it sits beside. */
+function truncate(value: string, max: number): string {
+  return value.length <= max ? value : `${value.slice(0, max).trimEnd()}…`;
 }

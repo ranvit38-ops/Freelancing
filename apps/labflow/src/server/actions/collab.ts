@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { InvalidLinkError, parseLink } from '@/lib/links';
-import { PubMedError, searchPubMed, type Article } from '@/lib/pubmed';
+import { PubMedError, searchPubMed, type Article, fetchAbstracts } from '@/lib/pubmed';
 import { requireSession } from '../authz';
 import { NotFoundInWorkspaceError } from '../not-found';
 import { blockedReason } from '../paywall';
@@ -112,12 +112,25 @@ export async function searchLiteratureAction(
 export async function saveLiteratureAction(formData: FormData) {
   const session = await requireSession();
   const projectId = String(formData.get('projectId') ?? '');
+  const pmid = String(formData.get('pmid') ?? '');
+
+  // Pull the abstract while saving, so LabBot is later given what the paper
+  // says rather than only its title. NCBI being unreachable must not lose the
+  // citation, so a failure here is silent and the reference is saved anyway.
+  let abstract: string | null = null;
+  try {
+    abstract = (await fetchAbstracts([pmid])).get(pmid) ?? null;
+  } catch {
+    abstract = null;
+  }
+
   await q.saveLiterature(session, projectId, {
-    pmid: String(formData.get('pmid') ?? ''),
+    pmid,
     title: String(formData.get('title') ?? ''),
     journal: String(formData.get('journal') ?? '') || null,
     year: String(formData.get('year') ?? '') || null,
     authors: String(formData.get('authors') ?? '') || null,
+    abstract,
   });
   revalidatePath(`/projects/${projectId}/literature`);
 }

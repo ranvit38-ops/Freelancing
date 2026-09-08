@@ -227,7 +227,10 @@ export function ProjectAssistantPanel({ projectId }: { projectId: string }) {
             title="Answer"
             description={
               state.retrievedCount !== undefined
-                ? `Based on ${state.retrievedCount} of ${state.totalCount} experiment records in this project`
+                ? `Based on ${state.retrievedCount} of ${state.totalCount} experiment records in this project` +
+                  (state.paperCount
+                    ? `, and ${state.paperCount} of ${state.savedPaperCount} saved papers`
+                    : '')
                 : undefined
             }
           />
