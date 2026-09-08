@@ -6,7 +6,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-12">
         <Link href="/" className="mb-8 flex items-center gap-2 font-semibold tracking-tight">
           <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-          LabFlow
+          Labvia
         </Link>
         {children}
       </div>

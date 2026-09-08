@@ -1,4 +1,4 @@
-# Running LabFlow
+# Running Labvia
 
 ## The quickest way: run it in your browser, install nothing
 

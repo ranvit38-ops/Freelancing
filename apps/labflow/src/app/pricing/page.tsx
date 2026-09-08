@@ -4,7 +4,7 @@ import { EXTRA_SEAT_PRICE, PLANS, PLAN_ORDER, formatLimitBytes, type PlanId } fr
 
 export const metadata = {
   title: 'Pricing',
-  description: 'LabFlow is priced per lab, not per person. Free to try, no card required.',
+  description: 'Labvia is priced per lab, not per person. Free to try, no card required.',
 };
 
 const ROWS: { label: string; value: (id: PlanId) => string }[] = [
@@ -42,7 +42,7 @@ export default function PricingPage() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            LabFlow
+            Labvia
           </Link>
           <ButtonLink href="/signup" size="sm">
             Start free
@@ -114,7 +114,7 @@ export default function PricingPage() {
         <h2 className="mt-16 text-2xl font-semibold tracking-tight">Compare plans</h2>
         <Card className="mt-6 overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
-            <caption className="sr-only">Feature comparison across LabFlow plans</caption>
+            <caption className="sr-only">Feature comparison across Labvia plans</caption>
             <thead>
               <tr className="border-b border-line text-left">
                 <th scope="col" className="w-56 px-5 py-3 text-xs font-medium uppercase tracking-wider text-subtle">

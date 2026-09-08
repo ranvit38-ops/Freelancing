@@ -1,6 +1,6 @@
 # Connecting Stripe
 
-LabFlow's payment code is already written. This is the account setup only, and
+Labvia's payment code is already written. This is the account setup only, and
 none of it can be done from the code — it needs someone with legal authority
 over the bank account.
 
@@ -22,10 +22,10 @@ monthly** price:
 
 | Product | Price | Notes |
 |---|---|---|
-| LabFlow Lab | 49.00 / month | |
-| LabFlow Group | 99.00 / month | |
-| LabFlow Department | 249.00 / month | |
-| LabFlow extra seat | 9.00 / month | optional; used for seats beyond a plan |
+| Labvia Lab | 49.00 / month | |
+| Labvia Group | 99.00 / month | |
+| Labvia Department | 249.00 / month | |
+| Labvia extra seat | 9.00 / month | optional; used for seats beyond a plan |
 
 Open each price and copy its ID — it starts with `price_`.
 
@@ -49,7 +49,7 @@ NEXT_PUBLIC_APP_URL="https://your-domain.com"
 Never commit these. `.env.local` is gitignored; on a host, use its environment
 variable settings.
 
-## 4. Point the webhook at LabFlow
+## 4. Point the webhook at Labvia
 
 **Developers → Webhooks → Add endpoint.**
 
@@ -73,7 +73,7 @@ It prints a `whsec_…` for local use.
 ## 5. Turn on the customer portal
 
 **Settings → Billing → Customer portal → Activate.** Allow customers to update
-their card, see invoices and cancel. LabFlow's "Manage billing" button opens
+their card, see invoices and cancel. Labvia's "Manage billing" button opens
 this; without it, that button errors.
 
 ## 6. Take a test payment

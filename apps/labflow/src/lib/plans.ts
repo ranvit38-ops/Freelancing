@@ -3,7 +3,7 @@
  *
  * Priced against what an academic lab actually faces: LabArchives is roughly
  * £/$330 per user per year for academics, while Benchling, SciNote and eLabFTW
- * all have a free tier. So LabFlow is priced per *lab*, not per seat, and lands
+ * all have a free tier. So Labvia is priced per *lab*, not per seat, and lands
  * well under the paid comparator — a five-person lab pays about a third of what
  * LabArchives charges for the same five people.
  */
@@ -24,7 +24,7 @@ export type Plan = {
 };
 
 /**
- * What a plan allows. Free is deliberately thin: enough to see LabFlow work,
+ * What a plan allows. Free is deliberately thin: enough to see Labvia work,
  * not enough to run a lab on. When a paid plan lapses the workspace becomes
  * read-only — records stay visible and nothing is ever deleted, because a
  * research tool that destroys data on a timer is one nobody will trust.
@@ -67,7 +67,7 @@ export const PLANS: Record<PlanId, Plan> = {
     monthly: 0,
     yearly: 0,
     seats: 1,
-    blurb: 'Enough to see how LabFlow works.',
+    blurb: 'Enough to see how Labvia works.',
     features: [
       '1 person',
       '1 project, 10 experiments',
@@ -153,7 +153,7 @@ export const PAID_PLANS: PlanId[] = ['lab', 'group', 'department'];
 /** Extra seats beyond the plan, charged per person per month. */
 export const EXTRA_SEAT_PRICE = 9;
 
-/** A new workspace gets this long to try LabFlow before it needs a plan. */
+/** A new workspace gets this long to try Labvia before it needs a plan. */
 export const TRIAL_DAYS = 14;
 
 export type SubscriptionState = {

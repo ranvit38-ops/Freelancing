@@ -2,7 +2,7 @@
   "name": "labflow",
   "version": "0.1.0",
   "private": true,
-  "description": "LabFlow \u2014 turn experiments into a living research record.",
+  "description": "Labvia \u2014 turn experiments into a living research record.",
   "scripts": {
     "dev": "next dev -p 3001 -H 0.0.0.0",
     "build": "next build",

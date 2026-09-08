@@ -55,7 +55,7 @@ export async function destroySession() {
  * so the many server components on a page share one round trip.
  *
  * A user with no workspace membership resolves to null: there is no such thing
- * as data outside a workspace in LabFlow.
+ * as data outside a workspace in Labvia.
  */
 export const getSession = cache(async (): Promise<SessionContext | null> => {
   const token = cookies().get(env().SESSION_COOKIE_NAME)?.value;

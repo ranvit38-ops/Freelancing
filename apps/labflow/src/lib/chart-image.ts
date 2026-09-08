@@ -1,7 +1,7 @@
 import { buildChart, type Point } from './chart';
 import { Canvas } from './png';
 
-/** LabFlow's accent and neutrals, as RGB for the raster canvas. */
+/** Labvia's accent and neutrals, as RGB for the raster canvas. */
 const ACCENT: [number, number, number] = [37, 78, 168];
 const LINE: [number, number, number] = [214, 218, 226];
 const AXIS: [number, number, number] = [140, 148, 162];

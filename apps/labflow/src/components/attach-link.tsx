@@ -9,7 +9,7 @@ import { noState } from '@/server/actions/types';
 /**
  * Paste any URL: Drive, Dropbox, SharePoint, a DOI, a raw file.
  *
- * LabFlow records the link; it does not copy the file. Reading a private Drive
+ * Labvia records the link; it does not copy the file. Reading a private Drive
  * document needs OAuth per deployment, and almost every lab file is private.
  */
 export function AttachLink({ experimentId }: { experimentId: string }) {
@@ -43,7 +43,7 @@ export function AttachLink({ experimentId }: { experimentId: string }) {
       </div>
       <p className="text-xs text-subtle">
         Google Drive, Docs, Dropbox, OneDrive, Notion, figshare, Zenodo, a DOI, a YouTube or Vimeo
-        walkthrough, or any URL. LabFlow stores the link next to this experiment rather than
+        walkthrough, or any URL. Labvia stores the link next to this experiment rather than
         copying the file, so your sharing permissions stay exactly as you set them. Videos play
         inline.
       </p>

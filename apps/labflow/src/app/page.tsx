@@ -63,7 +63,7 @@ export default async function LandingPage() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            LabFlow
+            Labvia
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link
@@ -104,7 +104,7 @@ export default async function LandingPage() {
               Turn experiments into a living research record.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted">
-              LabFlow connects experiments, protocols, samples, data, results and research updates
+              Labvia connects experiments, protocols, samples, data, results and research updates
               in one place, with AI that helps researchers understand what happened and
               communicate it faster.
             </p>
@@ -153,7 +153,7 @@ export default async function LandingPage() {
 
         {/* How it works */}
         <section id="how-it-works" className="mx-auto max-w-6xl scroll-mt-16 px-6 py-20">
-          <h2 className="text-2xl font-semibold tracking-tight">How LabFlow works</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">How Labvia works</h2>
           <ol className="mt-8 grid gap-4 sm:grid-cols-2">
             {steps.map((step) => (
               <li
@@ -191,7 +191,7 @@ export default async function LandingPage() {
                 The researcher stays in control
               </h2>
               <p className="mt-4 text-sm leading-6 text-muted">
-                LabFlow structures your record and helps you read it. It does not decide what your
+                Labvia structures your record and helps you read it. It does not decide what your
                 results mean.
               </p>
             </div>
@@ -241,7 +241,7 @@ export default async function LandingPage() {
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <span>LabFlow. A research workflow system for labs.</span>
+          <span>Labvia. A research workflow system for labs.</span>
           <span className="text-subtle">Records stay yours. Nothing here is used to train models.</span>
         </div>
       </footer>

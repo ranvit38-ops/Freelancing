@@ -117,7 +117,7 @@ async function main() {
 
   step('4/4  Seeding the demo lab');
   const seed = await confirm(
-    '  Replace ALL local LabFlow data with the demo lab? [Y/n] ',
+    '  Replace ALL local Labvia data with the demo lab? [Y/n] ',
   );
   if (seed) {
     execSync('npx tsx src/db/seed.ts', { stdio: 'inherit', env: { ...process.env, DATABASE_URL: url } });

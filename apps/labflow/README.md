@@ -1,8 +1,8 @@
-# LabFlow
+# Labvia
 
 Turn experiments into a living research record.
 
-LabFlow is a research workflow system for university labs. It connects
+Labvia is a research workflow system for university labs. It connects
 **Project → Experiment → Protocol → Samples → Data → Results → Interpretation →
 Next steps** into one structured, persistent record, then helps researchers read
 that record and communicate it.
@@ -166,7 +166,7 @@ Stated plainly rather than stubbed with buttons that do nothing:
   SharePoint, Notion, figshare, Zenodo, DOI, YouTube or Vimeo URL — or any link
   — and it lands beside the experiment. Videos embed and play inline (via
   youtube-nocookie, so a lab's viewing does not feed ad profiles).
-  LabFlow **stores the link, it does not copy the file**:
+  Labvia **stores the link, it does not copy the file**:
   reading a private Drive document needs OAuth and a Google Cloud project per
   deployment, and almost every lab file is private, so a sync would fail for the
   common case while breaking your sharing rules.
@@ -178,7 +178,7 @@ Stated plainly rather than stubbed with buttons that do nothing:
 
 ## How things connect
 
-The point of LabFlow is that nothing is an island:
+The point of Labvia is that nothing is an island:
 
 - **Files** (`/files`) lists every upload beside the experiment that produced it
   and the project it belongs to — the thing a shared drive cannot tell you. A

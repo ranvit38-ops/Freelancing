@@ -88,7 +88,7 @@ export default async function SettingsPage() {
             ) : (
               <div className="rounded-lg border border-warn/25 bg-warn/5 px-4 py-3 text-sm text-warn">
                 Not configured. Set <code className="font-mono">ANTHROPIC_API_KEY</code> on the
-                server to enable AI features. Until then LabFlow will say so rather than generate
+                server to enable AI features. Until then Labvia will say so rather than generate
                 anything.
               </div>
             )}

@@ -1,7 +1,7 @@
 /**
  * External link attachments.
  *
- * LabFlow stores the link, it does not sync the file. Reading a private Drive
+ * Labvia stores the link, it does not sync the file. Reading a private Drive
  * document needs OAuth and a Google Cloud project per deployment; almost every
  * lab file is private, so the sync would fail for the common case. Keeping the
  * link beside the experiment gets the value — "where is that file" — with no

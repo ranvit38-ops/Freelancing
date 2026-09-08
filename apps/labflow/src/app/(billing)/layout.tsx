@@ -19,7 +19,7 @@ export default async function BillingLayout({ children }: { children: React.Reac
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            LabFlow
+            Labvia
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden text-muted sm:inline">{session.workspaceName}</span>

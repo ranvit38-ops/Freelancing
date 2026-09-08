@@ -102,7 +102,7 @@ export default async function BillingPage({
           <div className="space-y-3 px-5 py-4 text-sm leading-6 text-muted">
             <p>
               Choosing a plan opens Stripe Checkout. Card details go straight to Stripe and never
-              touch LabFlow, so there is no card data here to leak.
+              touch Labvia, so there is no card data here to leak.
             </p>
             <p>
               After that it is automatic: Stripe raises an invoice each month, charges the card on

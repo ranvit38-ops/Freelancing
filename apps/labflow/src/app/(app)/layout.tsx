@@ -75,7 +75,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <summary className="flex h-14 cursor-pointer list-none items-center justify-between px-4">
           <span className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            LabFlow
+            Labvia
           </span>
           <span className="text-sm text-muted group-open:hidden">Menu</span>
           <span className="hidden text-sm text-muted group-open:inline">Close</span>
@@ -91,7 +91,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="px-6 py-5">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            LabFlow
+            Labvia
           </Link>
           {workspacePicker}
         </div>
