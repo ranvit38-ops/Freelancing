@@ -8,6 +8,21 @@ import { headerSafeFilename } from '@/lib/rate-limit';
 export const runtime = 'nodejs';
 
 /**
+ * Types safe to render in the page rather than download. Deliberately narrow:
+ * no HTML, no SVG, nothing the browser will execute.
+ */
+const RENDERABLE = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+]);
+
+/**
  * Files are served through the app, never from a public bucket URL, so
  * workspace membership is checked on every download.
  */
@@ -40,9 +55,15 @@ export async function GET(_request: Request, { params }: { params: { fileId: str
       headers: {
         'Content-Type': file.contentType,
         'Content-Length': String(file.byteSize),
-        // `attachment` keeps uploaded HTML/SVG from executing on our origin.
-        'Content-Disposition': `attachment; filename="${headerSafeFilename(file.filename)}"`,
+        // `attachment` by default, because uploaded HTML or SVG served inline
+        // would execute on our origin. Only the media types below are shown in
+        // place, and only when the stored type is exactly one of them: a file
+        // named .mp4 carrying HTML still arrives as a download.
+        'Content-Disposition': `${
+          RENDERABLE.has(file.contentType) ? 'inline' : 'attachment'
+        }; filename="${headerSafeFilename(file.filename)}"`,
         'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch (error) {

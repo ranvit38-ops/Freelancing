@@ -283,6 +283,26 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                           />
                         </div>
                       ) : null}
+                      {!f.sourceUrl && f.contentType.startsWith('video/') ? (
+                        <video
+                          controls
+                          preload="metadata"
+                          src={`/api/files/${f.id}`}
+                          className="mt-2 w-full max-w-xl rounded-lg border border-line bg-black"
+                        >
+                          Your browser cannot play this file.{' '}
+                          <a href={`/api/files/${f.id}`}>Download it instead.</a>
+                        </video>
+                      ) : null}
+                      {!f.sourceUrl && f.contentType.startsWith('image/') ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={`/api/files/${f.id}`}
+                          alt={f.filename}
+                          loading="lazy"
+                          className="mt-2 max-h-80 w-auto max-w-xl rounded-lg border border-line"
+                        />
+                      ) : null}
                     </li>
                   );
                 })}

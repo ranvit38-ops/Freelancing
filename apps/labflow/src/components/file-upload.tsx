@@ -1,57 +1,140 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, cx } from './ui';
 
+type Progress = { name: string; percent: number };
+
 /**
- * Drag a file onto the card, or click to choose. Several at once are uploaded
- * one after another rather than in parallel, so a slow connection does not
- * stall behind six simultaneous requests and each failure names its own file.
+ * Uploads one file with progress. fetch cannot report upload progress, so this
+ * is the one place XHR earns its keep: without it a 200 MB video looks frozen.
+ */
+function upload(
+  experimentId: string,
+  file: File,
+  onProgress: (percent: number) => void,
+): Promise<{ error?: string; notice?: string | null }> {
+  return new Promise((resolve) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', `/api/experiments/${experimentId}/files`);
+    request.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    });
+    request.addEventListener('load', () => {
+      try {
+        const payload = JSON.parse(request.responseText) as { error?: string; notice?: string | null };
+        resolve(request.status >= 200 && request.status < 300 ? payload : { error: payload.error ?? 'Upload failed.' });
+      } catch {
+        resolve({ error: 'The server returned something unreadable.' });
+      }
+    });
+    request.addEventListener('error', () => resolve({ error: 'Upload failed. Check your connection.' }));
+    request.addEventListener('abort', () => resolve({ error: 'Upload cancelled.' }));
+    const body = new FormData();
+    body.set('file', file);
+    request.send(body);
+  });
+}
+
+/**
+ * Drop files anywhere on the page, onto the card, or click to choose. Several
+ * at once upload one after another rather than in parallel, so a slow
+ * connection does not stall behind six simultaneous requests and each failure
+ * names its own file.
  */
 export function FileUpload({ experimentId }: { experimentId: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [queued, setQueued] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [notices, setNotices] = useState<string[]>([]);
 
-  async function uploadAll(list: FileList | File[]) {
-    const chosen = Array.from(list);
-    if (chosen.length === 0) return;
-    setErrors([]);
-    setNotices([]);
+  const uploadAll = useCallback(
+    async (list: FileList | File[]) => {
+      const chosen = Array.from(list);
+      if (chosen.length === 0) return;
+      setErrors([]);
+      setNotices([]);
 
-    const failed: string[] = [];
-    const said: string[] = [];
+      const failed: string[] = [];
+      const said: string[] = [];
 
-    for (const file of chosen) {
-      setBusy(file.name);
-      try {
-        const body = new FormData();
-        body.set('file', file);
-        const response = await fetch(`/api/experiments/${experimentId}/files`, {
-          method: 'POST',
-          body,
-        });
-        const payload = (await response.json()) as { error?: string; notice?: string | null };
-        if (!response.ok) failed.push(`${file.name}: ${payload.error ?? 'Upload failed.'}`);
+      for (let i = 0; i < chosen.length; i++) {
+        const file = chosen[i]!;
+        setQueued(chosen.length - i - 1);
+        setProgress({ name: file.name, percent: 0 });
+        const payload = await upload(experimentId, file, (percent) =>
+          setProgress({ name: file.name, percent }),
+        );
+        if (payload.error) failed.push(`${file.name}: ${payload.error}`);
         else if (payload.notice) said.push(`${file.name}: ${payload.notice}`);
-      } catch {
-        failed.push(`${file.name}: upload failed. Check your connection.`);
       }
-    }
 
-    setBusy(null);
-    setErrors(failed);
-    setNotices(said);
-    if (inputRef.current) inputRef.current.value = '';
-    router.refresh();
-  }
+      setProgress(null);
+      setQueued(0);
+      setErrors(failed);
+      setNotices(said);
+      if (inputRef.current) inputRef.current.value = '';
+      router.refresh();
+    },
+    [experimentId, router],
+  );
+
+  // Dropping anywhere on the page counts. Without this the target is a small
+  // rectangle people have to find, which is the thing that makes file upload
+  // feel like a form instead of a drive.
+  useEffect(() => {
+    let depth = 0;
+    const enter = (event: DragEvent) => {
+      if (!event.dataTransfer?.types.includes('Files')) return;
+      depth++;
+      setDragging(true);
+    };
+    const leave = () => {
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setDragging(false);
+    };
+    const over = (event: DragEvent) => {
+      if (event.dataTransfer?.types.includes('Files')) event.preventDefault();
+    };
+    const drop = (event: DragEvent) => {
+      depth = 0;
+      setDragging(false);
+      if (!event.dataTransfer?.files.length) return;
+      event.preventDefault();
+      void uploadAll(event.dataTransfer.files);
+    };
+    window.addEventListener('dragenter', enter);
+    window.addEventListener('dragleave', leave);
+    window.addEventListener('dragover', over);
+    window.addEventListener('drop', drop);
+    return () => {
+      window.removeEventListener('dragenter', enter);
+      window.removeEventListener('dragleave', leave);
+      window.removeEventListener('dragover', over);
+      window.removeEventListener('drop', drop);
+    };
+  }, [uploadAll]);
+
+  const busy = progress !== null;
 
   return (
     <div className="space-y-2">
+      {dragging && !busy ? (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm"
+        >
+          <div className="rounded-2xl border-2 border-dashed border-accent bg-raised px-10 py-8 text-center">
+            <p className="text-base font-medium">Drop to attach to this experiment</p>
+            <p className="mt-1 text-sm text-muted">Data, papers, images, video, slides.</p>
+          </div>
+        </div>
+      ) : null}
+
       {/* The drop zone is a label, so clicking or keyboard-activating it opens
           the picker without a click handler doing that job. */}
       <label
@@ -73,11 +156,11 @@ export function FileUpload({ experimentId }: { experimentId: string }) {
         )}
       >
         <span className="text-sm font-medium">
-          {busy ? `Uploading ${busy}…` : 'Drop files here, or click to choose'}
+          {busy ? `Uploading ${progress.name}` : 'Drop files here, or click to choose'}
         </span>
         <span className="text-xs text-muted">
-          CSV, XLSX, PDF, DOCX, PPTX and images, up to 25&nbsp;MB each. CSV and Excel files are
-          parsed into a dataset you can chart.
+          Data, papers, images, slides and video. 25&nbsp;MB per file, 250&nbsp;MB for video. CSV
+          and Excel files are parsed into a dataset you can chart.
         </span>
         <input
           ref={inputRef}
@@ -85,17 +168,28 @@ export function FileUpload({ experimentId }: { experimentId: string }) {
           type="file"
           multiple
           className="sr-only"
-          disabled={Boolean(busy)}
+          disabled={busy}
           onChange={(e) => {
             if (e.target.files) void uploadAll(e.target.files);
           }}
         />
       </label>
 
-      {busy ? (
-        <p role="status" className="text-sm text-muted">
-          Uploading {busy}…
-        </p>
+      {progress ? (
+        <div role="status" aria-live="polite" className="space-y-1">
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="min-w-0 truncate text-muted">{progress.name}</span>
+            <span className="ml-3 shrink-0 tabular-nums text-subtle">
+              {progress.percent}%{queued > 0 ? ` · ${queued} to go` : ''}
+            </span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-150"
+              style={{ width: `${progress.percent}%` }}
+            />
+          </div>
+        </div>
       ) : null}
       {errors.map((message) => (
         <p key={message} role="alert" className="text-sm text-danger">

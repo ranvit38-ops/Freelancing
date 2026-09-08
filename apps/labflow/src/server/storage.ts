@@ -38,9 +38,28 @@ export async function getFile(storageKey: string): Promise<Buffer> {
 /** Uploads above this are rejected rather than silently truncated. */
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
+/**
+ * Video gets a larger cap. A two minute microscope clip is routinely 100 MB,
+ * and refusing it would push people back to sending files over chat, which is
+ * the habit this product exists to replace.
+ */
+export const MAX_VIDEO_BYTES = 250 * 1024 * 1024;
+
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'm4v', 'avi', 'mkv']);
+
+export function isVideo(filename: string): boolean {
+  return VIDEO_EXTENSIONS.has(extensionOf(filename));
+}
+
+/** The cap that applies to one file, which depends on what kind it is. */
+export function maxBytesFor(filename: string): number {
+  return isVideo(filename) ? MAX_VIDEO_BYTES : MAX_UPLOAD_BYTES;
+}
+
 const ALLOWED_EXTENSIONS = new Set([
   'csv', 'tsv', 'xlsx', 'xls', 'pdf', 'docx', 'pptx', 'txt', 'md',
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'tif', 'tiff', 'json',
+  'mp4', 'mov', 'webm', 'm4v', 'avi', 'mkv',
 ]);
 
 export function extensionOf(filename: string): string {

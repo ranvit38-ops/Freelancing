@@ -4,7 +4,7 @@ import { getSession } from '@/server/auth';
 import { NotFoundInWorkspaceError } from '@/server/authz';
 import { blockedReason } from '@/server/paywall';
 import * as q from '@/server/queries';
-import { MAX_UPLOAD_BYTES, extensionOf, isAllowedUpload, putFile } from '@/server/storage';
+import { extensionOf, isAllowedUpload, maxBytesFor, putFile } from '@/server/storage';
 import { UnsupportedFormatError, parseDelimitedText, parseSpreadsheet } from '@/lib/dataset';
 import { XlsxError } from '@/lib/xlsx';
 
@@ -26,9 +26,10 @@ export async function POST(
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ error: 'Choose a file to upload.' }, { status: 400 });
   }
-  if (file.size > MAX_UPLOAD_BYTES) {
+  const cap = maxBytesFor(file.name);
+  if (file.size > cap) {
     return NextResponse.json(
-      { error: `Files must be under ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB.` },
+      { error: `${file.name} is too large. The limit for this kind of file is ${cap / (1024 * 1024)} MB.` },
       { status: 413 },
     );
   }
