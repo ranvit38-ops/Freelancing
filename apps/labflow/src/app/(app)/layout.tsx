@@ -23,7 +23,7 @@ const navItems: NavItem[] = [
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
-  // Read access is never blocked — only writes. The banner says what applies.
+  // Read access is never blocked, only writes. The banner says what applies.
   const { plan, writable } = await workspacePlan(session);
   const myWorkspaces = await listMyWorkspaces();
 
@@ -104,7 +104,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main className="min-w-0 flex-1">
         {writable ? null : (
           <div className="border-b border-warn/25 bg-warn/5 px-5 py-3 text-sm text-warn sm:px-8">
-            This workspace is read-only — its plan has ended. Nothing has been deleted.{' '}
+            This workspace is read-only because its plan has ended. Nothing has been deleted.{' '}
             <Link href="/billing" className="font-medium underline underline-offset-2">
               Choose a plan
             </Link>{' '}
@@ -113,7 +113,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         )}
         {plan === 'free' ? (
           <div className="border-b border-line bg-raised px-5 py-2 text-xs text-muted sm:px-8">
-            Free plan — 1 project, 10 experiments, 5 LabBot questions a month.{' '}
+            Free plan: 1 project, 10 experiments, 5 LabBot questions a month.{' '}
             <Link href="/billing" className="underline underline-offset-2 hover:text-fg">
               See plans
             </Link>

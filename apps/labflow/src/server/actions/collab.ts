@@ -104,7 +104,7 @@ export async function searchLiteratureAction(
     if (error instanceof PubMedError) return { query, error: error.message };
     return {
       query,
-      error: 'Could not reach PubMed. Nothing was returned — no citations are invented when it is unavailable.',
+      error: 'Could not reach PubMed. Nothing was returned, and no citations are invented when it is unavailable.',
     };
   }
 }

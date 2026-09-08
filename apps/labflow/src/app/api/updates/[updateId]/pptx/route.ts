@@ -33,7 +33,7 @@ export async function GET(_request: Request, { params }: { params: { updateId: s
         chart = {
           png,
           heading: `${dataset.yColumn} vs ${dataset.xColumn}`,
-          caption: `${dataset.name} — ${experimentCode(dataset.experimentNumber)} ${dataset.experimentTitle}. ${points.length} points, plotted as uploaded.`,
+          caption: `${dataset.name}: ${experimentCode(dataset.experimentNumber)} ${dataset.experimentTitle}. ${points.length} points, plotted as uploaded.`,
         };
       }
     }

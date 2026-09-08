@@ -193,7 +193,7 @@ export async function requestPasswordResetAction(
         `Open this link to choose a new one (it expires in one hour):`,
         link,
         '',
-        'If this was not you, you can ignore this message — nothing has changed.',
+        'If this was not you, you can ignore this message, because nothing has changed.',
       ].join('\n'),
     });
   } catch (error) {

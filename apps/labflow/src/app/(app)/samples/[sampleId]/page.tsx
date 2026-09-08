@@ -29,7 +29,7 @@ export default async function SamplePage({ params }: { params: { sampleId: strin
                       Parent sample
                     </Link>
                   ) : (
-                    '—'
+                    'not recorded'
                   ),
                 },
               ]}

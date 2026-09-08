@@ -134,7 +134,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
             <DefinitionList
               items={[
                 { term: 'Date performed', value: formatDate(experiment.performedOn) },
-                { term: 'Researcher', value: experiment.researcherName ?? '—' },
+                { term: 'Researcher', value: experiment.researcherName ?? 'not recorded' },
                 {
                   term: 'Protocol',
                   value: experiment.protocolName ? (
@@ -182,7 +182,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
             {conditions.length === 0 ? (
               <EmptyState
                 title="No conditions recorded"
-                description="Temperature, pH, concentration, duration — whatever you controlled."
+                description="Temperature, pH, concentration, duration, whatever you controlled."
                 action={
                   <ButtonLink href={`/experiments/${experiment.id}/edit`} size="sm" tone="secondary">
                     Add conditions
@@ -204,7 +204,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                       <tr key={c.id}>
                         <td className="px-5 py-2.5">{c.name}</td>
                         <td className="px-5 py-2.5 font-mono tabular-nums">{c.value}</td>
-                        <td className="px-5 py-2.5 text-muted">{c.unit ?? '—'}</td>
+                        <td className="px-5 py-2.5 text-muted">{c.unit ?? 'not recorded'}</td>
                       </tr>
                     ))}
                   </tbody>

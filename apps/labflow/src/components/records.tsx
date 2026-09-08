@@ -52,7 +52,7 @@ export function ExperimentList({
               <span className="mt-0.5 block truncate text-xs text-muted">
                 {[
                   showProject ? e.projectName : null,
-                  e.protocolName ? `${e.protocolName} v${e.protocolVersion ?? '—'}` : null,
+                  e.protocolName ? `${e.protocolName} v${e.protocolVersion ?? 'not recorded'}` : null,
                   e.objective,
                 ]
                   .filter(Boolean)

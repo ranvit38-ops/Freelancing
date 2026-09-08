@@ -21,7 +21,7 @@ function NotConfigured() {
   return (
     <div className="rounded-lg border border-warn/25 bg-warn/5 px-4 py-3 text-sm text-warn">
       LabBot is not configured on this deployment. Nothing was generated. An administrator
-      can enable them by setting an API key on the server — see Settings.
+      can enable them by setting an API key on the server. See Settings.
     </div>
   );
 }
@@ -124,7 +124,7 @@ export function ExperimentAnalysisPanel({ experimentId }: { experimentId: string
       <Card>
         <CardHeader
           title="Ask LabBot to analyse this experiment"
-          description="The model is given this experiment's record, the descriptive statistics of its data, and the previous runs in the project — nothing else."
+          description="The model is given this experiment's record, the descriptive statistics of its data, and the previous runs in the project, nothing else."
         />
         <form action={action} className="px-5 py-4">
           <input type="hidden" name="experimentId" value={experimentId} />

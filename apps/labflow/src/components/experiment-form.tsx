@@ -101,7 +101,7 @@ export function ExperimentForm(props: ExperimentFormProps) {
         title="Basics"
         description={
           props.mode === 'create' && props.nextNumber
-            ? `Will be recorded as ${experimentCode(props.nextNumber)} in ${props.projectName}. Only a name is required — fill in the rest whenever you like.`
+            ? `Will be recorded as ${experimentCode(props.nextNumber)} in ${props.projectName}. Only a name is required, fill in the rest whenever you like.`
             : `In ${props.projectName}.`
         }
       >
@@ -159,7 +159,7 @@ export function ExperimentForm(props: ExperimentFormProps) {
             <option value="">No protocol linked</option>
             {props.protocolVersions.map((pv) => (
               <option key={pv.id} value={pv.id}>
-                {pv.protocolName} — v{pv.version}
+                {pv.protocolName}: v{pv.version}
               </option>
             ))}
           </Select>
@@ -288,7 +288,7 @@ export function ExperimentForm(props: ExperimentFormProps) {
                 .filter((e) => e.id !== props.experimentId)
                 .map((e) => (
                   <option key={e.id} value={e.id}>
-                    {experimentCode(e.number)} — {e.title}
+                    {experimentCode(e.number)}: {e.title}
                   </option>
                 ))}
             </Select>

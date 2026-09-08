@@ -79,8 +79,8 @@ export default async function SettingsPage() {
         <Card className="p-5 lg:col-span-2">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">LabBot</h2>
           <p className="text-sm text-muted">
-            LabBot calls a language model with a focused slice of your records — never the whole
-            database — and can search PubMed alongside them.
+            LabBot calls a language model with a focused slice of your records, never the whole
+            database, and can search PubMed alongside them.
           </p>
           <div className="mt-4">
             {aiConfigured() ? (

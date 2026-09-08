@@ -110,7 +110,7 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
             empty={
               <EmptyState
                 title="No experiments in this project yet"
-                description="Record the first one — a name is all it takes to start."
+                description="Record the first one, a name is all it takes to start."
                 action={
                   <ButtonLink href={`/projects/${project.id}/experiments/new`} size="sm">
                     New experiment
@@ -127,7 +127,7 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
             <DefinitionList
               items={[
                 { term: 'Status', value: <Badge>{projectStatusLabel[project.status]}</Badge> },
-                { term: 'Owner', value: project.ownerName ?? '—' },
+                { term: 'Owner', value: project.ownerName ?? 'not recorded' },
                 { term: 'Created', value: formatDate(project.createdAt) },
                 { term: 'Last updated', value: formatDate(project.updatedAt) },
               ]}

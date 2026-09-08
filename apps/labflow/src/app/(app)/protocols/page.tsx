@@ -21,7 +21,7 @@ export default async function ProtocolsPage() {
         {protocols.length === 0 ? (
           <EmptyState
             title="No protocols yet"
-            description="Adding one lets experiments record which version they used — the single most useful thing for comparing runs later."
+            description="Adding one lets experiments record which version they used, the single most useful thing for comparing runs later."
             action={<ButtonLink href="/protocols/new" size="sm">Add a protocol</ButtonLink>}
           />
         ) : (

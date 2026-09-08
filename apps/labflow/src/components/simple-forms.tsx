@@ -28,7 +28,7 @@ export function SampleForm({
         <Field
           label="Sample ID"
           htmlFor="code"
-          hint="However your lab labels samples — S-104, BATCH-7, anything."
+          hint="However your lab labels samples: S-104, BATCH-7, anything."
           error={state.fieldErrors?.code}
         >
           <Input id="code" name="code" placeholder="S-104" required autoFocus className="font-mono" />

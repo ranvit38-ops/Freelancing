@@ -11,7 +11,7 @@ const steps = [
   {
     n: '02',
     title: 'Connect the data',
-    body: 'Attach the measurement files to the run that produced them. Columns are detected, described and kept next to the record — not in a folder someone renamed.',
+    body: 'Attach the measurement files to the run that produced them. Columns are detected, described and kept next to the record, not in a folder someone renamed.',
   },
   {
     n: '03',
@@ -21,7 +21,7 @@ const steps = [
   {
     n: '04',
     title: 'Generate the research update',
-    body: 'Turn selected experiments into a structured update you edit and export — built from the record, with data, your conclusions and AI observations kept visibly apart.',
+    body: 'Turn selected experiments into a structured update you edit and export. It is built from the record, with data, your conclusions and AI observations kept visibly apart.',
   },
 ];
 
@@ -36,11 +36,11 @@ const features = [
   },
   {
     title: 'Experiment comparison',
-    body: 'Select any set of runs and see, field by field, what actually differed — 25 °C → 25 °C → 30 °C, protocol v4 → v4 → v5.',
+    body: 'Select any set of runs and see, field by field, what actually differed: 25 °C to 25 °C to 30 °C, protocol v4 to v4 to v5.',
   },
   {
     title: 'Completeness checks',
-    body: 'A mechanical checklist of what the record documents. Green means written down — never that a result is correct.',
+    body: 'A mechanical checklist of what the record documents. Green means written down. It never means a result is correct.',
   },
   {
     title: 'Evidence-linked AI',
@@ -105,7 +105,7 @@ export default async function LandingPage() {
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted">
               LabFlow connects experiments, protocols, samples, data, results and research updates
-              in one place — with AI that helps researchers understand what happened and
+              in one place, with AI that helps researchers understand what happened and
               communicate it faster.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -128,7 +128,7 @@ export default async function LandingPage() {
                 <p className="mt-4 text-sm leading-6 text-muted">
                   A single study lives across lab notebooks, spreadsheets, instrument exports,
                   shared drives and slide decks. Six months later, answering &ldquo;what did we
-                  change between run 12 and run 13?&rdquo; means an afternoon of archaeology — and
+                  change between run 12 and run 13?&rdquo; means an afternoon of archaeology, and
                   the answer is often that nobody wrote it down.
                 </p>
               </div>
@@ -207,7 +207,7 @@ export default async function LandingPage() {
                 },
                 {
                   t: 'Transparent uncertainty',
-                  d: 'Observations, inferences and suggestions are labelled separately — and missing information is named as missing.',
+                  d: 'Observations, inferences and suggestions are labelled separately, and missing information is named as missing.',
                 },
                 {
                   t: 'Your data is not training data',
@@ -241,7 +241,7 @@ export default async function LandingPage() {
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <span>LabFlow — a research workflow system for labs.</span>
+          <span>LabFlow. A research workflow system for labs.</span>
           <span className="text-subtle">Records stay yours. Nothing here is used to train models.</span>
         </div>
       </footer>

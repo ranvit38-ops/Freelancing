@@ -39,7 +39,7 @@ export function FileUpload({ experimentId }: { experimentId: string }) {
         if (!response.ok) failed.push(`${file.name}: ${payload.error ?? 'Upload failed.'}`);
         else if (payload.notice) said.push(`${file.name}: ${payload.notice}`);
       } catch {
-        failed.push(`${file.name}: upload failed — check your connection.`);
+        failed.push(`${file.name}: upload failed. Check your connection.`);
       }
     }
 

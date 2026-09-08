@@ -83,7 +83,7 @@ export default async function BillingPage({
               },
               {
                 term: 'Monthly',
-                value: sub?.plan ? `$${monthlyTotal(sub.plan, sub.extraSeats)}` : '—',
+                value: sub?.plan ? `$${monthlyTotal(sub.plan, sub.extraSeats)}` : 'not recorded',
               },
             ]}
           />

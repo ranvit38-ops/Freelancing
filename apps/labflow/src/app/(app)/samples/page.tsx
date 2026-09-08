@@ -15,7 +15,7 @@ export default async function SamplesPage() {
     <>
       <PageHeader
         title="Samples"
-        description="A light register of what was used where — not a full inventory system."
+        description="A light register of what was used where, not a full inventory system."
         actions={<ButtonLink href="/samples/new">New sample</ButtonLink>}
       />
       <Card>

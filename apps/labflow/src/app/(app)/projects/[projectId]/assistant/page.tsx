@@ -17,7 +17,7 @@ export default async function AssistantPage({ params }: { params: { projectId: s
         <PageHeader
           eyebrow={project.name}
           title="LabBot"
-          description="Ask about this project. LabBot answers from your records and, when you ask it to, published work on PubMed — and names every source."
+          description="Ask about this project. LabBot answers from your records and, when you ask it to, published work on PubMed, and names every source."
         />
         <ProjectTabs projectId={project.id} />
         <div className="max-w-3xl">

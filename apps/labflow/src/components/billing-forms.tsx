@@ -41,7 +41,7 @@ export function PlanPicker({
                 <span className="text-sm text-muted"> /month</span>
               </p>
               <p className="mt-1 text-xs text-subtle">
-                or ${plan.yearly}/year — two months free. Extra people ${EXTRA_SEAT_PRICE}/month each.
+                or ${plan.yearly}/year, which is two months free. Extra people ${EXTRA_SEAT_PRICE}/month each.
               </p>
               <ul className="mt-4 flex-1 space-y-1.5 text-sm">
                 {plan.features.map((feature) => (

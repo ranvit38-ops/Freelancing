@@ -23,7 +23,7 @@ export default async function FilesPage({ searchParams }: { searchParams: { q?: 
     <>
       <PageHeader
         title="Files"
-        description="Every file in this workspace, shown with the experiment that produced it — the thing a shared drive can never tell you."
+        description="Every file in this workspace, shown with the experiment that produced it, the thing a shared drive can never tell you."
       />
 
       {/* A GET form so a filtered view is linkable. */}
@@ -88,7 +88,7 @@ export default async function FilesPage({ searchParams }: { searchParams: { q?: 
                       </Link>
                       {f.projectId ? (
                         <>
-                          {' — '}
+                          {' · '}
                           <Link
                             href={`/projects/${f.projectId}`}
                             className="underline underline-offset-2 hover:text-fg"

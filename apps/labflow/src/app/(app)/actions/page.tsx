@@ -18,7 +18,7 @@ export default async function ActionsPage() {
     <>
       <PageHeader
         title="What needs attention"
-        description="Derived from your records, not generated. Every item is something that is missing from the write-up — never a judgement about the science."
+        description="Derived from your records, not generated. Every item is something that is missing from the write-up, never a judgement about the science."
       />
 
       <div className="mb-5 grid gap-4 sm:grid-cols-3">

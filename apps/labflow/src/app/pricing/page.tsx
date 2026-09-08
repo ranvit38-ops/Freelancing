@@ -26,13 +26,13 @@ const ROWS: { label: string; value: (id: PlanId) => string }[] = [
         ? `${PLANS[id].limits.aiPerMonth}/month`
         : 'Unlimited',
   },
-  { label: 'Compare experiments', value: (id) => (PLANS[id].limits.compare ? '✓' : '—') },
-  { label: 'Research memory', value: (id) => (PLANS[id].limits.researchMemory ? '✓' : '—') },
-  { label: 'PowerPoint updates', value: (id) => (PLANS[id].limits.pptxExport ? '✓' : '—') },
-  { label: 'PubMed grounding', value: (id) => (PLANS[id].limits.pubmed ? '✓' : '—') },
-  { label: 'Discussion', value: (id) => (PLANS[id].limits.discussion ? '✓' : '—') },
-  { label: 'Priority support', value: (id) => (PLANS[id].limits.prioritySupport ? '✓' : '—') },
-  { label: 'Invoice or PO billing', value: (id) => (PLANS[id].limits.invoiceBilling ? '✓' : '—') },
+  { label: 'Compare experiments', value: (id) => (PLANS[id].limits.compare ? '✓' : 'No') },
+  { label: 'Research memory', value: (id) => (PLANS[id].limits.researchMemory ? '✓' : 'No') },
+  { label: 'PowerPoint updates', value: (id) => (PLANS[id].limits.pptxExport ? '✓' : 'No') },
+  { label: 'PubMed grounding', value: (id) => (PLANS[id].limits.pubmed ? '✓' : 'No') },
+  { label: 'Discussion', value: (id) => (PLANS[id].limits.discussion ? '✓' : 'No') },
+  { label: 'Priority support', value: (id) => (PLANS[id].limits.prioritySupport ? '✓' : 'No') },
+  { label: 'Invoice or PO billing', value: (id) => (PLANS[id].limits.invoiceBilling ? '✓' : 'No') },
 ];
 
 export default function PricingPage() {
@@ -56,7 +56,7 @@ export default function PricingPage() {
             Priced per lab, not per person.
           </h1>
           <p className="mt-4 text-lg leading-7 text-muted">
-            A five-person lab pays $49 a month — about a third of what per-seat academic notebooks
+            A five-person lab pays $49 a month, about a third of what per-seat academic notebooks
             charge for the same five people. Start free, no card required.
           </p>
         </div>
@@ -84,7 +84,7 @@ export default function PricingPage() {
                 <p className="mt-1 text-xs text-subtle">
                   {plan.monthly === 0
                     ? 'Free forever, for one person.'
-                    : `or $${plan.yearly}/year — two months free`}
+                    : `or $${plan.yearly}/year, two months free`}
                 </p>
                 <ul className="mt-4 flex-1 space-y-1.5 text-sm">
                   {plan.features.map((feature) => (
@@ -150,7 +150,7 @@ export default function PricingPage() {
             {[
               {
                 q: 'What happens if we stop paying?',
-                a: 'The workspace becomes read-only. Every record, file and dataset stays exactly where it is and stays readable — nothing is ever deleted for non-payment. Start a plan again and you can write again.',
+                a: 'The workspace becomes read-only. Every record, file and dataset stays exactly where it is and stays readable, nothing is ever deleted for non-payment. Start a plan again and you can write again.',
               },
               {
                 q: 'Can we pay by invoice or purchase order?',

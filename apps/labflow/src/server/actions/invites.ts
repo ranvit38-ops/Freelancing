@@ -80,7 +80,7 @@ export async function inviteMemberAction(
     if (error instanceof MailNotConfiguredError) {
       return { ok: true, message: `${error.message} Send them this link yourself: ${link}` };
     }
-    return { error: 'The invitation could not be sent. The invite is saved — try resending.' };
+    return { error: 'The invitation could not be sent. The invite is saved, so you can try resending.' };
   }
 
   return { ok: true, message: `Invitation sent to ${email}.` };

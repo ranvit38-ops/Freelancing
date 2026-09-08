@@ -25,7 +25,7 @@ export default async function ProtocolPage({ params }: { params: { protocolId: s
           <Card>
             <CardHeader
               title="Add a version"
-              description="Never edit an old version — experiments point at it."
+              description="Never edit an old version, experiments point at it."
             />
             <ProtocolVersionForm protocolId={protocol.id} />
           </Card>

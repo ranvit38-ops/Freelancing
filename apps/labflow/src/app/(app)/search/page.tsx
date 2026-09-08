@@ -52,7 +52,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         {query.length < 2 ? (
           <EmptyState
             title="Type at least two characters"
-            description="Every word you type must appear in a result — “PFAS 10” narrows further than “PFAS”."
+            description="Every word you type must appear in a result, “PFAS 10” narrows further than “PFAS”."
           />
         ) : results.length === 0 ? (
           <EmptyState

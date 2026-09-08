@@ -91,7 +91,7 @@ export async function blockedReason(
   const { plan, limits, writable } = await workspacePlan(session);
 
   if (!writable) {
-    return 'This workspace is read-only because its plan has ended. Everything already recorded stays readable — choose a plan to write again.';
+    return 'This workspace is read-only because its plan has ended. Everything already recorded stays readable. Choose a plan to write again.';
   }
   if (!adding) return null;
 

@@ -114,7 +114,7 @@ export default async function DatasetPage({
         <Card>
           <CardHeader
             title="Columns"
-            description="Descriptive statistics only — no interpretation."
+            description="Descriptive statistics only, no interpretation."
           />
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
@@ -139,8 +139,8 @@ export default async function DatasetPage({
                         {c.isNumeric ? 'numeric' : 'text'}
                       </Badge>
                     </td>
-                    <td className="px-5 py-2.5 tabular-nums">{c.stats?.count ?? '—'}</td>
-                    <td className="px-5 py-2.5 tabular-nums">{c.stats?.missing ?? '—'}</td>
+                    <td className="px-5 py-2.5 tabular-nums">{c.stats?.count ?? 'not recorded'}</td>
+                    <td className="px-5 py-2.5 tabular-nums">{c.stats?.missing ?? 'not recorded'}</td>
                     <td className="px-5 py-2.5 tabular-nums">{formatStat(c.stats?.min)}</td>
                     <td className="px-5 py-2.5 tabular-nums">{formatStat(c.stats?.max)}</td>
                     <td className="px-5 py-2.5 tabular-nums">{formatStat(c.stats?.mean)}</td>
@@ -170,7 +170,7 @@ export default async function DatasetPage({
                   <tr key={i}>
                     {columns.map((c) => (
                       <td key={c.id} className="whitespace-nowrap px-5 py-2 tabular-nums">
-                        {row[c.name] || <span className="text-subtle">—</span>}
+                        {row[c.name] || <span className="text-subtle">blank</span>}
                       </td>
                     ))}
                   </tr>
