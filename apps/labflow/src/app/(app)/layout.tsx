@@ -4,7 +4,9 @@ import { Button } from '@/components/ui';
 import { logoutAction } from '@/server/actions/auth';
 import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
+import { listProjects } from '@/server/queries';
 import { isOwnerEmail } from '@/server/google';
+import { LabBotPanel } from '@/components/labbot-panel';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
 
@@ -28,6 +30,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Read access is never blocked, only writes. The banner says what applies.
   const { plan, writable } = await workspacePlan(session);
   const myWorkspaces = await listMyWorkspaces();
+  // LabBot needs somewhere to answer about; with no projects the panel hides
+  // itself rather than offering an empty picker.
+  const projectsForBot = (await listProjects(session)).map((p) => ({ id: p.id, name: p.name }));
 
   // The owner link is added for the owner alone. Everyone else never sees the
   // route exists, and the page itself refuses them regardless of the nav.
@@ -129,6 +134,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ) : null}
         <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">{children}</div>
       </main>
+      <LabBotPanel projects={projectsForBot} />
     </div>
   );
 }

@@ -25,6 +25,48 @@
   --lf-danger: 190 47 47;
 }
 
+/*
+ * Dark theme.
+ *
+ * Only the tokens change, so every component follows without knowing a theme
+ * exists. Three states are covered on purpose: an explicit choice sets
+ * data-theme on <html> and wins in both directions, and with no choice made
+ * the operating system decides.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --lf-bg: 13 17 23;
+    --lf-surface: 22 27 34;
+    --lf-raised: 28 34 43;
+    --lf-line: 48 54 63;
+    --lf-fg: 230 237 243;
+    --lf-muted: 155 166 180;
+    --lf-subtle: 121 131 146;
+    --lf-accent: 106 152 240;
+    --lf-accent-fg: 8 12 18;
+    --lf-accent-soft: 26 40 66;
+    --lf-ok: 63 185 130;
+    --lf-warn: 216 163 60;
+    --lf-danger: 238 108 108;
+  }
+}
+
+:root[data-theme='dark'] {
+  --lf-bg: 13 17 23;
+  --lf-surface: 22 27 34;
+  --lf-raised: 28 34 43;
+  --lf-line: 48 54 63;
+  --lf-fg: 230 237 243;
+  --lf-muted: 155 166 180;
+  --lf-subtle: 121 131 146;
+  --lf-accent: 106 152 240;
+  --lf-accent-fg: 8 12 18;
+  --lf-accent-soft: 26 40 66;
+  --lf-ok: 63 185 130;
+  --lf-warn: 216 163 60;
+  --lf-danger: 238 108 108;
+}
+
 * { border-color: rgb(var(--lf-line)); }
 
 html { -webkit-text-size-adjust: 100%; }

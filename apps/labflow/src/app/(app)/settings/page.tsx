@@ -1,4 +1,6 @@
 import { InviteForm } from '@/components/invite-form';
+import { logoutAction } from '@/server/actions/auth';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { CreateWorkspaceForm } from '@/components/workspace-switcher';
 import { Badge, Button, Card, CardHeader, DefinitionList, PageHeader } from '@/components/ui';
 import { aiConfigured } from '@/lib/env';
@@ -20,8 +22,45 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Workspace, people and integrations." />
+      <PageHeader
+        title="Settings"
+        description="Workspace, people, appearance and integrations."
+      />
       <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="p-5">
+          <h2 className="mb-1 text-sm font-semibold tracking-tight">Appearance</h2>
+          <p className="mb-4 text-sm text-muted">
+            Kept in this browser and never sent to us. System follows your operating system.
+          </p>
+          <ThemeToggle />
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="mb-1 text-sm font-semibold tracking-tight">Your account</h2>
+          <p className="mb-4 text-sm text-muted">
+            Signed in as {session.userEmail}. Signing out deletes this session on the server, not
+            only the cookie in your browser.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={logoutAction}>
+              <Button type="submit" tone="secondary" size="sm">
+                Sign out
+              </Button>
+            </form>
+            <form action={logoutAction}>
+              <Button type="submit" tone="secondary" size="sm">
+                Sign in as another account
+              </Button>
+            </form>
+            <a
+              href="/privacy"
+              className="rounded-lg px-3 py-1.5 text-sm text-muted underline underline-offset-2 hover:text-fg"
+            >
+              Privacy statement
+            </a>
+          </div>
+        </Card>
+
         <Card className="p-5">
           <h2 className="mb-4 text-sm font-semibold tracking-tight">Workspace</h2>
           <DefinitionList

@@ -242,7 +242,15 @@ export default async function LandingPage() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <span>Labvia. A research workflow system for labs.</span>
-          <span className="text-subtle">Records stay yours. Nothing here is used to train models.</span>
+          <span className="flex items-center gap-4 text-subtle">
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-fg">
+              Privacy
+            </Link>
+            <Link href="/pricing" className="underline underline-offset-2 hover:text-fg">
+              Pricing
+            </Link>
+            <span>Records stay yours. Nothing here is used to train models.</span>
+          </span>
         </div>
       </footer>
     </div>
