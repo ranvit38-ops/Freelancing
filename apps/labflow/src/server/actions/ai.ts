@@ -12,7 +12,7 @@ import {
 } from '../ai/analysis';
 import type { Evidence } from '../ai/context';
 import { searchPubMed, type Article } from '@/lib/pubmed';
-import { blockedReason } from '../paywall';
+import { blockedReason, hasFeature } from '../paywall';
 
 export type AnalysisState = {
   error?: string;
@@ -80,7 +80,16 @@ export async function askProjectAction(
   // answer grounded in the lab's own records.
   let papers: Article[] = [];
   let literatureNote: string | undefined;
-  if (formData.get('includeLiterature') === '1') {
+  // PubMed grounding is a paid feature. Silently ignoring the checkbox would
+  // be worse than refusing it: the answer would quietly lose a source the user
+  // asked for. Say so instead.
+  const wantsLiterature = formData.get('includeLiterature') === '1';
+  const literatureAllowed = wantsLiterature && (await hasFeature(session, 'pubmed'));
+  if (wantsLiterature && !literatureAllowed) {
+    literatureNote =
+      'PubMed grounding is not on your current plan, so this answer uses your own records only.';
+  }
+  if (literatureAllowed) {
     try {
       papers = await searchPubMed(question, { limit: 6 });
       if (papers.length === 0) literatureNote = 'PubMed returned no matching papers for this question.';

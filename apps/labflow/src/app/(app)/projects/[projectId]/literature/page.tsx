@@ -1,3 +1,5 @@
+import { workspacePlan } from '@/server/paywall';
+import { UpgradePanel } from '@/components/upgrade-panel';
 import { notFound } from 'next/navigation';
 import { LiteratureSearch } from '@/components/literature';
 import { ProjectTabs } from '@/components/project-tabs';
@@ -13,6 +15,19 @@ export const dynamic = 'force-dynamic';
 
 export default async function LiteraturePage({ params }: { params: { projectId: string } }) {
   const session = await requireSession();
+  const { limits } = await workspacePlan(session);
+  if (!limits.pubmed) {
+    return (
+      <>
+        <PageHeader title="PubMed literature" back={{ href: '/projects', label: 'Projects' }} />
+        <UpgradePanel
+          title="PubMed literature"
+          what="Search all of PubMed from inside the project, save the papers it is built on, and have LabBot answer with those papers alongside your own records."
+          why="Every citation is a real NCBI record, kept apart from results your lab produced."
+        />
+      </>
+    );
+  }
   let project;
   try {
     project = await getProject(session, params.projectId);

@@ -1,3 +1,5 @@
+import { workspacePlan } from '@/server/paywall';
+import { UpgradePanel } from '@/components/upgrade-panel';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ProjectTabs } from '@/components/project-tabs';
@@ -26,6 +28,19 @@ export default async function ComparePage({
   searchParams: { ids?: string | string[] };
 }) {
   const session = await requireSession();
+  const { limits } = await workspacePlan(session);
+  if (!limits.compare) {
+    return (
+      <>
+        <PageHeader title="Experiment comparison" back={{ href: '/projects', label: 'Projects' }} />
+        <UpgradePanel
+          title="Experiment comparison"
+          what="Put any set of runs side by side and see, field by field, exactly what differed: conditions, protocol version, samples, and which reagent lot each one used."
+          why="It is the fastest way to answer why a run that worked in March stopped reproducing in June."
+        />
+      </>
+    );
+  }
   let project;
   try {
     project = await getProject(session, params.projectId);

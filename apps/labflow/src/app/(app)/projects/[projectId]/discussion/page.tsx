@@ -1,3 +1,5 @@
+import { workspacePlan } from '@/server/paywall';
+import { UpgradePanel } from '@/components/upgrade-panel';
 import { notFound } from 'next/navigation';
 import { Discussion } from '@/components/discussion';
 import { ProjectTabs } from '@/components/project-tabs';
@@ -11,6 +13,19 @@ export const dynamic = 'force-dynamic';
 
 export default async function DiscussionPage({ params }: { params: { projectId: string } }) {
   const session = await requireSession();
+  const { limits } = await workspacePlan(session);
+  if (!limits.discussion) {
+    return (
+      <>
+        <PageHeader title="Project discussion" back={{ href: '/projects', label: 'Projects' }} />
+        <UpgradePanel
+          title="Project discussion"
+          what="A thread attached to the project and to individual runs, so a decision is recorded next to the experiment it changed."
+          why="It keeps the reasoning out of chat apps, where it is lost the moment someone leaves the lab."
+        />
+      </>
+    );
+  }
   let project;
   try {
     project = await getProject(session, params.projectId);

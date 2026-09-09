@@ -5,7 +5,7 @@ import { InvalidLinkError, parseLink } from '@/lib/links';
 import { PubMedError, searchPubMed, type Article, fetchAbstracts } from '@/lib/pubmed';
 import { requireSession } from '../authz';
 import { NotFoundInWorkspaceError } from '../not-found';
-import { blockedReason } from '../paywall';
+import { blockedReason, hasFeature } from '../paywall';
 import * as q from '../queries';
 import type { ActionState } from './types';
 
@@ -19,6 +19,7 @@ export type LiteratureState = {
 
 export async function postMessageAction(formData: FormData) {
   const session = await requireSession();
+  if (!(await hasFeature(session, 'discussion'))) return;
   if (await blockedReason(session)) return;
   const body = String(formData.get('body') ?? '').trim();
   if (body === '') return;

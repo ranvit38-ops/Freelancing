@@ -1,3 +1,5 @@
+import { workspacePlan } from '@/server/paywall';
+import { UpgradePanel } from '@/components/upgrade-panel';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ProjectTabs } from '@/components/project-tabs';
@@ -11,6 +13,19 @@ export const dynamic = 'force-dynamic';
 
 export default async function MemoryPage({ params }: { params: { projectId: string } }) {
   const session = await requireSession();
+  const { limits } = await workspacePlan(session);
+  if (!limits.researchMemory) {
+    return (
+      <>
+        <PageHeader title="Research memory" back={{ href: '/projects', label: 'Projects' }} />
+        <UpgradePanel
+          title="Research memory"
+          what="A standing summary of what this project has established, what is still open, and what was tried and set aside, built from the records rather than written by hand."
+          why="It is what a new student reads on day one instead of interrupting everyone."
+        />
+      </>
+    );
+  }
   let project;
   try {
     project = await getProject(session, params.projectId);

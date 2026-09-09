@@ -69,6 +69,26 @@ export async function requireWorkspace(session: SessionContext): Promise<Workspa
   return workspacePlan(session);
 }
 
+/**
+ * Whether the plan includes a feature, without redirecting.
+ *
+ * Pages render an upgrade panel, which sells better than a bounce. Actions and
+ * API routes need a plain answer they can refuse with, and they need it even
+ * when the page around them has been bypassed entirely.
+ */
+export async function hasFeature(
+  session: SessionContext,
+  feature: 'compare' | 'researchMemory' | 'pptxExport' | 'pubmed' | 'discussion',
+): Promise<boolean> {
+  const { limits } = await workspacePlan(session);
+  return Boolean(limits[feature]);
+}
+
+/** The sentence shown when a plan does not include something. */
+export function featureNotIncluded(name: string): string {
+  return `${name} is not on your current plan. See plans to add it; nothing already recorded is affected.`;
+}
+
 /** A feature the current plan does not include. */
 export async function requireFeature(
   session: SessionContext,
