@@ -200,13 +200,20 @@ function paidActive(sub: SubscriptionState): boolean {
 /**
  * Whether the workspace may write at all.
  *
- * Free is writable within its limits; only a lapsed *paid* plan goes
- * read-only. Nothing is ever deleted for non-payment.
+ * Free is writable within its limits. Only a plan that was paid for and then
+ * ended goes read-only, and nothing is ever deleted for non-payment.
+ *
+ * A workspace that never paid, and one whose trial ran out, both land on the
+ * free plan rather than being locked out. Locking them out would mean nobody
+ * could evaluate the product without a card, which is the opposite of what a
+ * free tier is for. The free limits are what create the pressure to upgrade;
+ * a wall is not.
  */
 export function canWrite(sub: SubscriptionState | null, now: Date = new Date()): boolean {
-  if (!sub) return true; // free
-  if (sub.status === 'canceled' || sub.status === 'none') return false;
-  if (sub.status === 'trialing') return trialLive(sub, now);
+  if (!sub) return true; // never subscribed: free
+  if (sub.status === 'canceled') return false; // paid, then ended
+  if (sub.status === 'none') return true; // never paid: free
+  if (sub.status === 'trialing') return true; // trial over drops to free, not out
   return paidActive(sub);
 }
 
@@ -231,19 +238,19 @@ export function subscriptionNotice(
   sub: SubscriptionState | null,
   now: Date = new Date(),
 ): string | null {
-  if (!sub || sub.status === 'none') {
-    return 'This workspace is read-only. Everything already recorded stays readable — choose a plan to write again.';
-  }
+  if (!sub || sub.status === 'none') return null; // free: the plan banner says it
   if (sub.status === 'canceled') {
-    return 'This workspace is read-only — its plan has ended. Everything already recorded stays readable; nothing has been deleted.';
+    return 'This workspace is read-only because its plan has ended. Everything already recorded stays readable, and nothing has been deleted.';
   }
   if (sub.status === 'past_due') {
     return 'The last payment failed. Update the card to avoid losing access.';
   }
   if (sub.status === 'trialing') {
-    if (!sub.trialEndsAt) return 'Trial ended.';
+    if (!sub.trialEndsAt) return null;
     const days = Math.ceil((new Date(sub.trialEndsAt).getTime() - now.getTime()) / 86_400_000);
-    if (days <= 0) return 'The trial has ended. Choose a plan to carry on.';
+    if (days <= 0) {
+      return 'The trial has ended, so this workspace is on the free plan. Choose a plan for the rest.';
+    }
     return `${days} day${days === 1 ? '' : 's'} left in the trial.`;
   }
   return null;

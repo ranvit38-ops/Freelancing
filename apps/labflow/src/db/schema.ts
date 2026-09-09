@@ -664,3 +664,15 @@ export const experimentLots = pgTable(
     pairUniq: uniqueIndex('experiment_lots_pair_key').on(t.experimentId, t.lotId),
   }),
 );
+
+/**
+ * One trial per person, keyed on the normalised address.
+ *
+ * Kept apart from users and workspaces on purpose: deleting an account must
+ * not hand back another trial, so this row outlives both.
+ */
+export const trialGrants = pgTable('trial_grants', {
+  email: text('email').primaryKey(),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
+  grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -28,7 +28,7 @@ const navItems: NavItem[] = [
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
   // Read access is never blocked, only writes. The banner says what applies.
-  const { plan, writable } = await workspacePlan(session);
+  const { plan, writable, state } = await workspacePlan(session);
   const myWorkspaces = await listMyWorkspaces();
   // LabBot needs somewhere to answer about; with no projects the panel hides
   // itself rather than offering an empty picker.
@@ -124,6 +124,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             to record again.
           </div>
         )}
+        {writable && state?.status === 'trialing' && trialDaysLeft(state) !== null ? (
+          <div
+            className={`border-b px-5 py-2.5 text-sm sm:px-8 ${
+              trialDaysLeft(state)! <= 3
+                ? 'border-warn/25 bg-warn/5 text-warn'
+                : 'border-line bg-raised text-muted'
+            }`}
+          >
+            {trialDaysLeft(state)! <= 0
+              ? 'Your trial has ended. This workspace is on the free plan now.'
+              : `${trialDaysLeft(state)} ${
+                  trialDaysLeft(state) === 1 ? 'day' : 'days'
+                } left in your trial. After that this workspace moves to the free plan: 1 project, 10 experiments, and nothing is deleted.`}{' '}
+            <Link href="/billing" className="font-medium underline underline-offset-2">
+              See plans
+            </Link>
+          </div>
+        ) : null}
         {plan === 'free' ? (
           <div className="border-b border-line bg-raised px-5 py-2 text-xs text-muted sm:px-8">
             Free plan: 1 project, 10 experiments, 5 LabBot questions a month.{' '}
@@ -137,4 +155,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <LabBotPanel projects={projectsForBot} />
     </div>
   );
+}
+
+/** Whole days remaining, or null when the trial has no end recorded. */
+function trialDaysLeft(state: { trialEndsAt: Date | string | null }): number | null {
+  if (!state.trialEndsAt) return null;
+  return Math.ceil((new Date(state.trialEndsAt).getTime() - Date.now()) / 86_400_000);
 }

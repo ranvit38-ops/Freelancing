@@ -80,7 +80,7 @@ export async function GET(request: Request) {
       return { userId: user.id, workspaceId: workspace.id };
     });
     userId = created.userId;
-    await startTrial(created.workspaceId, TRIAL_DAYS);
+    await startTrial(created.workspaceId, TRIAL_DAYS, email);
 
     // The deployment owner is comped rather than trialled.
     if (isOwnerEmail(email)) {

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getSession } from '@/server/auth';
 import { Badge, ButtonLink, Card, cx } from '@/components/ui';
 import { EXTRA_SEAT_PRICE, PLANS, PLAN_ORDER, formatLimitBytes, type PlanId } from '@/lib/plans';
 
@@ -35,7 +36,12 @@ const ROWS: { label: string; value: (id: PlanId) => string }[] = [
   { label: 'Invoice or PO billing', value: (id) => (PLANS[id].limits.invoiceBilling ? '✓' : 'No') },
 ];
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  // Someone already signed in who picks a plan wants to pay, not to sign up
+  // again. Sending them to /signup bounced them to the dashboard, which looked
+  // like the button did nothing.
+  const session = await getSession();
+  const startHref = session ? '/billing' : '/signup';
   return (
     <div className="bg-bg">
       <header className="border-b border-line">
@@ -44,8 +50,8 @@ export default function PricingPage() {
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
             Labvia
           </Link>
-          <ButtonLink href="/signup" size="sm">
-            Start free
+          <ButtonLink href={session ? '/dashboard' : '/signup'} size="sm">
+            {session ? 'Open your lab' : 'Start free'}
           </ButtonLink>
         </div>
       </header>
@@ -95,11 +101,17 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 <ButtonLink
-                  href="/signup"
+                  href={plan.monthly === 0 ? (session ? '/dashboard' : '/signup') : startHref}
                   tone={highlight ? 'primary' : 'secondary'}
                   className="mt-5 w-full"
                 >
-                  {plan.monthly === 0 ? 'Start free' : `Start with ${plan.name}`}
+                  {plan.monthly === 0
+                    ? session
+                      ? 'Open your lab'
+                      : 'Start free'
+                    : session
+                      ? `Choose ${plan.name}`
+                      : `Start with ${plan.name}`}
                 </ButtonLink>
               </Card>
             );

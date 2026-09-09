@@ -55,8 +55,9 @@ export async function createWorkspaceAction(
     return workspace.id;
   });
 
-  // Every new lab gets a trial rather than a locked door.
-  await startTrial(workspaceId, TRIAL_DAYS);
+  // A second workspace does not buy a second trial: the grant is per person,
+  // so this one starts on the free plan. Never a locked door either way.
+  await startTrial(workspaceId, TRIAL_DAYS, session.userEmail);
 
   cookies().set(WORKSPACE_COOKIE, workspaceId, {
     httpOnly: true,

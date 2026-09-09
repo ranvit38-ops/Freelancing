@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword } from '@/lib/password';
 import { normaliseEmail, slugify } from '@/lib/normalise';
 import { loginSchema, signupSchema } from '@/lib/validation';
 import { TRIAL_DAYS } from '@/lib/plans';
+import { isDisposableEmail } from '@/lib/trial-eligibility';
 import { acceptInvite, findInviteByToken, startTrial } from '../queries';
 import { createSession, destroySession } from '../auth';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
@@ -49,6 +50,15 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
   if (limited) return limited;
 
   const parsed = signupSchema.safeParse(formObject(formData));
+  if (parsed.success && isDisposableEmail(parsed.data.email)) {
+    // Throwaway inboxes exist to farm trials. Say so plainly rather than
+    // failing in a way that looks like a bug.
+    return {
+      fieldErrors: {
+        email: 'Use a permanent address. Temporary inboxes cannot receive an invitation or a password reset.',
+      },
+    };
+  }
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
   const email = normaliseEmail(parsed.data.email);
@@ -88,7 +98,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     return user.id;
   });
 
-  await startTrial(workspaceIdCreated, TRIAL_DAYS);
+  await startTrial(workspaceIdCreated, TRIAL_DAYS, parsed.data.email);
   if (invite) await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
   await createSession(userId);
   redirect('/dashboard');

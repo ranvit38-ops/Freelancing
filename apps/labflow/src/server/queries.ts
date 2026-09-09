@@ -1,5 +1,6 @@
 import { and, count, desc, eq, gt, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
+import { normaliseEmail } from '@/lib/trial-eligibility';
 import {
   aiGenerations,
   datasetColumns as datasetColumnsTable,
@@ -27,6 +28,7 @@ import {
   inventoryItems,
   inventoryLots,
   experimentLots,
+  trialGrants,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
@@ -1611,15 +1613,41 @@ export async function seatUsage(s: SessionContext) {
 }
 
 /** Starts every new workspace on a trial rather than a locked door. */
-export async function startTrial(workspaceId: string, days: number) {
+/**
+ * Starts a workspace on a trial, or on the free plan if this person has had
+ * one before.
+ *
+ * The claim is written first and conditionally: if the row already exists the
+ * insert affects nothing, and that is the signal. Doing it in that order means
+ * two simultaneous signups cannot both win, and the record survives deleting
+ * the account, which is the loop worth closing.
+ */
+export async function startTrial(
+  workspaceId: string,
+  days: number,
+  email: string,
+): Promise<'trial' | 'free'> {
+  const claimed = await db
+    .insert(trialGrants)
+    .values({ email: normaliseEmail(email), workspaceId })
+    .onConflictDoNothing({ target: trialGrants.email })
+    .returning({ email: trialGrants.email });
+
+  const first = claimed.length > 0;
   await db
     .insert(workspaceSubscriptions)
-    .values({
-      workspaceId,
-      status: 'trialing',
-      trialEndsAt: new Date(Date.now() + days * 86_400_000),
-    })
+    .values(
+      first
+        ? {
+            workspaceId,
+            status: 'trialing',
+            trialEndsAt: new Date(Date.now() + days * 86_400_000),
+          }
+        : { workspaceId, status: 'none', trialEndsAt: null },
+    )
     .onConflictDoNothing({ target: workspaceSubscriptions.workspaceId });
+
+  return first ? 'trial' : 'free';
 }
 
 export async function setStripeCustomer(s: SessionContext, customerId: string) {

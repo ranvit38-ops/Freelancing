@@ -7,8 +7,7 @@ import {
   seatsRemaining,
   subscriptionNotice,
   usable,
-  type SubscriptionState,
-} from './plans';
+  type SubscriptionState, effectivePlan } from './plans';
 
 const NOW = new Date('2026-05-01T00:00:00Z');
 const base: SubscriptionState = {
@@ -20,10 +19,16 @@ const base: SubscriptionState = {
 };
 
 describe('canWrite', () => {
-  it('allows an active plan and stops a lapsed one', () => {
+  it('allows an active plan and stops one that was paid for and ended', () => {
     expect(usable(base, NOW)).toBe(true);
     expect(usable({ ...base, status: 'canceled' }, NOW)).toBe(false);
-    expect(usable({ ...base, plan: null, status: 'none' }, NOW)).toBe(false);
+  });
+
+  it('lets a workspace that never paid write on the free plan', () => {
+    // Locking out everyone who has not paid would mean nobody can evaluate the
+    // product without a card. The free limits create the upgrade pressure.
+    expect(usable({ ...base, plan: null, status: 'none' }, NOW)).toBe(true);
+    expect(effectivePlan({ ...base, plan: null, status: 'none' }, NOW)).toBe('free');
   });
 
   it('lets a workspace with no subscription row write on the free plan', () => {
@@ -35,10 +40,17 @@ describe('canWrite', () => {
     expect(usable({ ...base, status: 'past_due' }, NOW)).toBe(true);
   });
 
-  it('allows a trial until it expires, then stops', () => {
-    expect(usable({ ...base, status: 'trialing', trialEndsAt: '2026-05-10' }, NOW)).toBe(true);
-    expect(usable({ ...base, status: 'trialing', trialEndsAt: '2026-04-20' }, NOW)).toBe(false);
-    expect(usable({ ...base, status: 'trialing', trialEndsAt: null }, NOW)).toBe(false);
+  it('gives a live trial the Lab plan, and an expired one the free plan', () => {
+    const live = { ...base, status: 'trialing' as const, trialEndsAt: '2026-05-10' };
+    const over = { ...base, status: 'trialing' as const, trialEndsAt: '2026-04-20' };
+    expect(usable(live, NOW)).toBe(true);
+    expect(effectivePlan(live, NOW)).toBe('lab');
+
+    // An expired trial drops to free rather than locking the lab out of its
+    // own records. Writing continues, within the free limits.
+    expect(usable(over, NOW)).toBe(true);
+    expect(effectivePlan(over, NOW)).toBe('free');
+    expect(usable({ ...base, status: 'trialing', trialEndsAt: null }, NOW)).toBe(true);
   });
 });
 
