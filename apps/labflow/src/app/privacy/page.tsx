@@ -38,7 +38,7 @@ const sections = [
   {
     title: 'Deleting things',
     body: [
-      'Deleting a project, experiment, sample or file removes it and everything attached to it immediately.',
+      'Deleting a project, experiment, sample, file, note or research update removes it and everything derived from it immediately. A sample still recorded against an experiment is refused rather than silently unlinked, so remove it from that run first.',
       'Ending a paid plan never deletes anything. The workspace becomes read-only: every record, file and dataset stays exactly where it is and stays readable. We will not hold your research hostage over a lapsed invoice.',
       'To delete an entire workspace, or to get a copy of everything in it, write to the address below.',
     ],
@@ -47,7 +47,7 @@ const sections = [
     title: 'Cookies',
     body: [
       'One cookie, holding your session token. It is HttpOnly, SameSite=lax, and Secure in production. There is no advertising, no analytics and no third-party tracking on this site.',
-      'Your theme choice is kept in your browser and never sent to us.',
+      'Your theme choice, and whether the LabBot panel is open, are kept in your browser and never sent to us.',
     ],
   },
 ];

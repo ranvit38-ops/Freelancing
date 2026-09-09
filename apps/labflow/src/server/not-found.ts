@@ -11,6 +11,14 @@ export class NotFoundInWorkspaceError extends Error {
   }
 }
 
+/** Thrown when a record cannot be removed because something still refers to it. */
+export class InUseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InUseError';
+  }
+}
+
 export function assertFound<T>(value: T | undefined | null, entity: string): T {
   if (value === undefined || value === null) throw new NotFoundInWorkspaceError(entity);
   return value;

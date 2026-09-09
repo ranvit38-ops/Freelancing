@@ -31,7 +31,7 @@ import {
   trialGrants,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
-import { NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
+import { InUseError, NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
 
 /*
  * Every function here takes the caller's SessionContext and filters on
@@ -2027,4 +2027,48 @@ export async function lotOptions(s: SessionContext) {
     .innerJoin(inventoryItems, eq(inventoryItems.id, inventoryLots.itemId))
     .where(eq(inventoryLots.workspaceId, s.workspaceId))
     .orderBy(inventoryItems.name, desc(inventoryLots.createdAt));
+}
+
+/* ── 18. deletions the privacy statement promises ───────────────────────── */
+
+/**
+ * Removes a sample.
+ *
+ * A sample recorded against a run is refused rather than silently unlinked:
+ * deleting it would leave the experiment claiming a sample that no longer
+ * exists, which is a worse record than a sample you have to detach first.
+ */
+export async function deleteSample(s: SessionContext, sampleId: string) {
+  assertId(sampleId, 'Sample');
+  const used = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(experimentSamples)
+    .where(eq(experimentSamples.sampleId, sampleId));
+  if ((used[0]?.n ?? 0) > 0) {
+    throw new InUseError(
+      'This sample is recorded against an experiment. Remove it from that run first.',
+    );
+  }
+  const rows = await db
+    .delete(samples)
+    .where(and(eq(samples.id, sampleId), eq(samples.workspaceId, s.workspaceId)))
+    .returning({ id: samples.id });
+  return assertFound(rows[0], 'Sample').id;
+}
+
+/**
+ * Removes a file and anything derived from it.
+ *
+ * The row goes first and returns the storage key, so a failure to unlink the
+ * bytes cannot leave a row pointing at nothing. The reverse order can strand a
+ * record whose file is already gone, which is the worse of the two.
+ */
+export async function deleteFile(s: SessionContext, fileId: string) {
+  assertId(fileId, 'File');
+  const rows = await db
+    .delete(files)
+    .where(and(eq(files.id, fileId), eq(files.workspaceId, s.workspaceId)))
+    .returning({ id: files.id, storageKey: files.storageKey });
+  const row = assertFound(rows[0], 'File');
+  return row;
 }

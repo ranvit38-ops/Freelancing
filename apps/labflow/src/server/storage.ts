@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { env } from '@/lib/env';
@@ -33,6 +33,22 @@ export async function getFile(storageKey: string): Promise<Buffer> {
   // Refuse anything that escapes the upload root, whatever the key claims.
   if (!path.startsWith(root())) throw new Error('Invalid storage key');
   return readFile(path);
+}
+
+/**
+ * Deletes the bytes behind a stored file.
+ *
+ * A key that has already gone is not an error: the record is what matters, and
+ * failing here would leave a deleted row with its file still on disk.
+ */
+export async function removeFile(storageKey: string): Promise<void> {
+  const path = resolve(root(), storageKey);
+  if (!path.startsWith(root())) throw new Error('Invalid storage key');
+  try {
+    await unlink(path);
+  } catch {
+    // Already gone, or never written. Nothing to do.
+  }
 }
 
 /** Uploads above this are rejected rather than silently truncated. */

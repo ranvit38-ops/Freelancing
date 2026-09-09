@@ -1,3 +1,5 @@
+import { ConfirmSubmit } from '@/components/file-upload';
+import { deleteFileAction } from '@/server/actions/records';
 import Link from 'next/link';
 import { Badge, Card, CardHeader, EmptyState, PageHeader } from '@/components/ui';
 import { experimentCode, formatBytes, formatDate, pluralise } from '@/lib/display';
@@ -76,6 +78,19 @@ export default async function FilesPage({ searchParams }: { searchParams: { q?: 
                   ) : null}
                   <span className="shrink-0 text-xs text-subtle">{formatBytes(f.byteSize)}</span>
                   <span className="shrink-0 text-xs text-subtle">{formatDate(f.createdAt)}</span>
+                  <form action={deleteFileAction} className="shrink-0">
+                    <input type="hidden" name="fileId" value={f.id} />
+                    {f.experimentId ? (
+                      <input type="hidden" name="experimentId" value={f.experimentId} />
+                    ) : null}
+                    <ConfirmSubmit
+                      tone="secondary"
+                      size="sm"
+                      message={`Delete ${f.filename}? This removes the file and anything parsed from it, and cannot be undone.`}
+                    >
+                      Delete
+                    </ConfirmSubmit>
+                  </form>
                 </div>
                 <p className="mt-1 text-xs text-muted">
                   {f.experimentId ? (

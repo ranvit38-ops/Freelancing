@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/server/auth';
+import { featureNotIncluded, hasFeature } from '@/server/paywall';
 import { NotFoundInWorkspaceError } from '@/server/not-found';
 import { firstPlottableDataset, getResearchUpdate } from '@/server/queries';
 import { buildPptx } from '@/lib/pptx';
@@ -13,6 +14,15 @@ export const runtime = 'nodejs';
 export async function GET(_request: Request, { params }: { params: { updateId: string } }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+  // The pricing page says PowerPoint export starts at Lab. A download URL
+  // anyone can paste is not gated by hiding the button.
+  if (!(await hasFeature(session, 'pptxExport'))) {
+    return NextResponse.json(
+      { error: featureNotIncluded('PowerPoint export') },
+      { status: 402 },
+    );
+  }
 
   try {
     const update = await getResearchUpdate(session, params.updateId);

@@ -13,6 +13,8 @@ import {
   zipConditions,
 } from '@/lib/validation';
 import { requireSession, NotFoundInWorkspaceError } from '../authz';
+import { InUseError } from '../not-found';
+import { removeFile } from '../storage';
 import { blockedReason } from '../paywall';
 import * as q from '../queries';
 import { fieldErrorsFrom, formObject, type ActionState } from './types';
@@ -268,4 +270,34 @@ export async function addProtocolVersionAction(
   if (result && typeof result === 'object' && 'error' in result) return result;
   revalidatePath(`/protocols/${protocolId}`);
   redirect(`/protocols/${protocolId}`);
+}
+
+/* ── deletions ──────────────────────────────────────────────────────────── */
+
+export async function deleteSampleAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  if (await blockedReason(session)) return;
+  try {
+    await q.deleteSample(session, String(formData.get('sampleId') ?? ''));
+  } catch (error) {
+    // A sample still recorded against a run is refused, not force-removed.
+    if (error instanceof InUseError || error instanceof NotFoundInWorkspaceError) {
+      redirect(`/samples/${String(formData.get('sampleId') ?? '')}?error=in-use`);
+    }
+    throw error;
+  }
+  revalidatePath('/samples');
+  redirect('/samples');
+}
+
+export async function deleteFileAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  if (await blockedReason(session)) return;
+  const experimentId = String(formData.get('experimentId') ?? '');
+  const row = await guard(() => q.deleteFile(session, String(formData.get('fileId') ?? '')));
+  if (row && typeof row === 'object' && 'storageKey' in row && row.storageKey) {
+    await removeFile(row.storageKey);
+  }
+  revalidatePath('/files');
+  if (experimentId) revalidatePath(`/experiments/${experimentId}`);
 }

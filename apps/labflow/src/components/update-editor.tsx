@@ -24,11 +24,14 @@ export function UpdateEditor({
   title,
   status,
   sections,
+  canExport,
 }: {
   updateId: string;
   title: string;
   status: 'draft' | 'final';
   sections: UpdateSection[];
+  /** False on a plan without PowerPoint export. */
+  canExport: boolean;
 }) {
   const [state, action] = useFormState(saveUpdateAction, noState);
   const [rows, setRows] = useState(sections);
@@ -102,13 +105,24 @@ export function UpdateEditor({
 
       <div className="flex flex-wrap items-center gap-3">
         <SubmitButton pendingLabel="Saving…">Save update</SubmitButton>
-        <a
-          href={`/api/updates/${updateId}/pptx`}
-          className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium hover:bg-raised"
-        >
-          Export as PowerPoint
-        </a>
-        <span className="text-xs text-subtle">Export uses the last saved version.</span>
+        {canExport ? (
+          <>
+            <a
+              href={`/api/updates/${updateId}/pptx`}
+              className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium hover:bg-raised"
+            >
+              Export as PowerPoint
+            </a>
+            <span className="text-xs text-subtle">Export uses the last saved version.</span>
+          </>
+        ) : (
+          <span className="text-xs text-subtle">
+            PowerPoint export starts at Lab.{' '}
+            <a href="/billing" className="underline underline-offset-2">
+              See plans
+            </a>
+          </span>
+        )}
       </div>
 
       <Card className="p-5">

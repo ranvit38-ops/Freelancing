@@ -1,3 +1,4 @@
+import { hasFeature } from '@/server/paywall';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DeleteUpdateForm, UpdateEditor } from '@/components/update-editor';
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function UpdatePage({ params }: { params: { updateId: string } }) {
   const session = await requireSession();
+  const canExport = await hasFeature(session, 'pptxExport');
   try {
     const update = await getResearchUpdate(session, params.updateId);
     return (
@@ -29,6 +31,7 @@ export default async function UpdatePage({ params }: { params: { updateId: strin
           actions={<DeleteUpdateForm updateId={update.id} />}
         />
         <UpdateEditor
+          canExport={canExport}
           updateId={update.id}
           title={update.title}
           status={update.status}

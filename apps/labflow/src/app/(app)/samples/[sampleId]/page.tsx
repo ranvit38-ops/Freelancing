@@ -1,3 +1,5 @@
+import { ConfirmSubmit } from '@/components/file-upload';
+import { deleteSampleAction } from '@/server/actions/records';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { StatusBadge } from '@/components/records';
@@ -8,7 +10,13 @@ import { experimentsForSample, getSample } from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SamplePage({ params }: { params: { sampleId: string } }) {
+export default async function SamplePage({
+  params,
+  searchParams,
+}: {
+  params: { sampleId: string };
+  searchParams?: { error?: string };
+}) {
   const session = await requireSession();
   try {
     const sample = await getSample(session, params.sampleId);
@@ -16,7 +24,27 @@ export default async function SamplePage({ params }: { params: { sampleId: strin
 
     return (
       <div className="mx-auto max-w-3xl">
-        <PageHeader eyebrow="Sample" title={<span className="font-mono">{sample.code}</span>} />
+        <PageHeader
+          eyebrow="Sample"
+          title={<span className="font-mono">{sample.code}</span>}
+          back={{ href: '/samples', label: 'Samples' }}
+          actions={
+            <form action={deleteSampleAction}>
+              <input type="hidden" name="sampleId" value={sample.id} />
+              <ConfirmSubmit
+                tone="secondary"
+                message={`Delete sample ${sample.code}? This cannot be undone.`}
+              >
+                Delete sample
+              </ConfirmSubmit>
+            </form>
+          }
+        />
+        {searchParams?.error === 'in-use' ? (
+          <p className="mb-4 rounded-lg border border-warn/25 bg-warn/5 px-4 py-3 text-sm text-warn">
+            This sample is recorded against an experiment. Remove it from that run first.
+          </p>
+        ) : null}
         <div className="space-y-5">
           <Card className="p-5">
             <DefinitionList
