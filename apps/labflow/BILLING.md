@@ -38,6 +38,7 @@ From **Developers → API keys**, copy the secret key. Use the **test** key
 
 ```bash
 STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."     # step 4 produces this
 STRIPE_PRICE_LAB="price_..."
 STRIPE_PRICE_GROUP="price_..."
 STRIPE_PRICE_DEPARTMENT="price_..."
@@ -46,6 +47,17 @@ NEXT_PUBLIC_APP_URL="https://your-domain.com"
 
 Never commit these. `.env.local` is gitignored; on a host, use its environment
 variable settings.
+
+Then check them before going further:
+
+```bash
+npm run stripe:check
+```
+
+It asks Stripe what each id actually is and compares it to what the pricing
+page promises: right mode, recurring monthly, right amount, not archived. It
+only reads, and charges nothing. A price created with Test mode switched off is
+the most common mistake, and this is what catches it.
 
 ## 4. Point the webhook at Labvia
 
@@ -60,13 +72,32 @@ Copy the signing secret (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`.
 **This step is not optional.** The webhook is the only thing that writes
 subscription state — without it a customer pays and nothing unlocks.
 
-To test it locally, [install the Stripe CLI](https://stripe.com/docs/stripe-cli):
+### Locally, or in a Codespace
+
+A dashboard endpoint needs a public URL. While the app is only running on your
+own machine or in a Codespace, use the Stripe CLI instead. It logs in to your
+account, listens for events, and forwards them to the app over the connection
+it opened, so nothing has to be reachable from the internet.
 
 ```bash
+# Install (Codespaces and most Linux):
+curl -fsSL https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public \
+  | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/stripe.gpg] https://packages.stripe.dev/stripe-cli-debian-local stable main" \
+  | sudo tee /etc/apt/sources.list.d/stripe.list
+sudo apt update && sudo apt install stripe
+
+stripe login          # opens a browser to authorise this machine
 stripe listen --forward-to localhost:3001/api/stripe/webhook
 ```
 
-It prints a `whsec_…` for local use.
+The `listen` command prints `Your webhook signing secret is whsec_…`. That is
+the value for `STRIPE_WEBHOOK_SECRET`. It is a different secret from the one a
+dashboard endpoint gives you, and it changes each time unless you pass
+`--load-from-webhooks-api`.
+
+Leave `stripe listen` running in its own terminal while you test. Restart
+`npm run dev` after adding the secret, because the app reads it at startup.
 
 ## 5. Turn on the customer portal
 
@@ -82,6 +113,18 @@ any CVC. Then check:
 - `/billing` shows the plan as active
 - Stripe shows the subscription and an invoice
 - Inviting people stops at the number of people the plan covers
+- The terminal running `stripe listen` shows the events arriving with `200`
+
+A `400` in that terminal means the signing secret does not match. A connection
+error means the app is not running on port 3001.
+
+Cards worth trying, all with any future expiry and any CVC:
+
+| Card number | What it does |
+|---|---|
+| 4242 4242 4242 4242 | succeeds |
+| 4000 0000 0000 9995 | declined, insufficient funds |
+| 4000 0025 0000 3155 | asks for 3D Secure authentication |
 
 Only then swap in the live keys.
 
