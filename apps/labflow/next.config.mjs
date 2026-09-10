@@ -32,12 +32,31 @@ const extra = (process.env.LABFLOW_ALLOWED_ORIGINS ?? '')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+/**
+ * The deployed domain is already declared once, for Stripe redirects and email
+ * links. Deriving the allowed origin from it means a real deployment needs no
+ * second variable saying the same thing, and forms do not silently fail on a
+ * host that terminates TLS in front of the app.
+ */
+const deployed = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_APP_URL ? [new URL(process.env.NEXT_PUBLIC_APP_URL).host] : [];
+  } catch {
+    return [];
+  }
+})();
+
 const nextConfig = {
   reactStrictMode: true,
   eslint: { dirs: ['src'] },
+  // Bundles the server and only the dependencies it actually reaches, so the
+  // container does not need node_modules or a package manager to boot.
+  output: 'standalone',
   experimental: {
     serverComponentsExternalPackages: ['pg'],
-    serverActions: { allowedOrigins: [...codespace, ...proxyOrigins, ...extra] },
+    serverActions: {
+      allowedOrigins: [...codespace, ...deployed, ...proxyOrigins, ...extra],
+    },
   },
 };
 export default nextConfig;

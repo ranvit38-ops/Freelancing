@@ -5,7 +5,7 @@ import { isPlanId } from '@/lib/plans';
 import { absoluteUrl } from '../mailer';
 import { requireSession } from '../authz';
 import * as q from '../queries';
-import { BillingNotConfiguredError, billingConfigured, priceIdFor, stripe } from '../billing';
+import { BillingNotConfiguredError, billingProblem, priceIdFor, stripe } from '../billing';
 import type { ActionState } from './types';
 
 /**
@@ -29,10 +29,10 @@ export async function startCheckoutAction(
     return { error: 'Choose one of the paid plans.' };
   }
 
-  if (!billingConfigured()) {
+  const problem = billingProblem();
+  if (problem) {
     return {
-      error:
-        'Payments are not configured on this deployment yet, so checkout cannot open. Nothing was charged.',
+      error: `Payments are not configured on this deployment, so checkout cannot open. Nothing was charged. ${problem}`,
     };
   }
 

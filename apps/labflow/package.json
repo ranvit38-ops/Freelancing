@@ -10,7 +10,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:push": "tsx src/db/migrate.ts",
+    "db:push": "node scripts/migrate.mjs",
     "db:seed": "tsx src/db/seed.ts",
     "e2e": "node e2e/smoke.mjs",
     "setup": "node scripts/setup.mjs",

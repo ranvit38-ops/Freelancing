@@ -34,11 +34,31 @@ const PRICE_ENV: Record<PaidPlanId, string> = {
 
 type PaidPlanId = Exclude<PlanId, 'free'>;
 
-export function billingConfigured(): boolean {
-  return Boolean(
-    process.env.STRIPE_SECRET_KEY &&
-      Object.values(PRICE_ENV).every((key) => process.env[key]),
-  );
+/**
+ * What is stopping this deployment taking a payment, in words, or null when
+ * nothing is.
+ *
+ * Naming the actual gap matters more than it looks. A deployment with perfect
+ * Stripe keys and no public address is broken in a way that says nothing about
+ * Stripe, and being told to check the keys sends you looking in the one place
+ * the fault is not.
+ */
+export function billingProblem(): string | null {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return 'STRIPE_SECRET_KEY is not set, so this deployment cannot reach Stripe.';
+  }
+  const missing = (Object.keys(PRICE_ENV) as PaidPlanId[])
+    .filter((plan) => !process.env[PRICE_ENV[plan]])
+    .map((plan) => PRICE_ENV[plan]);
+  if (missing.length > 0) {
+    return `${missing.join(' and ')} ${missing.length === 1 ? 'is' : 'are'} not set, so those plans have no price to charge.`;
+  }
+  // A checkout with no public address sends the customer back to localhost
+  // after paying. Refuse rather than take the money and strand them.
+  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_APP_URL) {
+    return 'NEXT_PUBLIC_APP_URL is not set, so Stripe would send customers back to localhost after paying.';
+  }
+  return null;
 }
 
 export function stripe(): Stripe {

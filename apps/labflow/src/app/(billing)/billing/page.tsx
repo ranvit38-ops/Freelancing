@@ -10,7 +10,7 @@ import {
   subscriptionNotice,
   toSubscriptionState,
 } from '@/lib/plans';
-import { billingConfigured } from '@/server/billing';
+import { billingProblem } from '@/server/billing';
 import { requireSession } from '@/server/authz';
 import { getSubscription, seatUsage } from '@/server/queries';
 
@@ -116,12 +116,12 @@ export default async function BillingPage({
               Billing address and tax ID are collected at checkout, because a university finance
               office will not accept an invoice without them.
             </p>
-            {billingConfigured() ? null : (
+            {billingProblem() ? (
               <p className="rounded-lg border border-warn/25 bg-warn/5 px-3 py-2 text-warn">
-                Payments are not configured on this deployment, so checkout cannot open. Nothing can
-                be charged until Stripe keys and price IDs are set.
+                Payments are not configured on this deployment, so checkout cannot open and nothing
+                can be charged. {billingProblem()}
               </p>
-            )}
+            ) : null}
           </div>
         </Card>
       </div>

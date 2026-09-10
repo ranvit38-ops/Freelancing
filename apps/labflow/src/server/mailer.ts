@@ -40,8 +40,24 @@ export async function sendEmail(
   }
 }
 
-/** Absolute links for emails; relative paths are useless in an inbox. */
+/**
+ * Absolute links for emails and for Stripe's return URLs. Relative paths are
+ * useless in an inbox, and worse at a payment provider.
+ *
+ * In production the localhost fallback is not a fallback, it is a trap: a
+ * customer pays, Stripe sends them to http://localhost:3001, and they land on
+ * a dead page believing the payment failed. Refusing outright is the only
+ * honest option, and it fails before the charge rather than after it.
+ */
 export function absoluteUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
+  const base = process.env.NEXT_PUBLIC_APP_URL;
+  if (!base) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'NEXT_PUBLIC_APP_URL is not set. Set it to this deployment\'s public address, for example https://labvia.com, so payment redirects and email links point somewhere real.',
+      );
+    }
+    return `http://localhost:3001${path}`;
+  }
   return `${base.replace(/\/$/, '')}${path}`;
 }

@@ -113,7 +113,7 @@ async function main() {
   }
 
   step('3/4  Applying migrations');
-  execSync('npx tsx src/db/migrate.ts', { stdio: 'inherit', env: { ...process.env, DATABASE_URL: url } });
+  execSync('node scripts/migrate.mjs', { stdio: 'inherit', env: { ...process.env, DATABASE_URL: url } });
 
   step('4/4  Seeding the demo lab');
   const seed = await confirm(
