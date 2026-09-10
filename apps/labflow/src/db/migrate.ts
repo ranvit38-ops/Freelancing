@@ -3,6 +3,7 @@
  * idempotent, so re-running is safe; a real deployment would also record
  * applied filenames, which is the next thing to add here.
  */
+import './load-env';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pool } from './index';

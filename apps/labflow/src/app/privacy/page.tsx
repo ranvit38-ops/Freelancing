@@ -9,7 +9,7 @@ const sections = [
       'Your account: name, email address, and a scrypt hash of your password. The password itself is never stored and cannot be recovered from the hash. If you sign in with Google we store the address Google gives us and no password at all.',
       'Your research: everything you put into a workspace. Projects, experiments, protocols, samples, inventory, files, datasets, discussion messages and saved literature.',
       'Your sessions: a SHA-256 hash of the cookie token, never the token itself, alongside its expiry. Signing out deletes the row.',
-      'Your billing state: plan, status, seat count and the Stripe customer and subscription identifiers. Card numbers never reach our servers. Stripe collects and holds them.',
+      'Your billing state: plan, status and the Stripe customer and subscription identifiers. Card numbers never reach our servers. Stripe collects and holds them.',
     ],
   },
   {

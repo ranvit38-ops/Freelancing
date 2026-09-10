@@ -52,7 +52,6 @@ export async function redeemOwnerCodeAction(
     workspaceId: session.workspaceId,
     plan: 'department',
     status: 'active',
-    extraSeats: 0,
     currentPeriodEnd: null,
     stripeCustomerId: null,
     stripeSubscriptionId: null,

@@ -94,7 +94,6 @@ export async function GET(request: Request) {
         workspaceId: created.workspaceId,
         plan: 'department',
         status: 'active',
-        extraSeats: 0,
         currentPeriodEnd: null,
         stripeCustomerId: null,
         stripeSubscriptionId: null,

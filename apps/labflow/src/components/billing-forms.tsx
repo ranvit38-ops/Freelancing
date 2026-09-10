@@ -5,7 +5,7 @@ import { Badge, Card, FormError, cx } from './ui';
 import { SubmitButton } from './submit-button';
 import { openBillingPortalAction, startCheckoutAction } from '@/server/actions/billing';
 import { noState } from '@/server/actions/types';
-import { EXTRA_SEAT_PRICE, PLANS, PLAN_ORDER, type PlanId } from '@/lib/plans';
+import { PLANS, PLAN_ORDER, type PlanId } from '@/lib/plans';
 
 /** The plan cards. Choosing one opens Stripe Checkout. */
 export function PlanPicker({
@@ -41,7 +41,10 @@ export function PlanPicker({
                 <span className="text-sm text-muted"> /month</span>
               </p>
               <p className="mt-1 text-xs text-subtle">
-                or ${plan.yearly}/year, which is two months free. Extra people ${EXTRA_SEAT_PRICE}/month each.
+                {id === 'free'
+                  ? 'No card, no expiry.'
+                  : `or $${plan.yearly}/year, which is two months free.`}{' '}
+                Up to {plan.seats} {plan.seats === 1 ? 'person' : 'people'}.
               </p>
               <ul className="mt-4 flex-1 space-y-1.5 text-sm">
                 {plan.features.map((feature) => (
@@ -51,17 +54,27 @@ export function PlanPicker({
                   </li>
                 ))}
               </ul>
-              <form action={action} className="mt-5">
-                <input type="hidden" name="plan" value={id} />
-                <SubmitButton
-                  tone={current ? 'secondary' : 'primary'}
-                  className="w-full"
-                  disabled={!canManage}
-                  pendingLabel="Opening Stripe…"
-                >
-                  {current ? 'Change plan' : `Choose ${plan.name}`}
-                </SubmitButton>
-              </form>
+              {/* Free is what a workspace falls back to, not something to buy.
+                  Checkout refuses it, so offering a button here would only ever
+                  produce an error. */}
+              {id === 'free' ? (
+                <p className="mt-5 text-xs text-subtle">
+                  Where a workspace sits with no plan, and where it returns if a plan ends.
+                  Nothing is deleted.
+                </p>
+              ) : (
+                <form action={action} className="mt-5">
+                  <input type="hidden" name="plan" value={id} />
+                  <SubmitButton
+                    tone={current ? 'secondary' : 'primary'}
+                    className="w-full"
+                    disabled={!canManage}
+                    pendingLabel="Opening Stripe…"
+                  >
+                    {current ? 'Change plan' : `Choose ${plan.name}`}
+                  </SubmitButton>
+                </form>
+              )}
             </Card>
           );
         })}

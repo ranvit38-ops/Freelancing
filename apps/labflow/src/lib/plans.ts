@@ -6,6 +6,10 @@
  * all have a free tier. So Labvia is priced per *lab*, not per seat, and lands
  * well under the paid comparator — a five-person lab pays about a third of what
  * LabArchives charges for the same five people.
+ *
+ * There is deliberately no per-person add-on. A lab that outgrows its plan
+ * moves up a plan. That keeps the price a lab can state in one sentence, and
+ * keeps Stripe down to three products with nothing metered.
  */
 
 export type PlanId = 'free' | 'lab' | 'group' | 'department';
@@ -17,6 +21,7 @@ export type Plan = {
   monthly: number;
   /** Two months free, the usual annual discount. */
   yearly: number;
+  /** People who may be in the workspace. The way to get more is a bigger plan. */
   seats: number;
   blurb: string;
   features: string[];
@@ -150,16 +155,12 @@ export const PLAN_ORDER: PlanId[] = ['free', 'lab', 'group', 'department'];
 /** Only these can be bought; free is what you fall back to. */
 export const PAID_PLANS: PlanId[] = ['lab', 'group', 'department'];
 
-/** Extra seats beyond the plan, charged per person per month. */
-export const EXTRA_SEAT_PRICE = 9;
-
 /** A new workspace gets this long to try Labvia before it needs a plan. */
 export const TRIAL_DAYS = 14;
 
 export type SubscriptionState = {
   plan: PlanId | null;
   status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'none';
-  extraSeats: number;
   trialEndsAt: Date | string | null;
   currentPeriodEnd: Date | string | null;
 };
@@ -182,10 +183,9 @@ export function limitsFor(sub: SubscriptionState | null, now: Date = new Date())
   return PLANS[effectivePlan(sub, now)].limits;
 }
 
-/** Seats a workspace may fill, including any bought beyond the plan. */
+/** People this workspace may hold. Fixed by the plan; more people means a bigger plan. */
 export function seatLimit(sub: SubscriptionState | null, now: Date = new Date()): number {
-  const plan = effectivePlan(sub, now);
-  return PLANS[plan].seats + (plan === 'free' ? 0 : (sub?.extraSeats ?? 0));
+  return PLANS[effectivePlan(sub, now)].seats;
 }
 
 function trialLive(sub: SubscriptionState, now: Date): boolean {
@@ -256,9 +256,9 @@ export function subscriptionNotice(
   return null;
 }
 
-/** Monthly total including extra seats, for display. */
-export function monthlyTotal(plan: PlanId, extraSeats: number): number {
-  return PLANS[plan].monthly + extraSeats * EXTRA_SEAT_PRICE;
+/** What a workspace on this plan pays each month. The plan price, and nothing else. */
+export function monthlyTotal(plan: PlanId): number {
+  return PLANS[plan].monthly;
 }
 
 /**
@@ -272,7 +272,6 @@ export function monthlyTotal(plan: PlanId, extraSeats: number): number {
 export function toSubscriptionState(row: {
   plan: string | null;
   status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'none';
-  extraSeats: number;
   trialEndsAt: Date | string | null;
   currentPeriodEnd: Date | string | null;
 } | null): SubscriptionState | null {
@@ -280,7 +279,6 @@ export function toSubscriptionState(row: {
   return {
     plan: row.plan && isPlanId(row.plan) ? row.plan : null,
     status: row.status,
-    extraSeats: row.extraSeats,
     trialEndsAt: row.trialEndsAt,
     currentPeriodEnd: row.currentPeriodEnd,
   };

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/server/auth';
 import { Badge, ButtonLink, Card, cx } from '@/components/ui';
-import { EXTRA_SEAT_PRICE, PLANS, PLAN_ORDER, formatLimitBytes, type PlanId } from '@/lib/plans';
+import { PLANS, PLAN_ORDER, formatLimitBytes, type PlanId } from '@/lib/plans';
 
 export const metadata = {
   title: 'Pricing',
@@ -119,8 +119,9 @@ export default async function PricingPage() {
         </div>
 
         <p className="mt-4 text-sm text-muted">
-          Need more people on any paid plan? Extra seats are ${EXTRA_SEAT_PRICE} per person per
-          month. Every paid plan starts with a 14-day trial.
+          Each plan covers a fixed number of people, and the price you see is the price you pay.
+          There is no per-person add-on to work out. A lab that grows past its plan moves up to the
+          next one. Every paid plan starts with a 14-day trial.
         </p>
 
         <h2 className="mt-16 text-2xl font-semibold tracking-tight">Compare plans</h2>
@@ -174,7 +175,7 @@ export default async function PricingPage() {
               },
               {
                 q: 'What counts as a person?',
-                a: 'Anyone who can open the workspace. An invitation you have sent but nobody has accepted holds a seat until it is accepted or revoked.',
+                a: 'Anyone who can open the workspace. An invitation you have sent but nobody has accepted counts toward the limit until it is accepted or revoked. When a lab needs more people than its plan covers, the next plan up is the way to get them.',
               },
             ].map((item) => (
               <div key={item.q}>

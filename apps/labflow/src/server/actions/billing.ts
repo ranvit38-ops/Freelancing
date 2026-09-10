@@ -5,13 +5,7 @@ import { isPlanId } from '@/lib/plans';
 import { absoluteUrl } from '../mailer';
 import { requireSession } from '../authz';
 import * as q from '../queries';
-import {
-  BillingNotConfiguredError,
-  billingConfigured,
-  priceIdFor,
-  seatPriceId,
-  stripe,
-} from '../billing';
+import { BillingNotConfiguredError, billingConfigured, priceIdFor, stripe } from '../billing';
 import type { ActionState } from './types';
 
 /**
@@ -34,7 +28,6 @@ export async function startCheckoutAction(
   if (!isPlanId(plan) || plan === 'free') {
     return { error: 'Choose one of the paid plans.' };
   }
-  const extraSeats = Math.max(0, Math.min(200, Number(formData.get('extraSeats') ?? 0) || 0));
 
   if (!billingConfigured()) {
     return {
@@ -48,23 +41,18 @@ export async function startCheckoutAction(
     const client = stripe();
     const existing = await q.getSubscription(session);
 
-    const lineItems: { price: string; quantity: number }[] = [
-      { price: priceIdFor(plan), quantity: 1 },
-    ];
-    const seatPrice = seatPriceId();
-    if (extraSeats > 0 && seatPrice) lineItems.push({ price: seatPrice, quantity: extraSeats });
-
+    // One line, always: the plan. There is no per-person add-on to price in.
     const checkout = await client.checkout.sessions.create({
       mode: 'subscription',
-      line_items: lineItems,
+      line_items: [{ price: priceIdFor(plan), quantity: 1 }],
       customer: existing?.stripeCustomerId ?? undefined,
       customer_email: existing?.stripeCustomerId ? undefined : session.userEmail,
       client_reference_id: session.workspaceId,
       // Read back by the webhook, which has no session of its own.
       subscription_data: {
-        metadata: { workspaceId: session.workspaceId, plan, extraSeats: String(extraSeats) },
+        metadata: { workspaceId: session.workspaceId, plan },
       },
-      metadata: { workspaceId: session.workspaceId, plan, extraSeats: String(extraSeats) },
+      metadata: { workspaceId: session.workspaceId, plan },
       // A university finance office rejects an invoice without these.
       billing_address_collection: 'required',
       tax_id_collection: { enabled: true },

@@ -4,6 +4,7 @@
  * Every value here is invented for development and demos. Do not seed a
  * deployment that holds real laboratory records.
  */
+import './load-env';
 import { sql } from 'drizzle-orm';
 import { db, pool } from './index';
 import {

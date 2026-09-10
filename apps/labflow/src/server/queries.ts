@@ -1667,7 +1667,6 @@ export async function applySubscriptionEvent(input: {
   workspaceId: string;
   plan: string | null;
   status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'none';
-  extraSeats: number;
   currentPeriodEnd: Date | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
@@ -1680,7 +1679,6 @@ export async function applySubscriptionEvent(input: {
       set: {
         plan: input.plan,
         status: input.status,
-        extraSeats: input.extraSeats,
         currentPeriodEnd: input.currentPeriodEnd,
         stripeCustomerId: input.stripeCustomerId,
         stripeSubscriptionId: input.stripeSubscriptionId,

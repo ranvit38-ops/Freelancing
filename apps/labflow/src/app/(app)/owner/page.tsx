@@ -64,7 +64,7 @@ export default async function OwnerPage() {
       <Card className="mb-6">
         <CardHeader
           title="Workspaces"
-          description="Newest first. Revenue is what the plan and extra seats come to each month."
+          description="Newest first. Revenue is what each workspace's plan comes to per month."
         />
         <div className="overflow-x-auto">
           <table className="w-full min-w-[52rem] text-sm">
@@ -108,7 +108,7 @@ export default async function OwnerPage() {
                     </td>
                     <td className="px-5 py-2.5 text-right tabular-nums">
                       {plan && (status === 'active' || status === 'past_due')
-                        ? money(plan.monthly + (w.extraSeats ?? 0) * 9)
+                        ? money(plan.monthly)
                         : ''}
                     </td>
                     <td className="px-5 py-2.5 text-right tabular-nums">{w.members}</td>

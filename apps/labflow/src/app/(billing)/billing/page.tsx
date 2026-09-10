@@ -66,14 +66,18 @@ export default async function BillingPage({
               },
               { term: 'Status', value: sub?.status ?? 'none' },
               {
-                term: 'Seats',
+                term: 'People',
                 value: `${usage.members + usage.pending} of ${seatLimit(sub)} used${
                   usage.pending > 0 ? ` (${usage.pending} invited)` : ''
                 }`,
               },
               {
-                term: 'Seats free',
-                value: String(seatsRemaining(sub, usage.members, usage.pending)),
+                term: 'Room left',
+                value: (() => {
+                  const free = seatsRemaining(sub, usage.members, usage.pending);
+                  if (free === 0) return 'none, the plan is full';
+                  return `${free} more ${free === 1 ? 'person' : 'people'}`;
+                })(),
               },
               {
                 term: sub?.status === 'trialing' ? 'Trial ends' : 'Renews',
@@ -83,7 +87,7 @@ export default async function BillingPage({
               },
               {
                 term: 'Monthly',
-                value: sub?.plan ? `$${monthlyTotal(sub.plan, sub.extraSeats)}` : 'not recorded',
+                value: sub?.plan ? `$${monthlyTotal(sub.plan)}` : 'not recorded',
               },
             ]}
           />

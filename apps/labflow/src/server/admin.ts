@@ -36,7 +36,6 @@ export async function ownerSummary(session: SessionContext) {
       createdAt: workspaces.createdAt,
       plan: workspaceSubscriptions.plan,
       status: workspaceSubscriptions.status,
-      extraSeats: workspaceSubscriptions.extraSeats,
       trialEndsAt: workspaceSubscriptions.trialEndsAt,
       currentPeriodEnd: workspaceSubscriptions.currentPeriodEnd,
       stripeCustomerId: workspaceSubscriptions.stripeCustomerId,
@@ -66,7 +65,7 @@ export async function ownerSummary(session: SessionContext) {
 
   const paying = rows.filter((r) => r.status === 'active' || r.status === 'past_due');
   const monthlyRevenue = paying.reduce(
-    (sum, r) => sum + (r.plan && isPlanId(r.plan) ? monthlyTotal(r.plan, r.extraSeats ?? 0) : 0),
+    (sum, r) => sum + (r.plan && isPlanId(r.plan) ? monthlyTotal(r.plan) : 0),
     0,
   );
 

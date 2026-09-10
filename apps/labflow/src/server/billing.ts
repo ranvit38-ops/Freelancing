@@ -10,7 +10,7 @@ import { PLANS, type PlanId } from '@/lib/plans';
  *
  * SETUP REQUIRED before this can take a payment:
  *   1. Create the products and recurring prices in the Stripe dashboard.
- *   2. Put the price ids in STRIPE_PRICE_LAB / _GROUP / _DEPARTMENT / _SEAT.
+ *   2. Put the price ids in STRIPE_PRICE_LAB / _GROUP / _DEPARTMENT.
  *   3. Add STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.
  *   4. Point a webhook endpoint at /api/stripe/webhook for the
  *      checkout.session.completed and customer.subscription.* events.
@@ -51,11 +51,6 @@ export function priceIdFor(plan: PaidPlanId): string {
   const id = process.env[PRICE_ENV[plan]];
   if (!id) throw new BillingNotConfiguredError();
   return id;
-}
-
-/** Optional: a metered price for seats beyond the plan. */
-export function seatPriceId(): string | null {
-  return process.env.STRIPE_PRICE_SEAT ?? null;
 }
 
 /** Maps a Stripe price id back to the plan it represents. */

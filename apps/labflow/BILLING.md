@@ -25,7 +25,6 @@ monthly** price:
 | Labvia Lab | 49.00 / month | |
 | Labvia Group | 99.00 / month | |
 | Labvia Department | 249.00 / month | |
-| Labvia extra seat | 9.00 / month | optional; used for seats beyond a plan |
 
 Open each price and copy its ID — it starts with `price_`.
 
@@ -42,7 +41,6 @@ STRIPE_SECRET_KEY="sk_test_..."
 STRIPE_PRICE_LAB="price_..."
 STRIPE_PRICE_GROUP="price_..."
 STRIPE_PRICE_DEPARTMENT="price_..."
-STRIPE_PRICE_SEAT="price_..."        # optional
 NEXT_PUBLIC_APP_URL="https://your-domain.com"
 ```
 
@@ -83,7 +81,7 @@ any CVC. Then check:
 
 - `/billing` shows the plan as active
 - Stripe shows the subscription and an invoice
-- Inviting people stops at the plan's seat limit
+- Inviting people stops at the number of people the plan covers
 
 Only then swap in the live keys.
 

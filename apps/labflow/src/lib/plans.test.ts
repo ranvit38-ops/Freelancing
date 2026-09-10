@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  EXTRA_SEAT_PRICE,
   PLANS,
+  PLAN_ORDER,
   monthlyTotal,
   seatLimit,
   seatsRemaining,
@@ -13,7 +13,6 @@ const NOW = new Date('2026-05-01T00:00:00Z');
 const base: SubscriptionState = {
   plan: 'lab',
   status: 'active',
-  extraSeats: 0,
   trialEndsAt: null,
   currentPeriodEnd: '2026-06-01',
 };
@@ -55,9 +54,10 @@ describe('canWrite', () => {
 });
 
 describe('seatLimit', () => {
-  it('gives each plan its seats plus any extras bought', () => {
+  it('gives each plan exactly the people it covers, with nothing to buy on top', () => {
     expect(seatLimit(base)).toBe(PLANS.lab.seats);
-    expect(seatLimit({ ...base, plan: 'group', extraSeats: 3 })).toBe(PLANS.group.seats + 3);
+    expect(seatLimit({ ...base, plan: 'group' })).toBe(PLANS.group.seats);
+    expect(seatLimit({ ...base, plan: 'department' })).toBe(PLANS.department.seats);
   });
 
   it('gives a live trial the smallest paid plan, so a lab can try it as a team', () => {
@@ -108,7 +108,6 @@ describe('toSubscriptionState', () => {
   const row = {
     plan: 'lab',
     status: 'active' as const,
-    extraSeats: 2,
     trialEndsAt: null,
     currentPeriodEnd: null,
   };
@@ -133,9 +132,8 @@ describe('toSubscriptionState', () => {
 });
 
 describe('monthlyTotal', () => {
-  it('adds extra seats at the per-seat price', () => {
-    expect(monthlyTotal('lab', 0)).toBe(PLANS.lab.monthly);
-    expect(monthlyTotal('lab', 3)).toBe(PLANS.lab.monthly + 3 * EXTRA_SEAT_PRICE);
+  it('is the plan price and nothing else, because there is no add-on to bill', () => {
+    for (const id of PLAN_ORDER) expect(monthlyTotal(id)).toBe(PLANS[id].monthly);
   });
 });
 

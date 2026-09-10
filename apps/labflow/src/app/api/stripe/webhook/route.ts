@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { applySubscriptionEvent, claimStripeEvent } from '@/server/queries';
-import { mapStatus, planForPrice, seatPriceId, stripe } from '@/server/billing';
+import { mapStatus, planForPrice, stripe } from '@/server/billing';
 
 export const runtime = 'nodejs';
 
@@ -66,16 +66,12 @@ export async function POST(request: Request) {
   return NextResponse.json({ received: true });
 }
 
-/** Derives the plan and seat count from the subscription's own line items. */
+/** Derives the plan from the subscription's own line items. */
 async function store(workspaceId: string, subscription: Stripe.Subscription) {
-  const seatPrice = seatPriceId();
   let plan: string | null = null;
-  let extraSeats = 0;
 
   for (const item of subscription.items.data) {
-    const priceId = item.price.id;
-    if (seatPrice && priceId === seatPrice) extraSeats += item.quantity ?? 0;
-    else plan = planForPrice(priceId) ?? plan;
+    plan = planForPrice(item.price.id) ?? plan;
   }
   // Fall back to what checkout recorded if the price ids have since changed.
   plan = plan ?? subscription.metadata?.plan ?? null;
@@ -84,7 +80,6 @@ async function store(workspaceId: string, subscription: Stripe.Subscription) {
     workspaceId,
     plan,
     status: mapStatus(subscription.status),
-    extraSeats,
     currentPeriodEnd: subscription.current_period_end
       ? new Date(subscription.current_period_end * 1000)
       : null,
