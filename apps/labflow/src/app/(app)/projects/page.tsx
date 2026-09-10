@@ -33,6 +33,7 @@ export default async function ProjectsPage() {
               <Card className="h-full p-5 transition-colors group-hover:border-accent/40">
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="font-medium tracking-tight">{p.name}</h2>
+                  {p.isExample ? <Badge>Example</Badge> : null}
                   <Badge tone={p.status === 'active' ? 'accent' : 'neutral'}>
                     {projectStatusLabel[p.status]}
                   </Badge>

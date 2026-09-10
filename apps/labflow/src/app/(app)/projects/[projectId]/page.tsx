@@ -1,3 +1,5 @@
+import { deleteProjectAction } from '@/server/actions/records';
+import { ConfirmSubmit } from '@/components/file-upload';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ProjectTabs } from '@/components/project-tabs';
@@ -37,6 +39,27 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
     throw error;
   }
 
+  const exampleNotice = project.isExample ? (
+    <Card className="mb-5 border-accent/30 bg-accent-soft/40 p-5">
+      <h2 className="text-sm font-semibold tracking-tight">This is the worked example</h2>
+      <p className="mt-1 max-w-2xl text-sm text-muted">
+        Two runs of the same protocol that differ in one condition and one carbon lot. Open Compare
+        to see both differences side by side, which is the question this product exists to answer.
+        It does not count against your plan, and you can remove it whenever you like.
+      </p>
+      <form action={deleteProjectAction} className="mt-4">
+        <input type="hidden" name="projectId" value={project.id} />
+        <ConfirmSubmit
+          tone="secondary"
+          size="sm"
+          message="Remove the example project and its two runs? Your own work is not affected."
+        >
+          Remove the example
+        </ConfirmSubmit>
+      </form>
+    </Card>
+  ) : null;
+
   const [experiments, samples] = await Promise.all([
     listExperiments(session, { projectId: project.id }),
     listSamples(session, { projectId: project.id }),
@@ -72,6 +95,7 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
         }
       />
       <ProjectTabs projectId={project.id} />
+      {exampleNotice}
 
       <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[

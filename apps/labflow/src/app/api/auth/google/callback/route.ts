@@ -1,3 +1,4 @@
+import { seedExampleProject } from '@/server/example-project';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createHash } from 'node:crypto';
@@ -81,6 +82,11 @@ export async function GET(request: Request) {
     });
     userId = created.userId;
     await startTrial(created.workspaceId, TRIAL_DAYS, email);
+    try {
+      await seedExampleProject(created.workspaceId, created.userId);
+    } catch {
+      // As above: an empty workspace is a worse first run, not a broken one.
+    }
 
     // The deployment owner is comped rather than trialled.
     if (isOwnerEmail(email)) {

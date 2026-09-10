@@ -10,6 +10,7 @@ import { normaliseEmail, slugify } from '@/lib/normalise';
 import { loginSchema, signupSchema } from '@/lib/validation';
 import { TRIAL_DAYS } from '@/lib/plans';
 import { isDisposableEmail } from '@/lib/trial-eligibility';
+import { seedExampleProject } from '../example-project';
 import { acceptInvite, findInviteByToken, startTrial } from '../queries';
 import { createSession, destroySession } from '../auth';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
@@ -99,6 +100,16 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
   });
 
   await startTrial(workspaceIdCreated, TRIAL_DAYS, parsed.data.email);
+  // A worked example, so the first screen shows what the product is rather
+  // than what it would look like if you had already used it for a month.
+  // Failing here must not cost someone their account.
+  if (!invite) {
+    try {
+      await seedExampleProject(workspaceIdCreated, userId);
+    } catch {
+      // An empty workspace is a worse first run, not a broken one.
+    }
+  }
   if (invite) await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
   await createSession(userId);
   redirect('/dashboard');

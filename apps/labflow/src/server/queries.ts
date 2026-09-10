@@ -50,6 +50,7 @@ export async function listProjects(s: SessionContext) {
       researchQuestion: projects.researchQuestion,
       status: projects.status,
       tags: projects.tags,
+      isExample: projects.isExample,
       updatedAt: projects.updatedAt,
       experimentCount: sql<number>`(
         select count(*)::int from "experiments" e where e.project_id = projects.id
@@ -72,6 +73,7 @@ export async function getProject(s: SessionContext, projectId: string) {
       tags: projects.tags,
       ownerId: projects.ownerId,
       ownerName: users.name,
+      isExample: projects.isExample,
       createdAt: projects.createdAt,
       updatedAt: projects.updatedAt,
     })
@@ -1704,8 +1706,18 @@ export async function usageCounts(s: SessionContext) {
   monthStart.setUTCHours(0, 0, 0, 0);
 
   const [projectRows, experimentRows, storageRows, aiRows] = await Promise.all([
-    db.select({ n: count() }).from(projects).where(eq(projects.workspaceId, s.workspaceId)),
-    db.select({ n: count() }).from(experiments).where(eq(experiments.workspaceId, s.workspaceId)),
+    // The worked example never counts against the plan. A free workspace
+    // whose one allowed project was spent on a demo could never record its
+    // own work, which would make the example worse than nothing.
+    db
+      .select({ n: count() })
+      .from(projects)
+      .where(and(eq(projects.workspaceId, s.workspaceId), eq(projects.isExample, false))),
+    db
+      .select({ n: count() })
+      .from(experiments)
+      .innerJoin(projects, eq(projects.id, experiments.projectId))
+      .where(and(eq(experiments.workspaceId, s.workspaceId), eq(projects.isExample, false))),
     db
       .select({ bytes: sql<number>`coalesce(sum(byte_size), 0)::bigint` })
       .from(files)

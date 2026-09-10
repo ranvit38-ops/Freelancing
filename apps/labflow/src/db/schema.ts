@@ -158,6 +158,8 @@ export const projects = pgTable(
     status: projectStatus('status').notNull().default('active'),
     ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    /** A worked example seeded on signup; excluded from plan limits. */
+    isExample: boolean('is_example').notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
