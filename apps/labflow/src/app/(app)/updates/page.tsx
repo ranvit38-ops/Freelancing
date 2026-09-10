@@ -30,7 +30,7 @@ export default async function UpdatesPage({
         description="Turn selected experiments into a structured update you can edit and export to PowerPoint."
       />
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
         <Card>
           <CardHeader
             title="Generate an update"

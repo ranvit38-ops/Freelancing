@@ -37,7 +37,11 @@ export default async function DashboardPage() {
         actions={<ButtonLink href="/projects/new">New project</ButtonLink>}
       />
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      {/* min-w-0 on the items, not just the text inside them: a grid item
+          defaults to min-width:auto, so it refuses to shrink below its content
+          and the truncation further down never gets the chance to run. Without
+          it this whole page scrolls sideways on a tablet. */}
+      <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
         <Card className="lg:col-span-2">
           <CardHeader
             title="Recent experiments"

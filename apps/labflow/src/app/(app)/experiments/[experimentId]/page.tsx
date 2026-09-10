@@ -135,7 +135,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
         </form>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
         <div className="space-y-5 lg:col-span-2">
           <Card className="p-5">
             <h2 className="mb-4 text-sm font-semibold tracking-tight">Record</h2>

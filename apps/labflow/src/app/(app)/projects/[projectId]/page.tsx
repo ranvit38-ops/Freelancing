@@ -115,7 +115,7 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
         ))}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
         <Card className="lg:col-span-2">
           <CardHeader
             title="Experiments"

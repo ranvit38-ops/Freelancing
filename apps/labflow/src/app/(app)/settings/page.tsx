@@ -26,7 +26,7 @@ export default async function SettingsPage() {
         title="Settings"
         description="Workspace, people, appearance and integrations."
       />
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
         <Card className="p-5">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">Appearance</h2>
           <p className="mb-4 text-sm text-muted">
