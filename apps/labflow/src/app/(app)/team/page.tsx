@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Discussion } from '@/components/discussion';
+import { InviteForm } from '@/components/invite-form';
 import { UpgradePanel } from '@/components/upgrade-panel';
 import { Badge, Card, CardHeader, PageHeader } from '@/components/ui';
 import { formatBytes, formatDate } from '@/lib/display';
@@ -74,15 +75,11 @@ export default async function TeamPage() {
                 </li>
               ))}
             </ul>
-            <div className="border-t border-line px-5 py-3">
-              <Link
-                href="/settings"
-                className="text-sm text-muted underline underline-offset-2 hover:text-fg"
-              >
-                Invite someone
-              </Link>
-            </div>
           </Card>
+
+          {/* Adding someone belongs where you can see who is already here,
+              not two pages away under Settings. */}
+          <InviteForm canInvite={session.role !== 'member'} />
 
           <Card>
             <CardHeader

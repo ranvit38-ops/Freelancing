@@ -35,16 +35,31 @@ export async function callModel(
     },
     body: JSON.stringify({
       model,
-      max_tokens: input.maxTokens ?? 2048,
-      temperature: 0,
+      // Low caps truncate an analysis mid-sentence, and a truncated
+      // interpretation of a result is worse than none.
+      max_tokens: input.maxTokens ?? 16000,
+      // No temperature. The current models reject the sampling parameters
+      // outright with a 400, and asking for temperature 0 to get a
+      // reproducible answer stopped working long before that: these models
+      // reason before answering, so the determinism it implied was never real.
       system: input.system,
       messages: [{ role: 'user', content: input.prompt }],
     }),
   });
 
   if (!response.ok) {
+    // The body names the actual fault, and a bare status code sends you
+    // hunting for a network problem when the request itself was malformed.
+    const detail = await response.text().catch(() => '');
+    const message = (() => {
+      try {
+        return (JSON.parse(detail) as { error?: { message?: string } }).error?.message;
+      } catch {
+        return undefined;
+      }
+    })();
     throw new AiRequestError(
-      `The model request failed (${response.status}). No analysis was generated.`,
+      `The model request failed (${response.status}${message ? `: ${message}` : ''}). No analysis was generated.`,
     );
   }
 

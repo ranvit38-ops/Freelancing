@@ -54,7 +54,7 @@ export async function analyseExperiment(
     `Respond with JSON in exactly this shape:\n${ANALYSIS_PROMPT_SCHEMA}`,
   ].join('\n');
 
-  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 2048 }, fetchImpl);
+  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 8000 }, fetchImpl);
   const parsed = analysisSchema.safeParse(extractJson(text));
   if (!parsed.success) {
     throw new AiOutputError('The model returned an analysis in an unexpected shape. Nothing was saved.');
@@ -105,7 +105,7 @@ export async function askProject(
     `Respond with JSON in exactly this shape:\n${ANSWER_PROMPT_SCHEMA}`,
   ].join('\n');
 
-  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 2048 }, fetchImpl);
+  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 8000 }, fetchImpl);
   const parsed = answerSchema.safeParse(extractJson(text));
   if (!parsed.success) {
     throw new AiOutputError('The model returned an answer in an unexpected shape. Nothing was saved.');

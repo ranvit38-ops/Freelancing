@@ -1362,6 +1362,9 @@ export type DiscussionMessage = {
   authorId: string | null;
   authorName: string | null;
   parentId: string | null;
+  fileId: string | null;
+  fileName: string | null;
+  fileSize: number | null;
   replies: DiscussionMessage[];
 };
 
@@ -1395,9 +1398,14 @@ export async function listDiscussion(
       parentId: discussions.parentId,
       authorId: discussions.authorId,
       authorName: users.name,
+      fileId: discussions.fileId,
+      fileName: files.filename,
+      fileSize: files.byteSize,
     })
     .from(discussions)
     .leftJoin(users, eq(users.id, discussions.authorId))
+    // A deleted file leaves the message standing, so this join has to be left.
+    .leftJoin(files, eq(files.id, discussions.fileId))
     .where(and(eq(discussions.workspaceId, s.workspaceId), target))
     .orderBy(discussions.createdAt);
 
@@ -1421,6 +1429,7 @@ export async function postMessage(
     workspace?: boolean;
     parentId: string | null;
     body: string;
+    fileId?: string | null;
   },
 ) {
   // Confirms the target is in the caller's workspace before writing. The
@@ -1429,6 +1438,9 @@ export async function postMessage(
   else if (input.projectId) await getProject(s, input.projectId);
   else if (!input.workspace) throw new NotFoundInWorkspaceError('Discussion target');
 
+  // Confirms the attachment is this workspace's before it is pointed at.
+  if (input.fileId) await getFileForDownload(s, input.fileId);
+
   await db.insert(discussions).values({
     workspaceId: s.workspaceId,
     experimentId: input.experimentId ?? null,
@@ -1436,6 +1448,7 @@ export async function postMessage(
     parentId: input.parentId,
     authorId: s.userId,
     body: input.body,
+    fileId: input.fileId ?? null,
   });
 }
 

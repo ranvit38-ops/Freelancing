@@ -495,6 +495,8 @@ export const discussions = pgTable(
     parentId: uuid('parent_id'),
     authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
     body: text('body').notNull(),
+    /** An attachment shared in the conversation. Null for a plain message. */
+    fileId: uuid('file_id').references(() => files.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

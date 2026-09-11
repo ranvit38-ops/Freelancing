@@ -28,6 +28,7 @@ export async function postMessageAction(formData: FormData) {
   const projectId = String(formData.get('projectId') ?? '') || undefined;
   const workspace = formData.get('workspace') === '1';
   const parentId = String(formData.get('parentId') ?? '') || null;
+  const fileId = String(formData.get('fileId') ?? '') || null;
 
   await q.postMessage(session, {
     experimentId,
@@ -35,6 +36,7 @@ export async function postMessageAction(formData: FormData) {
     workspace,
     parentId,
     body: body.slice(0, 10000),
+    fileId,
   });
   revalidatePath(
     experimentId

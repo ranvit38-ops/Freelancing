@@ -26,7 +26,7 @@ const schema = z.object({
   STRIPE_PRICE_DEPARTMENT: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().optional(),
-  LABFLOW_AI_MODEL: z.string().default('claude-sonnet-5'),
+  LABFLOW_AI_MODEL: z.string().default('claude-opus-5'),
 });
 
 let cached: z.infer<typeof schema> | null = null;
