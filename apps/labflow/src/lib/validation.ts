@@ -22,7 +22,8 @@ export const signupSchema = z
     name: trimmed(120).min(1, 'Your name is required'),
     email: z.string().trim().email('Enter a valid email address'),
     password: z.string().min(10, 'Use at least 10 characters'),
-    workspaceName: trimmed(120).min(1, 'Name your lab or research group'),
+    /** Only when starting a lab. Someone joining one by invitation has none. */
+    workspaceName: trimmed(120).optional(),
     institution: optionalText(160),
   });
 

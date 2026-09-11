@@ -12,6 +12,7 @@ import { workspacePlan } from '@/server/paywall';
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/team', label: 'Team' },
   { href: '/projects', label: 'Projects' },
   { href: '/experiments', label: 'Experiments' },
   { href: '/actions', label: 'Needs attention' },

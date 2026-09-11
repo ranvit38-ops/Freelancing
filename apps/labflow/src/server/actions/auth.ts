@@ -75,6 +75,12 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     ? await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'))
     : null;
 
+  // Only someone starting a lab names one. The invited get the lab they were
+  // invited to, and the form does not ask them for a name it would discard.
+  if (!invite && !parsed.data.workspaceName) {
+    return { fieldErrors: { workspaceName: 'Name your lab or research group' } };
+  }
+
   const passwordHash = await hashPassword(parsed.data.password);
   let workspaceIdCreated = '';
   const userId = await db.transaction(async (tx) => {
@@ -83,12 +89,14 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
       .values({ email, name: parsed.data.name, passwordHash })
       .returning({ id: users.id });
     if (!user) throw new Error('Could not create the account');
+    if (invite) return user.id;
 
     // Slug collisions are rare; a short suffix is cheaper than a retry loop.
-    const slug = `${slugify(parsed.data.workspaceName)}-${randomBytes(3).toString('hex')}`;
+    const workspaceName = parsed.data.workspaceName!;
+    const slug = `${slugify(workspaceName)}-${randomBytes(3).toString('hex')}`;
     const [workspace] = await tx
       .insert(workspaces)
-      .values({ name: parsed.data.workspaceName, slug, institution: parsed.data.institution })
+      .values({ name: workspaceName, slug, institution: parsed.data.institution })
       .returning({ id: workspaces.id });
     if (!workspace) throw new Error('Could not create the workspace');
 
@@ -99,18 +107,19 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     return user.id;
   });
 
-  await startTrial(workspaceIdCreated, TRIAL_DAYS, parsed.data.email);
-  // A worked example, so the first screen shows what the product is rather
-  // than what it would look like if you had already used it for a month.
-  // Failing here must not cost someone their account.
-  if (!invite) {
+  if (invite) {
+    await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
+  } else {
+    await startTrial(workspaceIdCreated, TRIAL_DAYS, parsed.data.email);
+    // A worked example, so the first screen shows what the product is rather
+    // than what it would look like if you had already used it for a month.
+    // Failing here must not cost someone their account.
     try {
       await seedExampleProject(workspaceIdCreated, userId);
     } catch {
       // An empty workspace is a worse first run, not a broken one.
     }
   }
-  if (invite) await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
   await createSession(userId);
   redirect('/dashboard');
 }

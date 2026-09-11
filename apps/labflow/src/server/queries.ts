@@ -1365,17 +1365,26 @@ export type DiscussionMessage = {
   replies: DiscussionMessage[];
 };
 
-/** Messages for one experiment or project, nested one level deep. */
+/**
+ * Messages for one experiment, one project, or the whole workspace, nested one
+ * level deep.
+ *
+ * A row with neither id set is the workspace channel. `workspace: true` has to
+ * be asked for, so a call with an id that turned out empty still returns
+ * nothing rather than quietly handing back the workspace-wide conversation.
+ */
 export async function listDiscussion(
   s: SessionContext,
-  scope: { experimentId?: string; projectId?: string },
+  scope: { experimentId?: string; projectId?: string; workspace?: boolean },
 ): Promise<DiscussionMessage[]> {
   // An empty string is not a uuid; Postgres would reject the whole query.
   const target = scope.experimentId
     ? eq(discussions.experimentId, scope.experimentId)
     : scope.projectId
       ? eq(discussions.projectId, scope.projectId)
-      : null;
+      : scope.workspace
+        ? and(isNull(discussions.projectId), isNull(discussions.experimentId))
+        : null;
   if (!target) return [];
 
   const rows = await db
@@ -1406,12 +1415,19 @@ export async function listDiscussion(
 
 export async function postMessage(
   s: SessionContext,
-  input: { experimentId?: string; projectId?: string; parentId: string | null; body: string },
+  input: {
+    experimentId?: string;
+    projectId?: string;
+    workspace?: boolean;
+    parentId: string | null;
+    body: string;
+  },
 ) {
-  // Confirms the target is in the caller's workspace before writing.
+  // Confirms the target is in the caller's workspace before writing. The
+  // workspace channel needs no such check: the session already names it.
   if (input.experimentId) await getExperiment(s, input.experimentId);
   else if (input.projectId) await getProject(s, input.projectId);
-  else throw new NotFoundInWorkspaceError('Discussion target');
+  else if (!input.workspace) throw new NotFoundInWorkspaceError('Discussion target');
 
   await db.insert(discussions).values({
     workspaceId: s.workspaceId,

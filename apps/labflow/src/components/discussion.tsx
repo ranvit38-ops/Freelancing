@@ -16,12 +16,17 @@ export function Discussion({
   messages,
   experimentId,
   projectId,
+  workspace,
+  title = 'Discussion',
   currentUserId,
   returnTo,
 }: {
   messages: DiscussionMessage[];
   experimentId?: string;
   projectId?: string;
+  /** The workspace-wide channel: no project, no experiment, everyone in it. */
+  workspace?: boolean;
+  title?: string;
   currentUserId: string;
   returnTo: string;
 }) {
@@ -32,12 +37,13 @@ export function Discussion({
     <>
       {experimentId ? <input type="hidden" name="experimentId" value={experimentId} /> : null}
       {projectId ? <input type="hidden" name="projectId" value={projectId} /> : null}
+      {workspace ? <input type="hidden" name="workspace" value="1" /> : null}
     </>
   );
 
   return (
     <Card>
-      <CardHeader title="Discussion" description={`${count} message${count === 1 ? '' : 's'}`} />
+      <CardHeader title={title} description={`${count} message${count === 1 ? '' : 's'}`} />
 
       <form action={postMessageAction} className="space-y-3 border-b border-line px-5 py-4">
         {hidden}

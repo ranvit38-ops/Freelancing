@@ -26,15 +26,23 @@ export async function postMessageAction(formData: FormData) {
 
   const experimentId = String(formData.get('experimentId') ?? '') || undefined;
   const projectId = String(formData.get('projectId') ?? '') || undefined;
+  const workspace = formData.get('workspace') === '1';
   const parentId = String(formData.get('parentId') ?? '') || null;
 
   await q.postMessage(session, {
     experimentId,
     projectId,
+    workspace,
     parentId,
     body: body.slice(0, 10000),
   });
-  revalidatePath(experimentId ? `/experiments/${experimentId}` : `/projects/${projectId}/discussion`);
+  revalidatePath(
+    experimentId
+      ? `/experiments/${experimentId}`
+      : projectId
+        ? `/projects/${projectId}/discussion`
+        : '/team',
+  );
 }
 
 export async function deleteMessageAction(formData: FormData) {

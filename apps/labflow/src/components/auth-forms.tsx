@@ -76,24 +76,36 @@ export function SignupForm({
           required
         />
       </Field>
-      <Field
-        label="Lab or research group"
-        htmlFor="workspaceName"
-        hint="This becomes your workspace. Everyone you invite shares it."
-        error={state.fieldErrors?.workspaceName}
-      >
-        <Input
-          id="workspaceName"
-          name="workspaceName"
-          placeholder="Smith Environmental Research Lab"
-          required
-        />
-      </Field>
-      <Field label="Institution" htmlFor="institution" optional error={state.fieldErrors?.institution}>
-        <Input id="institution" name="institution" placeholder="University of Somewhere" />
-      </Field>
-      <SubmitButton className="w-full" pendingLabel="Creating your lab…">
-        Start a lab
+      {/* Someone arriving on an invitation is joining a lab, not starting one.
+          Asking them to name one produced a second, empty workspace that they
+          then landed in, so they never saw the lab that invited them. */}
+      {inviteToken ? null : (
+        <>
+          <Field
+            label="Lab or research group"
+            htmlFor="workspaceName"
+            hint="This becomes your workspace. Everyone you invite shares it."
+            error={state.fieldErrors?.workspaceName}
+          >
+            <Input
+              id="workspaceName"
+              name="workspaceName"
+              placeholder="Smith Environmental Research Lab"
+              required
+            />
+          </Field>
+          <Field
+            label="Institution"
+            htmlFor="institution"
+            optional
+            error={state.fieldErrors?.institution}
+          >
+            <Input id="institution" name="institution" placeholder="University of Somewhere" />
+          </Field>
+        </>
+      )}
+      <SubmitButton className="w-full" pendingLabel={inviteToken ? 'Joining…' : 'Creating your lab…'}>
+        {inviteToken ? 'Join the lab' : 'Start a lab'}
       </SubmitButton>
     </form>
   );
