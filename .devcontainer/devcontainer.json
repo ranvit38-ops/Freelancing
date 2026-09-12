@@ -1,0 +1,20 @@
+{
+  "name": "LabFlow",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
+  "forwardPorts": [3001],
+  "portsAttributes": {
+    "3001": {
+      "label": "LabFlow",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "waitFor": "postCreateCommand",
+  "postCreateCommand": "bash .devcontainer/setup.sh --no-start",
+  "postStartCommand": "sudo service postgresql start || true",
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "bradlc.vscode-tailwindcss"]
+    }
+  },
+  "remoteUser": "node"
+}

@@ -1,0 +1,32 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { LoginForm } from '@/components/auth-forms';
+import { GoogleButton } from '@/components/google-button';
+import { Card } from '@/components/ui';
+import { getSession } from '@/server/auth';
+
+export const metadata = { title: 'Log in' };
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: { invite?: string; error?: string };
+}) {
+  if (await getSession()) redirect('/dashboard');
+  return (
+    <>
+      <h1 className="text-xl font-semibold tracking-tight">Log in to Labvia</h1>
+      <p className="mt-1.5 text-sm text-muted">Pick up where your lab left off.</p>
+      <Card className="mt-6 space-y-4 p-6">
+        <GoogleButton error={searchParams.error} invite={searchParams.invite} />
+        <LoginForm inviteToken={searchParams.invite} />
+      </Card>
+      <p className="mt-6 text-center text-sm text-muted">
+        New here?{' '}
+        <Link href="/signup" className="font-medium text-fg underline underline-offset-2">
+          Start a lab
+        </Link>
+      </p>
+    </>
+  );
+}

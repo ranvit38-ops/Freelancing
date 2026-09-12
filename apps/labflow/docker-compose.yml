@@ -1,0 +1,64 @@
+# Labvia and its database, on any machine with Docker.
+#
+#   docker compose up -d
+#
+# Then open http://localhost:3001. Migrations run on boot, so there is no
+# separate setup step. Stop with `docker compose down`; the named volumes keep
+# the database and the uploaded files, so nothing is lost between runs.
+#
+# This is the whole product running on its own. GitHub is where the source
+# lives, not something the running site depends on.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: labvia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-before-anyone-else-uses-this}
+      POSTGRES_DB: labvia
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # The app waits for this, otherwise the first migration races the database
+    # finishing its own first-run initialisation and the container exits.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U labvia -d labvia']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '3001:3001'
+    environment:
+      DATABASE_URL: postgres://labvia:${POSTGRES_PASSWORD:-change-me-before-anyone-else-uses-this}@db:5432/labvia
+      # The address people type in. Payment redirects and email links are built
+      # from this, so a wrong value strands customers on a page that is not there.
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3001}
+      # Everything below is optional. Each feature says so plainly when its own
+      # value is missing, rather than pretending to work.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_LAB: ${STRIPE_PRICE_LAB:-}
+      STRIPE_PRICE_GROUP: ${STRIPE_PRICE_GROUP:-}
+      STRIPE_PRICE_DEPARTMENT: ${STRIPE_PRICE_DEPARTMENT:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      NCBI_API_KEY: ${NCBI_API_KEY:-}
+      LABFLOW_OWNER_EMAIL: ${LABFLOW_OWNER_EMAIL:-}
+      LABFLOW_OWNER_UNLOCK: ${LABFLOW_OWNER_UNLOCK:-}
+    volumes:
+      # Uploaded files. Without this line every redeploy loses them.
+      - uploads:/data/uploads
+
+volumes:
+  db-data:
+  uploads:

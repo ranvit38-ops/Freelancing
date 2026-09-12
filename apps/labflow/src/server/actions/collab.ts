@@ -1,0 +1,153 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { InvalidLinkError, parseLink } from '@/lib/links';
+import { PubMedError, searchPubMed, type Article, fetchAbstracts } from '@/lib/pubmed';
+import { requireSession } from '../authz';
+import { NotFoundInWorkspaceError } from '../not-found';
+import { blockedReason, hasFeature } from '../paywall';
+import * as q from '../queries';
+import type { ActionState } from './types';
+
+export type LiteratureState = {
+  error?: string;
+  query?: string;
+  articles?: Article[];
+};
+
+/* ── discussion ─────────────────────────────────────────────────────────── */
+
+export async function postMessageAction(formData: FormData) {
+  const session = await requireSession();
+  if (!(await hasFeature(session, 'discussion'))) return;
+  if (await blockedReason(session)) return;
+  const body = String(formData.get('body') ?? '').trim();
+  if (body === '') return;
+
+  const experimentId = String(formData.get('experimentId') ?? '') || undefined;
+  const projectId = String(formData.get('projectId') ?? '') || undefined;
+  const workspace = formData.get('workspace') === '1';
+  const parentId = String(formData.get('parentId') ?? '') || null;
+  const fileId = String(formData.get('fileId') ?? '') || null;
+
+  await q.postMessage(session, {
+    experimentId,
+    projectId,
+    workspace,
+    parentId,
+    body: body.slice(0, 10000),
+    fileId,
+  });
+  revalidatePath(
+    experimentId
+      ? `/experiments/${experimentId}`
+      : projectId
+        ? `/projects/${projectId}/discussion`
+        : '/team',
+  );
+}
+
+export async function deleteMessageAction(formData: FormData) {
+  const session = await requireSession();
+  try {
+    await q.deleteMessage(session, String(formData.get('messageId') ?? ''));
+  } catch (error) {
+    // Deleting someone else's message simply does nothing.
+    if (!(error instanceof NotFoundInWorkspaceError)) throw error;
+  }
+  revalidatePath(String(formData.get('returnTo') ?? '/dashboard'));
+}
+
+/* ── link attachments ───────────────────────────────────────────────────── */
+
+export async function attachLinkAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
+
+  const experimentId = String(formData.get('experimentId') ?? '');
+  const raw = String(formData.get('url') ?? '');
+  const label = String(formData.get('label') ?? '').trim();
+
+  let info;
+  try {
+    info = parseLink(raw);
+  } catch (error) {
+    if (error instanceof InvalidLinkError) return { fieldErrors: { url: error.message } };
+    throw error;
+  }
+
+  try {
+    // Check the experiment first: recording a link then failing to attach it
+    // would leave a row nothing points at.
+    await q.getExperiment(session, experimentId);
+    const fileId = await q.recordLink(session, {
+      filename: label || info.suggestedName,
+      sourceUrl: info.url,
+      provider: info.provider,
+    });
+    await q.attachFileToExperiment(session, experimentId, fileId);
+  } catch (error) {
+    if (error instanceof NotFoundInWorkspaceError) return { error: error.message };
+    throw error;
+  }
+
+  revalidatePath(`/experiments/${experimentId}`);
+  return { ok: true, message: 'Link attached.' };
+}
+
+/* ── literature ─────────────────────────────────────────────────────────── */
+
+export async function searchLiteratureAction(
+  _prev: LiteratureState,
+  formData: FormData,
+): Promise<LiteratureState> {
+  await requireSession();
+  const query = String(formData.get('query') ?? '').trim();
+  if (query.length < 3) return { error: 'Enter at least three characters.', query };
+
+  try {
+    return { query, articles: await searchPubMed(query, { limit: 10 }) };
+  } catch (error) {
+    if (error instanceof PubMedError) return { query, error: error.message };
+    return {
+      query,
+      error: 'Could not reach PubMed. Nothing was returned, and no citations are invented when it is unavailable.',
+    };
+  }
+}
+
+export async function saveLiteratureAction(formData: FormData) {
+  const session = await requireSession();
+  const projectId = String(formData.get('projectId') ?? '');
+  const pmid = String(formData.get('pmid') ?? '');
+
+  // Pull the abstract while saving, so LabBot is later given what the paper
+  // says rather than only its title. NCBI being unreachable must not lose the
+  // citation, so a failure here is silent and the reference is saved anyway.
+  let abstract: string | null = null;
+  try {
+    abstract = (await fetchAbstracts([pmid])).get(pmid) ?? null;
+  } catch {
+    abstract = null;
+  }
+
+  await q.saveLiterature(session, projectId, {
+    pmid,
+    title: String(formData.get('title') ?? ''),
+    journal: String(formData.get('journal') ?? '') || null,
+    year: String(formData.get('year') ?? '') || null,
+    authors: String(formData.get('authors') ?? '') || null,
+    abstract,
+  });
+  revalidatePath(`/projects/${projectId}/literature`);
+}
+
+export async function removeLiteratureAction(formData: FormData) {
+  const session = await requireSession();
+  await q.removeLiterature(session, String(formData.get('refId') ?? ''));
+  revalidatePath(`/projects/${String(formData.get('projectId') ?? '')}/literature`);
+}
