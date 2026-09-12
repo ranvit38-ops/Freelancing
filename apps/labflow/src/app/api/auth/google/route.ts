@@ -5,6 +5,10 @@ import { absoluteUrl } from '@/server/mailer';
 import { googleConfigured, googleRedirectUri } from '@/server/google';
 
 export const runtime = 'nodejs';
+// Never prerendered. Every path through this route reads per-request state or
+// the deployment's own public URL, neither of which exists at build time, and
+// a build that tried would fail on a deployment URL it cannot know yet.
+export const dynamic = 'force-dynamic';
 
 /** Starts Google sign-in: mints state + PKCE verifier, then redirects. */
 export async function GET(request: Request) {

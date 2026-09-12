@@ -20,6 +20,10 @@ import {
 import { acceptInvite, applySubscriptionEvent, findInviteByToken, startTrial } from '@/server/queries';
 
 export const runtime = 'nodejs';
+// Never prerendered. Every path through this route reads per-request state or
+// the deployment's own public URL, neither of which exists at build time, and
+// a build that tried would fail on a deployment URL it cannot know yet.
+export const dynamic = 'force-dynamic';
 
 /**
  * Google's callback.
