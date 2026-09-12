@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getSession } from '@/server/auth';
 import { Badge, ButtonLink, Card, cx } from '@/components/ui';
 import { PLANS, PLAN_ORDER, formatLimitBytes, type PlanId } from '@/lib/plans';
+import { PILOT_PLAN, pilotMode } from '@/lib/pilot';
 
 export const metadata = {
   title: 'Pricing',
@@ -57,6 +58,23 @@ export default async function PricingPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-16">
+        {/* A lab invited to a free pilot clicks the link, lands here, and sees
+            four prices. Without this line they conclude the pilot costs money,
+            which is the opposite of what they were told. The prices stay
+            visible on purpose: "would your lab pay for this" is unanswerable
+            without a number attached to it. */}
+        {pilotMode() ? (
+          <div className="mb-8 rounded-lg border border-accent/25 bg-accent/5 px-5 py-4 text-sm leading-6 text-accent">
+            <p className="font-medium">This is a free pilot. None of these prices apply to you.</p>
+            <p className="mt-1">
+              Every lab on this deployment gets the {PLANS[PILOT_PLAN].name} plan, the top one, for
+              nothing. No card is asked for and nothing can be charged. The prices below are what
+              Labvia would cost if it were being sold, which is here so you can judge whether it
+              would be worth it.
+            </p>
+          </div>
+        ) : null}
+
         <div className="max-w-2xl">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Priced per lab, not per person.
@@ -90,7 +108,7 @@ export default async function PricingPage() {
                 </p>
                 <p className="mt-1 text-xs text-subtle">
                   {plan.monthly === 0
-                    ? 'Free forever, for one person.'
+                    ? `Free forever, for ${plan.seats} people.`
                     : `or $${plan.yearly}/year, two months free`}
                 </p>
                 <ul className="mt-4 flex-1 space-y-1.5 text-sm">

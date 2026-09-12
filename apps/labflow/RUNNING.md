@@ -85,6 +85,18 @@ environment variable rather than a value in the source, because an address
 written into the repository is permanent, public in the git history, and a
 spam target.
 
+## Seeing the free pilot
+
+```bash
+npm run pilot
+```
+
+Same as `npm run dev`, with `LABFLOW_PILOT_MODE=1` set. Every workspace gets the
+Department plan with no expiry and no seat cap, the billing page becomes four
+questions about whether the lab would pay, and the pricing and signup pages say
+the pilot is free. It is what a lab you invite will actually see, so it is worth
+two minutes before you send anyone a link.
+
 ## Exploring the paid product
 
 `npm run setup` writes `LABFLOW_DISABLE_PAYWALL="1"` into `.env.local`, so

@@ -1,0 +1,78 @@
+# Labvia as a free pilot, in one Render Blueprint.
+#
+#   Render dashboard → New → Blueprint → pick this repository.
+#
+# This file lives at the repository root because that is the only place Render
+# looks for it, even though everything it describes is in apps/labflow. The
+# rootDir below is what points the build at the right directory.
+#
+# Render reads this file and proposes the service already configured: the right
+# root directory, the Docker build, the disk mounted where uploads actually go,
+# and the pilot flag on. The three settings people get wrong by hand are the
+# root directory, the disk mount path and UPLOAD_DIR, and all three are fixed
+# here.
+#
+# Values marked `sync: false` are the ones Render asks you for when you create
+# the Blueprint. Nothing secret is written in this file, which is why it is safe
+# to commit.
+#
+# To run the paid product instead of a pilot, set LABFLOW_PILOT_MODE to an empty
+# value in the dashboard afterwards. Everything else is identical: a pilot is
+# the same deployment with one flag.
+
+services:
+  - type: web
+    name: labvia
+    runtime: docker
+    # Not "free". A free web service sleeps after 15 minutes and the next
+    # visitor waits up to a minute at a blank page. During a lab pilot that is
+    # the difference between a researcher trying it and closing the tab.
+    plan: starter
+    region: oregon
+    rootDir: apps/labflow
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    # Uploads. Without this every file a lab adds disappears at the next deploy,
+    # silently, and the first they know of it is a missing gel image.
+    disk:
+      name: uploads
+      mountPath: /data/uploads
+      sizeGB: 10
+    envVars:
+      # The pilot: every workspace on the top plan, free, no expiry, and the
+      # billing page replaced by the four questions.
+      - key: LABFLOW_PILOT_MODE
+        value: "1"
+      # Must match the disk mount path above. The image already defaults to
+      # this; it is repeated here so that changing one without the other is
+      # visible rather than mysterious.
+      - key: UPLOAD_DIR
+        value: /data/uploads
+      # Paste the Neon connection string when Render asks.
+      - key: DATABASE_URL
+        sync: false
+      # The public address of this service, exactly as Render shows it, with no
+      # trailing slash. Every sign-in redirect and email link is built from it.
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      # LabBot. Leave blank and every AI panel says so honestly instead of
+      # pretending to work.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Your own address. Signing in with it comps your workspace and unlocks
+      # the owner dashboard, which is where the pilot answers appear.
+      - key: LABFLOW_OWNER_EMAIL
+        sync: false
+      # Google sign-in. Leave both blank and the button is hidden rather than
+      # shown broken.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Invitation and password-reset email. Without these an invitation still
+      # works, but hands the inviter a link to pass on by hand.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

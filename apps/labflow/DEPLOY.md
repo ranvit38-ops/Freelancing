@@ -114,6 +114,35 @@ Set `POSTGRES_PASSWORD` and `NEXT_PUBLIC_APP_URL` before anyone but you uses it.
 
 ## Running it as a free pilot
 
+### See it locally first, in one command
+
+```bash
+cd apps/labflow
+npm run pilot
+```
+
+That is `npm run dev` with the flag on. Open `http://localhost:3001`, sign up,
+and you are looking at exactly what a lab will see. Worth two minutes before you
+deploy anything.
+
+### Deploy it with the Blueprint
+
+`render.yaml` at the repository root describes the whole pilot service: the root
+directory, the Docker build, the disk mounted where uploads actually go, and the
+pilot flag already on.
+
+**Render dashboard, New, Blueprint, pick this repository.** Render reads the
+file and asks only for the values that are yours: the database URL, the public
+address, and whichever optional keys you want. The three settings people get
+wrong by hand are the root directory, the disk mount path and `UPLOAD_DIR`, and
+all three are fixed in the file.
+
+If Render rejects the Blueprint for any reason, nothing is lost: the manual
+steps above produce the same service, and you add `LABFLOW_PILOT_MODE=1` to the
+environment yourself.
+
+### What the flag changes
+
 Set `LABFLOW_PILOT_MODE` to `1` and the deployment stops being a product for
 sale and becomes a pilot. Every workspace gets the Department plan, free, with
 no expiry. Nobody is stopped at a seat cap, no trial counts down halfway
@@ -128,6 +157,12 @@ lab that ran forty experiments.
 
 It is the same code as the paid product, one flag apart, so what a lab tests
 is what they would buy. Nothing about the pilot is a mock-up.
+
+The public pages know about it too. The pricing page keeps its prices, because
+"would your lab pay for this" cannot be answered without a number attached, but
+it says plainly at the top that none of them apply during the pilot. The signup
+page says the same thing, which is where a PI decides whether this is going to
+ask for a card.
 
 Two things to know:
 
