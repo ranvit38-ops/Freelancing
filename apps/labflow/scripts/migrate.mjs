@@ -38,13 +38,13 @@ if (!url) {
 }
 
 const dir = join(process.cwd(), 'src/db/migrations');
-const pool = new pg.Pool({
-  connectionString: url,
-  // Managed Postgres (Render, Railway, Neon, Supabase) terminates TLS with a
-  // certificate this container has no way to chain. Refusing it would mean
-  // refusing every managed database, and the connection is still encrypted.
-  ssl: /\bsslmode=(require|prefer)\b/.test(url) ? { rejectUnauthorized: false } : undefined,
-});
+// No ssl option on purpose. node-postgres reads sslmode from the connection
+// string itself and verifies the certificate chain and hostname properly, and
+// the managed providers all present publicly trusted certificates. Passing
+// rejectUnauthorized:false here, as this once did, turned a verified connection
+// into an unverified one for no reason at all. The app's own pool does the same
+// thing, so migrations and queries reach the database identically.
+const pool = new pg.Pool({ connectionString: url });
 
 const files = readdirSync(dir)
   .filter((f) => f.endsWith('.sql'))

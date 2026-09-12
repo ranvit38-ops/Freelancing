@@ -28,11 +28,20 @@ with a disk and revisit it when one server stops being enough.
 
 ## Render, which has both
 
-Render runs a real server and sells a disk. It has a free database tier to
-start on, which expires after 30 days, and a paid one from about $7 a month.
+Render runs a real server and sells a disk. Its database is the one part worth
+buying elsewhere, for the reason in step 1.
 
-**1. Create the database.** New, PostgreSQL. Copy the **Internal Database URL**
-once it is ready.
+**1. Create the database, on Neon rather than Render.** Render's free Postgres
+expires 30 days after creation, and after a 14 day grace period Render deletes
+it and everything in it. It also takes no backups. That is a bad place to put a
+lab's first month of records.
+
+[Neon](https://neon.com) gives 0.5 GB free with no expiry and no card. Create a
+project and copy the connection string, which looks like
+`postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require`.
+
+Render's own PostgreSQL is the right answer later, at about $6 a month, once
+the data matters enough to want backups on the same platform.
 
 **2. Create the web service.** New, Web Service, connect the repository, then:
 
@@ -49,7 +58,7 @@ lost at the next deploy, silently.
 **4. Set the environment variables.** Under Environment:
 
 ```
-DATABASE_URL        the Internal Database URL from step 1
+DATABASE_URL        the Neon connection string from step 1
 NEXT_PUBLIC_APP_URL https://your-service.onrender.com
 ```
 
@@ -59,6 +68,12 @@ says plainly when its own key is missing rather than pretending to work.
 
 **5. Deploy.** Migrations run automatically on boot, so there is no separate
 database step. The first boot creates every table.
+
+**Do not use Render's free web service while a lab is testing.** It spins down
+after 15 minutes of inactivity, and the next visitor waits 30 to 60 seconds
+staring at nothing. A researcher who opens your link once, waits a minute, and
+closes the tab is a researcher you do not get a second chance with. The $7 tier
+removes it.
 
 Railway works the same way: a Postgres plugin, a volume mounted at
 `/data/uploads`, and the same variables.
@@ -106,6 +121,7 @@ should live keys go anywhere near it.
 - **A custom domain.** Both hosts do this in a few clicks and issue the
   certificate for you. Update `NEXT_PUBLIC_APP_URL` and the Stripe webhook URL
   when you do, or payment redirects will point at the old address.
-- **Database backups.** Render and Railway both take them on paid plans.
-  Confirm yours is on. A research tool that loses a lab's records has no second
-  chance.
+- **Database backups.** Neon's free plan keeps a short restore window; its paid
+  plans and Render's both keep real backups. Confirm yours before a lab trusts
+  the tool with a month of work. A research tool that loses a lab's records has
+  no second chance.
