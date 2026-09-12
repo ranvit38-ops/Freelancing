@@ -679,3 +679,37 @@ export const trialGrants = pgTable('trial_grants', {
   workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
   grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/* ── pilot ──────────────────────────────────────────────────────────────── */
+
+/**
+ * What a pilot lab says about paying for this.
+ *
+ * One row per person, not per workspace. A PI and the postdoc who actually ran
+ * the experiments rarely answer the same way, and the gap between them is the
+ * part worth reading.
+ */
+export const pilotFeedback = pgTable(
+  'pilot_feedback',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    wouldPay: text('would_pay').notNull(),
+    /** Whole dollars per month. Null means they left it blank, not zero. */
+    monthlyValue: integer('monthly_value'),
+    blocker: text('blocker'),
+    decisionMaker: text('decision_maker'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => ({
+    userKey: uniqueIndex('pilot_feedback_user_key').on(t.workspaceId, t.userId),
+  }),
+);
+
+export type PilotFeedback = typeof pilotFeedback.$inferSelect;

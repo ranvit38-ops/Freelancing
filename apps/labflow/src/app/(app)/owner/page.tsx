@@ -3,7 +3,8 @@ import { Badge, Card, CardHeader, PageHeader } from '@/components/ui';
 import { formatDate } from '@/lib/display';
 import { PLANS, isPlanId } from '@/lib/plans';
 import { requireSession } from '@/server/authz';
-import { NotTheOwnerError, ownerSignups, ownerSummary } from '@/server/admin';
+import { NotTheOwnerError, ownerPilotFeedback, ownerSignups, ownerSummary } from '@/server/admin';
+import { PILOT_PLAN, WOULD_PAY_LABEL, isWouldPay, pilotMode } from '@/lib/pilot';
 
 export const metadata = { title: 'Owner' };
 export const dynamic = 'force-dynamic';
@@ -25,8 +26,13 @@ export default async function OwnerPage() {
 
   let summary;
   let signups;
+  let feedback;
   try {
-    [summary, signups] = await Promise.all([ownerSummary(session), ownerSignups(session)]);
+    [summary, signups, feedback] = await Promise.all([
+      ownerSummary(session),
+      ownerSignups(session),
+      ownerPilotFeedback(session),
+    ]);
   } catch (error) {
     // Anyone who is not the owner is told this page does not exist, rather
     // than that it exists and they cannot see it.
@@ -50,6 +56,16 @@ export default async function OwnerPage() {
         title="Owner"
         description="Every workspace on this deployment, who signed up, and what they pay. Only the address in LABFLOW_OWNER_EMAIL can open this page."
       />
+
+      {/* The one setting that can give the product away by accident, so it is
+          stated at the top of the page rather than left to be remembered. */}
+      {pilotMode() ? (
+        <p className="mb-6 rounded-lg border border-warn/25 bg-warn/5 px-4 py-3 text-sm text-warn">
+          Pilot mode is on. Every workspace on this deployment has the{' '}
+          {PLANS[PILOT_PLAN].name} plan free, nothing can be charged, and the monthly revenue
+          below will stay at zero. Remove LABFLOW_PILOT_MODE when the pilot ends.
+        </p>
+      ) : null}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((s) => (
@@ -165,6 +181,58 @@ export default async function OwnerPage() {
           </table>
         </div>
       </Card>
+
+      {feedback.length > 0 ? (
+        <Card className="mt-6">
+          <CardHeader
+            title="Would they pay?"
+            description="What pilot labs said, newest first. Read each answer beside that workspace's row above: an opinion from a lab that barely used it is not evidence."
+          />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[48rem] text-sm">
+              <thead className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
+                <tr>
+                  <th className="px-5 py-2.5 font-medium">Person</th>
+                  <th className="px-5 py-2.5 font-medium">Workspace</th>
+                  <th className="px-5 py-2.5 font-medium">Answer</th>
+                  <th className="px-5 py-2.5 text-right font-medium">Worth / mo</th>
+                  <th className="px-5 py-2.5 font-medium">What stops them</th>
+                  <th className="px-5 py-2.5 font-medium">Who decides</th>
+                  <th className="px-5 py-2.5 font-medium">Answered</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {feedback.map((f) => (
+                  <tr key={f.id}>
+                    <td className="px-5 py-2.5">
+                      <span className="block truncate font-medium">{f.personName}</span>
+                      <span className="block truncate text-xs text-subtle">{f.personEmail}</span>
+                    </td>
+                    <td className="px-5 py-2.5 text-muted">{f.workspaceName}</td>
+                    <td className="px-5 py-2.5">
+                      <Badge tone={payTone(f.wouldPay)}>
+                        {isWouldPay(f.wouldPay) ? WOULD_PAY_LABEL[f.wouldPay] : f.wouldPay}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-muted">
+                      {f.monthlyValue === null ? 'not said' : money(f.monthlyValue)}
+                    </td>
+                    <td className="max-w-sm px-5 py-2.5 text-muted">{f.blocker ?? ''}</td>
+                    <td className="px-5 py-2.5 text-muted">{f.decisionMaker ?? ''}</td>
+                    <td className="px-5 py-2.5 text-xs text-muted">{formatDate(f.updatedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
     </>
   );
+}
+
+function payTone(answer: string): 'ok' | 'warn' | 'danger' | 'neutral' {
+  if (answer === 'yes') return 'ok';
+  if (answer === 'no') return 'danger';
+  return 'warn';
 }

@@ -29,6 +29,7 @@ import {
   inventoryLots,
   experimentLots,
   trialGrants,
+  pilotFeedback,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { InUseError, NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
@@ -2126,4 +2127,43 @@ export async function deleteFile(s: SessionContext, fileId: string) {
     .returning({ id: files.id, storageKey: files.storageKey });
   const row = assertFound(rows[0], 'File');
   return row;
+}
+
+/* ── pilot feedback ─────────────────────────────────────────────────────── */
+
+/**
+ * Records what this person says about paying for Labvia.
+ *
+ * Keyed on the workspace and the person, so answering twice replaces the first
+ * answer rather than stacking. Someone who changes their mind after two weeks
+ * of use is giving you a better answer than the one they gave on day one.
+ */
+export async function savePilotFeedback(
+  s: SessionContext,
+  input: {
+    wouldPay: string;
+    monthlyValue: number | null;
+    blocker: string | null;
+    decisionMaker: string | null;
+  },
+) {
+  await db
+    .insert(pilotFeedback)
+    .values({ workspaceId: s.workspaceId, userId: s.userId, ...input })
+    .onConflictDoUpdate({
+      target: [pilotFeedback.workspaceId, pilotFeedback.userId],
+      set: { ...input, updatedAt: new Date() },
+    });
+}
+
+/** This person's own answer, so the form comes back filled in rather than blank. */
+export async function myPilotFeedback(s: SessionContext) {
+  const rows = await db
+    .select()
+    .from(pilotFeedback)
+    .where(
+      and(eq(pilotFeedback.workspaceId, s.workspaceId), eq(pilotFeedback.userId, s.userId)),
+    )
+    .limit(1);
+  return rows[0] ?? null;
 }

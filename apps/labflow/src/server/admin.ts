@@ -1,6 +1,12 @@
 import { count, desc, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { users, workspaceMembers, workspaces, workspaceSubscriptions } from '@/db/schema';
+import {
+  pilotFeedback,
+  users,
+  workspaceMembers,
+  workspaces,
+  workspaceSubscriptions,
+} from '@/db/schema';
 import { isPlanId, monthlyTotal } from '@/lib/plans';
 import { NotTheOwnerError, requireOwner } from './owner';
 import type { SessionContext } from './auth';
@@ -123,6 +129,36 @@ export async function ownerSignups(
     .leftJoin(workspaceMembers, eq(workspaceMembers.userId, users.id))
     .leftJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
     .orderBy(desc(users.createdAt))
+    .limit(Math.min(Math.max(limit, 1), 500));
+}
+
+/**
+ * Every pilot answer, newest first.
+ *
+ * The point of reading it here rather than in a spreadsheet is the row above
+ * it: the same dashboard shows how much each of these labs actually used the
+ * product. "We would pay sixty dollars" from a lab that logged in twice is a
+ * different sentence from the same words out of a lab that ran forty
+ * experiments, and only one of them is evidence.
+ */
+export async function ownerPilotFeedback(session: SessionContext, limit = 200) {
+  requireOwner(session);
+  return db
+    .select({
+      id: pilotFeedback.id,
+      wouldPay: pilotFeedback.wouldPay,
+      monthlyValue: pilotFeedback.monthlyValue,
+      blocker: pilotFeedback.blocker,
+      decisionMaker: pilotFeedback.decisionMaker,
+      updatedAt: pilotFeedback.updatedAt,
+      personName: users.name,
+      personEmail: users.email,
+      workspaceName: workspaces.name,
+    })
+    .from(pilotFeedback)
+    .leftJoin(users, eq(users.id, pilotFeedback.userId))
+    .leftJoin(workspaces, eq(workspaces.id, pilotFeedback.workspaceId))
+    .orderBy(desc(pilotFeedback.updatedAt))
     .limit(Math.min(Math.max(limit, 1), 500));
 }
 

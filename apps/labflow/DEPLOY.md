@@ -112,6 +112,32 @@ on port 3001. The database and the uploaded files live in named volumes, so
 
 Set `POSTGRES_PASSWORD` and `NEXT_PUBLIC_APP_URL` before anyone but you uses it.
 
+## Running it as a free pilot
+
+Set `LABFLOW_PILOT_MODE` to `1` and the deployment stops being a product for
+sale and becomes a pilot. Every workspace gets the Department plan, free, with
+no expiry. Nobody is stopped at a seat cap, no trial counts down halfway
+through the month you asked them to evaluate, and no page asks anyone to pay.
+
+The billing page becomes four questions instead: would your lab pay for this,
+what would it be worth per month, what would stop you, and who decides. Those
+answers land on the owner dashboard beside how much each lab actually used the
+product, which is the only way to read them. "We would pay sixty dollars" from
+a lab that logged in twice is not the same sentence as the same words from a
+lab that ran forty experiments.
+
+It is the same code as the paid product, one flag apart, so what a lab tests
+is what they would buy. Nothing about the pilot is a mock-up.
+
+Two things to know:
+
+- Unlike `LABFLOW_DISABLE_PAYWALL`, this works in production, because a pilot
+  is a production deployment. It is the one setting that can give the product
+  away by accident, so the owner dashboard states loudly when it is on.
+- Removing the variable ends the pilot at the next deploy. Workspaces fall back
+  to whatever they are actually entitled to, which for a pilot lab is the free
+  plan. Nothing is deleted, and everything stays readable.
+
 ## Point Stripe at the real address
 
 Once the site has a public URL, the Stripe CLI is no longer needed. Use a real

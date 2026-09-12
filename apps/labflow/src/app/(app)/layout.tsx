@@ -6,6 +6,7 @@ import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
 import { listProjects } from '@/server/queries';
 import { isOwnerEmail } from '@/server/google';
+import { pilotBanner, pilotMode } from '@/lib/pilot';
 import { LabBotPanel } from '@/components/labbot-panel';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
@@ -26,6 +27,18 @@ const navItems: NavItem[] = [
   { href: '/settings', label: 'Settings' },
 ];
 
+/**
+ * During a pilot there is nothing to bill, so the same route asks the question
+ * the pilot exists to answer instead. Renaming it matters: nobody clicks
+ * "Billing" on a product they are being given for free.
+ */
+function navFor(pilot: boolean): NavItem[] {
+  if (!pilot) return navItems;
+  return navItems.map((item) =>
+    item.href === '/billing' ? { ...item, label: 'What is it worth?' } : item,
+  );
+}
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
   // Read access is never blocked, only writes. The banner says what applies.
@@ -37,9 +50,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // The owner link is added for the owner alone. Everyone else never sees the
   // route exists, and the page itself refuses them regardless of the nav.
+  const base = navFor(pilotMode());
   const items = isOwnerEmail(session.userEmail)
-    ? [...navItems, { href: '/owner', label: 'Owner' }]
-    : navItems;
+    ? [...base, { href: '/owner', label: 'Owner' }]
+    : base;
 
   // Only worth showing once a user actually belongs to more than one lab.
   const workspacePicker =
@@ -116,6 +130,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
 
       <main className="min-w-0 flex-1">
+        {pilotMode() ? (
+          <div className="border-b border-accent/25 bg-accent/5 px-5 py-2.5 text-sm text-accent sm:px-8">
+            {pilotBanner()}{' '}
+            <Link href="/billing" className="font-medium underline underline-offset-2">
+              Tell us what it is worth
+            </Link>
+          </div>
+        ) : null}
         {writable ? null : (
           <div className="border-b border-warn/25 bg-warn/5 px-5 py-3 text-sm text-warn sm:px-8">
             This workspace is read-only because its plan has ended. Nothing has been deleted.{' '}

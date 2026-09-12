@@ -10,6 +10,7 @@ import {
   type PlanId,
   type SubscriptionState,
 } from '@/lib/plans';
+import { PILOT_PLAN, pilotMode } from '@/lib/pilot';
 import { getSubscription, usageCounts } from './queries';
 import type { SessionContext } from './auth';
 
@@ -46,6 +47,20 @@ function paywallDisabled(): boolean {
 }
 
 export async function workspacePlan(session: SessionContext): Promise<WorkspacePlan> {
+  // A pilot deployment gives every workspace the top plan, free and with no
+  // end date. Kept separate from paywallDisabled on purpose: that one is a
+  // local convenience and refuses to run in production, while this one is only
+  // useful in production, which is exactly why it must be its own deliberate
+  // switch rather than a loosened guard on the other.
+  if (pilotMode()) {
+    return {
+      state: null,
+      plan: PILOT_PLAN,
+      limits: PLANS[PILOT_PLAN].limits,
+      writable: true,
+    };
+  }
+
   if (paywallDisabled()) {
     return {
       state: null,

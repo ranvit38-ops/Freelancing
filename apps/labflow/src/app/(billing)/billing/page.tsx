@@ -10,9 +10,11 @@ import {
   subscriptionNotice,
   toSubscriptionState,
 } from '@/lib/plans';
+import { PILOT_PLAN, pilotMode } from '@/lib/pilot';
+import { PilotFeedbackForm } from '@/components/pilot-feedback-form';
 import { billingProblem } from '@/server/billing';
 import { requireSession } from '@/server/authz';
-import { getSubscription, seatUsage } from '@/server/queries';
+import { getSubscription, myPilotFeedback, seatUsage } from '@/server/queries';
 
 export const metadata = { title: 'Billing' };
 export const dynamic = 'force-dynamic';
@@ -23,6 +25,12 @@ export default async function BillingPage({
   searchParams: { checkout?: string };
 }) {
   const session = await requireSession();
+
+  // A pilot deployment has nothing to bill, so this route asks the only
+  // question the pilot exists to answer instead of selling a plan to someone
+  // who was promised the product for nothing.
+  if (pilotMode()) return <PilotView session={session} />;
+
   const [row, usage] = await Promise.all([getSubscription(session), seatUsage(session)]);
   const sub = toSubscriptionState(row);
   const notice = subscriptionNotice(sub);
@@ -152,6 +160,91 @@ export default async function BillingPage({
           <UnlockForm />
         </div>
       ) : null}
+    </>
+  );
+}
+
+/**
+ * The pilot's own billing page.
+ *
+ * It states the real price rather than hiding it. "Would you pay for this" is
+ * unanswerable without a number attached, and a lab that finds out the price
+ * only after the pilot ends feels handled rather than asked.
+ */
+async function PilotView({ session }: { session: Awaited<ReturnType<typeof requireSession>> }) {
+  const existing = await myPilotFeedback(session);
+  const plan = PLANS[PILOT_PLAN];
+
+  return (
+    <>
+      <PageHeader
+        title="What is it worth?"
+        description="This lab is on a free pilot. Nothing here charges anything, and there is no card on file to charge."
+      />
+
+      <div className="mb-5 grid gap-5 lg:grid-cols-2">
+        <Card className="p-5">
+          <h2 className="mb-4 text-sm font-semibold tracking-tight">What you have</h2>
+          <DefinitionList
+            items={[
+              { term: 'Plan', value: <Badge tone="accent">{plan.name}, free</Badge> },
+              { term: 'People', value: `Up to ${plan.seats}` },
+              { term: 'Ends', value: 'No end date while the pilot runs' },
+              { term: 'Cost to you', value: 'Nothing, and no card was asked for' },
+              { term: 'Normally', value: `$${plan.monthly} a month for the whole lab` },
+            ]}
+          />
+          <p className="mt-4 border-t border-line pt-4 text-sm leading-6 text-muted">
+            Every feature is switched on, including the ones the paid plans
+            charge for. That is deliberate: a feature you never saw working is
+            one you cannot judge, and a pilot that hides half the product tells
+            neither of us anything.
+          </p>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Why you are being asked"
+            description="Straight answer, including the unflattering one."
+          />
+          <div className="space-y-3 px-5 py-4 text-sm leading-6 text-muted">
+            <p>
+              Labvia is new. Whether it is worth building further depends on
+              whether labs like yours would actually pay for it, and the only
+              people who can answer that are labs who have used it on real work.
+            </p>
+            <p>
+              Saying no costs you nothing and does not switch anything off. A
+              polite yes that is not true is the one answer that helps nobody,
+              because it is the one that leads to a year spent on the wrong
+              thing.
+            </p>
+            <p>
+              Nothing you record here is deleted at the end of the pilot, and
+              everything stays exportable.
+            </p>
+          </div>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader
+          title="Four questions"
+          description="Only the first needs an answer. Two minutes at most."
+        />
+        <PilotFeedbackForm
+          existing={
+            existing
+              ? {
+                  wouldPay: existing.wouldPay,
+                  monthlyValue: existing.monthlyValue,
+                  blocker: existing.blocker,
+                  decisionMaker: existing.decisionMaker,
+                }
+              : null
+          }
+        />
+      </Card>
     </>
   );
 }
