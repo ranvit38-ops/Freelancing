@@ -71,25 +71,32 @@ export const PLANS: Record<PlanId, Plan> = {
     name: 'Free',
     monthly: 0,
     yearly: 0,
-    seats: 1,
-    blurb: 'Enough to see how Labvia works.',
+    seats: 3,
+    blurb: 'The whole product, sized for trying it.',
     features: [
-      '1 person',
+      'Up to 3 people, talking to each other',
       '1 project, 10 experiments',
       '50 MB of uploads',
-      'Links and video',
+      'Every feature the paid plans have',
       '5 LabBot questions a month',
     ],
     limits: {
+      // Free is the whole product at small scale, not a crippled demo. A lab
+      // cannot judge a collaboration tool alone, and a feature they never saw
+      // working is a feature they will not pay for. What is limited is the
+      // things that grow with real use: projects, runs, storage, AI questions.
+      // Those bite within weeks of actually adopting it, which is the point.
       projects: 1,
       experiments: 10,
       storageBytes: 50 * 1024 * 1024,
       aiPerMonth: 5,
-      compare: false,
-      researchMemory: false,
-      pptxExport: false,
-      pubmed: false,
-      discussion: false,
+      compare: true,
+      researchMemory: true,
+      pptxExport: true,
+      pubmed: true,
+      discussion: true,
+      // The two that stay paid are not software. They are promises about
+      // people: someone answering fast, and someone raising an invoice.
       prioritySupport: false,
       invoiceBilling: false,
     },

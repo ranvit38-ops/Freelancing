@@ -50,7 +50,7 @@ export default async function UpdatesPage({
                   <select
                     name="project"
                     defaultValue={projectId}
-                    className="h-9 rounded-lg border border-line bg-surface px-3 text-sm"
+                    className="h-9 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-sm"
                   >
                     {projects.map((p) => (
                       <option key={p.id} value={p.id}>

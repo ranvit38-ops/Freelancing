@@ -63,7 +63,8 @@ export default async function PricingPage() {
           </h1>
           <p className="mt-4 text-lg leading-7 text-muted">
             A five-person lab pays $49 a month, about a third of what per-seat academic notebooks
-            charge for the same five people. Start free, no card required.
+            charge for the same five people. Start free with three people and the whole product, no
+            card required.
           </p>
         </div>
 
@@ -119,6 +120,11 @@ export default async function PricingPage() {
         </div>
 
         <p className="mt-4 text-sm text-muted">
+          Every plan has every feature, including the free one. What a plan buys is room: more
+          people, more projects and runs, more storage, more LabBot. You will not discover
+          three months in that the thing your lab relies on was behind a tier.
+        </p>
+        <p className="mt-2 text-sm text-muted">
           Each plan covers a fixed number of people, and the price you see is the price you pay.
           There is no per-person add-on to work out. A lab that grows past its plan moves up to the
           next one. Every paid plan starts with a 14-day trial.

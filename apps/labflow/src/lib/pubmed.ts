@@ -22,6 +22,27 @@ export type Article = {
 
 export class PubMedError extends Error {}
 
+/**
+ * What went wrong, for a researcher rather than for a log.
+ *
+ * A bare status code reads as "you broke something". Every one of these is
+ * NCBI or the network, never the person's search, and saying so stops them
+ * retyping a query that was fine.
+ */
+function pubmedFailure(what: string, status: number): PubMedError {
+  if (status === 429) {
+    return new PubMedError(
+      'PubMed is rate limiting us. Wait a few seconds and search again. Setting NCBI_API_KEY raises the limit.',
+    );
+  }
+  if (status >= 500) {
+    return new PubMedError('PubMed is having trouble at its end. Try again in a moment.');
+  }
+  return new PubMedError(
+    `PubMed could not be reached (${what} returned ${status}). Nothing is wrong with your search.`,
+  );
+}
+
 type ESearch = { esearchresult?: { idlist?: string[] } };
 type ESummary = {
   result?: Record<string, unknown> & { uids?: string[] };
@@ -73,14 +94,14 @@ export async function searchPubMed(
   const searchRes = await doFetch(
     `${BASE}/esearch.fcgi?db=pubmed&retmode=json&sort=relevance&retmax=${limit}&term=${encodeURIComponent(term)}${key}`,
   );
-  if (!searchRes.ok) throw new PubMedError(`PubMed search failed (${searchRes.status}).`);
+  if (!searchRes.ok) throw pubmedFailure('the search', searchRes.status);
   const ids = ((await searchRes.json()) as ESearch).esearchresult?.idlist ?? [];
   if (ids.length === 0) return [];
 
   const summaryRes = await doFetch(
     `${BASE}/esummary.fcgi?db=pubmed&retmode=json&id=${ids.join(',')}${key}`,
   );
-  if (!summaryRes.ok) throw new PubMedError(`PubMed lookup failed (${summaryRes.status}).`);
+  if (!summaryRes.ok) throw pubmedFailure('the record lookup', summaryRes.status);
   const result = ((await summaryRes.json()) as ESummary).result ?? {};
 
   // Preserve NCBI's relevance order rather than object key order.
@@ -119,7 +140,7 @@ export async function fetchAbstracts(
   const response = await doFetch(
     `${BASE}/efetch.fcgi?db=pubmed&retmode=xml&rettype=abstract&id=${ids.join(',')}${key}`,
   );
-  if (!response.ok) throw new PubMedError(`PubMed abstract lookup failed (${response.status}).`);
+  if (!response.ok) throw pubmedFailure('the abstract lookup', response.status);
   const xml = await response.text();
 
   for (const article of xml.split('<PubmedArticle>').slice(1)) {

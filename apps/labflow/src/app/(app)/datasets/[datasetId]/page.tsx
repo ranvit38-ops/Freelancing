@@ -61,7 +61,7 @@ export default async function DatasetPage({
               <select
                 name="x"
                 defaultValue={xColumn}
-                className="h-9 rounded-lg border border-line bg-surface px-3 text-sm"
+                className="h-9 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-sm"
               >
                 {numeric.map((c) => (
                   <option key={c.id} value={c.name}>
@@ -75,7 +75,7 @@ export default async function DatasetPage({
               <select
                 name="y"
                 defaultValue={yColumn}
-                className="h-9 rounded-lg border border-line bg-surface px-3 text-sm"
+                className="h-9 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-sm"
               >
                 {numeric.map((c) => (
                   <option key={c.id} value={c.name}>

@@ -44,7 +44,7 @@ export default async function ExperimentsPage({
           <select
             name="project"
             defaultValue={searchParams.project ?? ''}
-            className="h-9 rounded-lg border border-line bg-surface px-3 text-sm"
+            className="h-9 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-sm"
           >
             <option value="">All projects</option>
             {projects.map((p) => (
@@ -59,7 +59,7 @@ export default async function ExperimentsPage({
           <select
             name="status"
             defaultValue={searchParams.status ?? ''}
-            className="h-9 rounded-lg border border-line bg-surface px-3 text-sm"
+            className="h-9 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-sm"
           >
             <option value="">Any status</option>
             <option value="planned">Planned</option>

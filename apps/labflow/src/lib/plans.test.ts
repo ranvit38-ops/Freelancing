@@ -145,13 +145,29 @@ describe('free tier and read-only lockout', () => {
     expect(limitsFor(null, NOW).experiments).toBe(10);
   });
 
-  it('withholds the paid features from free', async () => {
+  it('gives free every feature, because a feature nobody saw work is one nobody buys', async () => {
     const { limitsFor } = await import('./plans');
     const free = limitsFor(null, NOW);
-    expect(free.compare).toBe(false);
-    expect(free.pptxExport).toBe(false);
-    expect(free.pubmed).toBe(false);
-    expect(free.researchMemory).toBe(false);
+    expect(free.compare).toBe(true);
+    expect(free.pptxExport).toBe(true);
+    expect(free.pubmed).toBe(true);
+    expect(free.researchMemory).toBe(true);
+    expect(free.discussion).toBe(true);
+  });
+
+  it('keeps free small rather than thin, and leaves room for a lab to talk', async () => {
+    const { PLANS, limitsFor } = await import('./plans');
+    // What is limited is what grows with real use.
+    const free = limitsFor(null, NOW);
+    expect(free.projects).toBe(1);
+    expect(free.experiments).toBe(10);
+    expect(free.aiPerMonth).toBe(5);
+    // More than one person, or the collaboration features cannot be tried at all.
+    expect(PLANS.free.seats).toBeGreaterThan(1);
+    expect(PLANS.free.seats).toBeLessThan(PLANS.lab.seats);
+    // Support and invoicing are promises about people, so they stay paid.
+    expect(free.prioritySupport).toBe(false);
+    expect(free.invoiceBilling).toBe(false);
   });
 
   it('makes a lapsed paid workspace read-only, not free-tier writable', async () => {

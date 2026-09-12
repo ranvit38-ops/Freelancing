@@ -14,7 +14,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "e2e": "node e2e/smoke.mjs",
     "setup": "node scripts/setup.mjs",
-    "stripe:check": "tsx scripts/stripe-check.ts"
+    "stripe:check": "tsx scripts/stripe-check.ts",
+    "e2e:responsive": "node e2e/responsive.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.33.0",

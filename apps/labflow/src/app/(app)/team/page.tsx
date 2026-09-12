@@ -30,7 +30,7 @@ export default async function TeamPage() {
         <UpgradePanel
           title="Team conversation"
           what="One channel for the whole lab, alongside the threads on each project and run."
-          why="The free plan is a single person, so there is nobody to talk to on it yet. Add people on a paid plan and this is where the lab talks."
+          why="Your current plan does not include it. Nothing already written is affected, and it comes back the moment the plan does."
         />
       </>
     );

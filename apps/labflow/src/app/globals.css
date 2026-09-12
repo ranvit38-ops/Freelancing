@@ -78,6 +78,22 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * Grid and flex children default to min-width:auto, which means they refuse to
+ * shrink below their own content. One long option in a select, one unbroken
+ * filename, and the whole page scrolls sideways on a phone, while the truncate
+ * class sitting on the text inside never gets a chance to run.
+ *
+ * :where() keeps this at zero specificity, so any component that genuinely
+ * wants an intrinsic minimum can still set one with a normal class. Fixing it
+ * here rather than on each of the two dozen grids means the next grid someone
+ * adds is correct without anyone remembering this.
+ */
+:where(.grid) > *,
+:where(.flex) > * {
+  min-width: 0;
+}
+
 /* Visible, consistent focus for keyboard users on every interactive control. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid rgb(var(--lf-accent));
