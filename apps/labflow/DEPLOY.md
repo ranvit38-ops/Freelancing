@@ -55,6 +55,14 @@ the data matters enough to want backups on the same platform.
 `/data/uploads`, size 10 GB to begin with. Skip this and every uploaded file is
 lost at the next deploy, silently.
 
+A mounted disk carries its ownership from the host, not from the image, and
+Labvia runs as a non-root user so that a bug in a file handler is not a bug
+with root's privileges. If the host mounts that disk for root, the server
+cannot write to it. It refuses to start rather than serving a site whose
+uploads fail the first time a researcher tries one, and the deploy log says
+which path it could not write to. The fix is to give that disk to uid 1001, or
+to mount it somewhere writable and point `UPLOAD_DIR` at that path instead.
+
 **4. Set the environment variables.** Under Environment:
 
 ```
