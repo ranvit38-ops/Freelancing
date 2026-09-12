@@ -66,6 +66,19 @@ Add the Stripe values from BILLING.md once you have them, and the optional keys
 for AI, email and Google sign-in when you want those features. Each feature
 says plainly when its own key is missing rather than pretending to work.
 
+If you use Google sign-in, go back to your OAuth client at
+[console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
+and add the deployed callback as a second authorised redirect URI:
+
+```
+https://your-service.onrender.com/api/auth/google/callback
+```
+
+Google matches that string exactly, so the localhost one you added while
+developing does nothing for the deployed site. Set `NEXT_PUBLIC_APP_URL` to the
+same origin: every sign-in redirect is built from it, and a wrong value sends
+people to an address that does not resolve.
+
 **5. Deploy.** Migrations run automatically on boot, so there is no separate
 database step. The first boot creates every table.
 

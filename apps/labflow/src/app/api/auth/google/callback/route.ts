@@ -10,6 +10,7 @@ import { normaliseEmail, slugify } from '@/lib/normalise';
 import { randomToken } from '@/lib/oauth';
 import { TRIAL_DAYS } from '@/lib/plans';
 import { createSession } from '@/server/auth';
+import { absoluteUrl } from '@/server/mailer';
 import {
   GoogleAuthError,
   GoogleNotConfiguredError,
@@ -30,7 +31,10 @@ export const runtime = 'nodejs';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const jar = cookies();
-  const back = (error: string) => NextResponse.redirect(new URL(`/login?error=${error}`, request.url));
+  // absoluteUrl, not request.url. Behind a proxy the incoming URL carries the
+  // address the server is bound to (0.0.0.0:10000 on a typical host), so a
+  // redirect built from it sends the browser somewhere that does not exist.
+  const back = (error: string) => NextResponse.redirect(absoluteUrl(`/login?error=${error}`));
 
   // Clear the one-shot cookies whichever way this goes.
   const state = jar.get('g_state')?.value;
@@ -87,11 +91,29 @@ export async function GET(request: Request) {
     } catch {
       // As above: an empty workspace is a worse first run, not a broken one.
     }
+  }
 
-    // The deployment owner is comped rather than trialled.
-    if (isOwnerEmail(email)) {
+  if (inviteToken) {
+    const invite = await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'));
+    if (invite) await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
+  }
+
+  // The deployment owner is comped rather than trialled. Checked on every
+  // sign-in and not only the first, because the owner is likely to have made
+  // the account with a password before Google was ever configured, and that
+  // account would otherwise never be recognised.
+  if (isOwnerEmail(email)) {
+    // Oldest membership first, which is the same workspace getSession will
+    // land them in.
+    const [home] = await db
+      .select({ workspaceId: workspaceMembers.workspaceId })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.userId, userId))
+      .orderBy(workspaceMembers.createdAt)
+      .limit(1);
+    if (home) {
       await applySubscriptionEvent({
-        workspaceId: created.workspaceId,
+        workspaceId: home.workspaceId,
         plan: 'department',
         status: 'active',
         currentPeriodEnd: null,
@@ -102,11 +124,6 @@ export async function GET(request: Request) {
     }
   }
 
-  if (inviteToken) {
-    const invite = await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'));
-    if (invite) await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
-  }
-
   await createSession(userId);
-  return NextResponse.redirect(new URL('/dashboard', request.url));
+  return NextResponse.redirect(absoluteUrl('/dashboard'));
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { googleAuthUrl, randomToken } from '@/lib/oauth';
+import { absoluteUrl } from '@/server/mailer';
 import { googleConfigured, googleRedirectUri } from '@/server/google';
 
 export const runtime = 'nodejs';
@@ -8,7 +9,7 @@ export const runtime = 'nodejs';
 /** Starts Google sign-in: mints state + PKCE verifier, then redirects. */
 export async function GET(request: Request) {
   if (!googleConfigured()) {
-    return NextResponse.redirect(new URL('/login?error=google_unconfigured', request.url));
+    return NextResponse.redirect(absoluteUrl('/login?error=google_unconfigured'));
   }
 
   const state = randomToken();

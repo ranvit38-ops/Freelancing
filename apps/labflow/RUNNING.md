@@ -78,8 +78,9 @@ LABFLOW_OWNER_EMAIL="you@gmail.com"
 
 4. Restart `npm run dev`.
 
-`LABFLOW_OWNER_EMAIL` is the owner account. The first time that address signs
-in with Google, its workspace is comped onto the Department plan. It is an
+`LABFLOW_OWNER_EMAIL` is the owner account. Every time that address signs in
+with Google, its workspace is comped onto the Department plan, so it works
+whether the account was made with Google or with a password first. It is an
 environment variable rather than a value in the source, because an address
 written into the repository is permanent, public in the git history, and a
 spam target.
