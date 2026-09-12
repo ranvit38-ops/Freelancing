@@ -1,7 +1,7 @@
 /**
  * Transactional email.
  *
- * One provider (Resend) over plain HTTP — no SDK needed for a single endpoint.
+ * One provider (Resend) over plain HTTP, no SDK needed for a single endpoint.
  * When it is not configured the send fails loudly rather than silently
  * pretending, and callers decide what to tell the user.
  */

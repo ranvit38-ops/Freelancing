@@ -67,7 +67,7 @@ export const users = pgTable(
   'users',
   {
     id: id(),
-    /** Stored normalised (trimmed, lowercased) — see lib/normalise.ts. */
+    /** Stored normalised (trimmed, lowercased), see lib/normalise.ts. */
     email: text('email').notNull(),
     name: text('name').notNull(),
     passwordHash: text('password_hash').notNull(),
@@ -81,7 +81,7 @@ export const sessions = pgTable(
   'sessions',
   {
     id: id(),
-    /** SHA-256 of the cookie token — the raw token is never stored. */
+    /** SHA-256 of the cookie token, the raw token is never stored. */
     tokenHash: text('token_hash').notNull(),
     userId: uuid('user_id')
       .notNull()
@@ -228,7 +228,7 @@ export const experiments = pgTable(
       onDelete: 'set null',
     }),
     protocolNotes: text('protocol_notes'),
-    /** Set when this run repeats an earlier experiment — drives the timeline. */
+    /** Set when this run repeats an earlier experiment, drives the timeline. */
     repeatsExperimentId: uuid('repeats_experiment_id'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -397,7 +397,7 @@ export const datasetColumns = pgTable(
     name: text('name').notNull(),
     position: integer('position').notNull().default(0),
     isNumeric: boolean('is_numeric').notNull().default(false),
-    /** Descriptive statistics only — never an inferred scientific claim. */
+    /** Descriptive statistics only, never an inferred scientific claim. */
     stats: jsonb('stats').$type<{
       count: number;
       missing: number;
@@ -453,7 +453,7 @@ export const researchUpdates = pgTable(
     title: text('title').notNull(),
     status: updateStatus('status').notNull().default('draft'),
     experimentIds: uuid('experiment_ids').array().notNull().default(sql`'{}'::uuid[]`),
-    /** Editable slide content — the researcher owns the final wording. */
+    /** Editable slide content, the researcher owns the final wording. */
     sections: jsonb('sections')
       .$type<{ heading: string; body: string; source: 'record' | 'researcher' | 'ai' }[]>()
       .notNull()

@@ -1,7 +1,7 @@
 /**
  * Research memory.
  *
- * Derived deterministically from the structured record — not generated prose.
+ * Derived deterministically from the structured record, not generated prose.
  * Every line traces back to an experiment or protocol version the researcher
  * wrote, so the page is always available and never invents anything.
  */
@@ -45,7 +45,7 @@ function label(e: MemoryExperiment) {
 }
 
 function entry(e: MemoryExperiment, text: string): MemoryEntry {
-  return { text, sourceId: e.id, sourceLabel: `${label(e)} — ${e.title}` };
+  return { text, sourceId: e.id, sourceLabel: `${label(e)}: ${e.title}` };
 }
 
 export function buildResearchMemory(

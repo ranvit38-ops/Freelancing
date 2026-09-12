@@ -22,7 +22,7 @@ const MAX_RELATED = 4;
 function renderRecord(record: q.ExperimentRecord, options: { full: boolean }): string {
   const { experiment: e, conditions, samples, result, notes } = record;
   const lines = [
-    `${experimentCode(e.number)} — ${e.title}`,
+    `${experimentCode(e.number)}: ${e.title}`,
     `Status: ${e.status}`,
     `Date: ${formatDate(e.performedOn)}`,
     `Researcher: ${e.researcherName ?? 'not recorded'}`,
@@ -48,7 +48,7 @@ function renderRecord(record: q.ExperimentRecord, options: { full: boolean }): s
   return lines.join('\n');
 }
 
-/** Column-level descriptions of attached data — never the raw rows. */
+/** Column-level descriptions of attached data, never the raw rows. */
 async function renderDatasets(experimentId: string): Promise<string> {
   const rows = await db
     .select({
@@ -104,12 +104,12 @@ export async function buildExperimentContext(s: SessionContext, experimentId: st
     {
       type: 'experiment',
       id: experiment.id,
-      label: `${experimentCode(experiment.number)} — ${experiment.title}`,
+      label: `${experimentCode(experiment.number)}: ${experiment.title}`,
     },
     ...related.map((r) => ({
       type: 'experiment',
       id: r.experiment.id,
-      label: `${experimentCode(r.experiment.number)} — ${r.experiment.title}`,
+      label: `${experimentCode(r.experiment.number)}: ${r.experiment.title}`,
     })),
   ];
 
@@ -172,7 +172,7 @@ export async function buildProjectContext(s: SessionContext, projectId: string, 
   const evidence: Evidence[] = records.map((r) => ({
     type: 'experiment',
     id: r.experiment.id,
-    label: `${experimentCode(r.experiment.number)} — ${r.experiment.title}`,
+    label: `${experimentCode(r.experiment.number)}: ${r.experiment.title}`,
   }));
 
   // Who ran what, so "who should I ask about this" is answerable from the
@@ -189,7 +189,7 @@ export async function buildProjectContext(s: SessionContext, projectId: string, 
     byResearcher.size === 0
       ? 'No researcher is recorded against the supplied experiments.'
       : [...byResearcher.entries()]
-          .map(([who, runs]) => `${who} — ran ${runs.join(', ')}`)
+          .map(([who, runs]) => `${who} ran ${runs.join(', ')}`)
           .join('\n');
 
   const context = [

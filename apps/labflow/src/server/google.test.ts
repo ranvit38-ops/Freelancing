@@ -38,7 +38,7 @@ describe('isOwnerEmail', () => {
     process.env.LABFLOW_OWNER_EMAIL = original;
   });
 
-  it('is nobody when unset — no privileged address is baked in', () => {
+  it('is nobody when unset, with no privileged address baked in', () => {
     delete process.env.LABFLOW_OWNER_EMAIL;
     expect(isOwnerEmail('anyone@example.com')).toBe(false);
   });

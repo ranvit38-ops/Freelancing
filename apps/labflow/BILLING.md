@@ -1,7 +1,7 @@
 # Connecting Stripe
 
 Labvia's payment code is already written. This is the account setup only, and
-none of it can be done from the code — it needs someone with legal authority
+none of it can be done from the code, it needs someone with legal authority
 over the bank account.
 
 > **Before anything else.** Stripe requires the account holder to be 18 or over,
@@ -26,7 +26,7 @@ monthly** price:
 | Labvia Group | 99.00 / month | |
 | Labvia Department | 249.00 / month | |
 
-Open each price and copy its ID — it starts with `price_`.
+Open each price and copy its ID, it starts with `price_`.
 
 If you also want annual billing, add a second yearly price to the same product
 (490 / 990 / 2490). The code uses whichever ID you put in the environment.
@@ -70,7 +70,7 @@ the most common mistake, and this is what catches it.
 Copy the signing secret (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`.
 
 **This step is not optional.** The webhook is the only thing that writes
-subscription state — without it a customer pays and nothing unlocks.
+subscription state, without it a customer pays and nothing unlocks.
 
 ### Locally, or in a Codespace
 
@@ -134,7 +134,7 @@ Nothing manual. Stripe raises an invoice each month, charges the card, emails
 the receipt, and retries a failed payment before anything lapses. Money reaches
 your bank on Stripe's payout schedule (usually 2–7 days for a new account).
 
-Stripe takes roughly 2.9% + 30¢ per transaction — about $1.72 of a $49 month.
+Stripe takes roughly 2.9% + 30¢ per transaction, about $1.72 of a $49 month.
 
 ## University buyers
 
@@ -148,7 +148,7 @@ with the owner code below.
 
 Setting `LABFLOW_OWNER_UNLOCK` to a long random string puts a redeem box on
 `/billing`. Entering that code puts the current workspace on the Department
-plan with no Stripe subscription — for your own workspace, a demo, or a
+plan with no Stripe subscription, for your own workspace, a demo, or a
 customer who paid by bank transfer.
 
 It is compared in constant time against a SHA-256 digest, rate limited to five

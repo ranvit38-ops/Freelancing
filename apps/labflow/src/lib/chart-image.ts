@@ -9,7 +9,7 @@ const AXIS: [number, number, number] = [140, 148, 162];
 /**
  * Renders a plot as a PNG for embedding in an exported deck.
  *
- * No text is drawn — axis labels and ranges go in the slide's own text, which
+ * No text is drawn, axis labels and ranges go in the slide's own text, which
  * keeps this a few dozen lines instead of a font rasteriser.
  */
 export function renderChartPng(

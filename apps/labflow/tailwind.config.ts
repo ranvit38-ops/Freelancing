@@ -3,7 +3,7 @@ import type { Config } from 'tailwindcss';
 /**
  * Design tokens are CSS variables (see src/app/globals.css) so the whole
  * surface can be re-themed without touching components. Never use raw hex
- * colours in components — always go through these tokens.
+ * colours in components, always go through these tokens.
  */
 const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],

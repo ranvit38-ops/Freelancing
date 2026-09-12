@@ -14,7 +14,7 @@ import {
 const emptyLiteratureState: LiteratureState = {};
 
 /**
- * Live PubMed search. Every row is a real NCBI record — nothing here is
+ * Live PubMed search. Every row is a real NCBI record, nothing here is
  * generated, and a failed lookup shows an error rather than a plausible list.
  */
 export function LiteratureSearch({ projectId }: { projectId: string }) {

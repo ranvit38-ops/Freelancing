@@ -5,7 +5,7 @@ describe('parseLink', () => {
   it('recognises a Google Drive file link', () => {
     const info = parseLink('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrS/view?usp=sharing');
     expect(info.provider).toBe('google-drive');
-    // /file/d/<id>/view carries no real name — fall back to a provider label.
+    // /file/d/<id>/view carries no real name, fall back to a provider label.
     expect(info.suggestedName).toBe('Google Drive item');
   });
 

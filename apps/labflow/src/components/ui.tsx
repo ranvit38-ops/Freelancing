@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from 'react';
 
 /*
  * One small set of primitives shared by every screen. Kept in a single file on
- * purpose — a dozen one-component files buys nothing at this size.
+ * purpose, a dozen one-component files buys nothing at this size.
  */
 
 export function cx(...parts: (string | false | null | undefined)[]) {

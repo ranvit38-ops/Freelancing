@@ -12,7 +12,7 @@ export type CheckCategory = {
   key: string;
   label: string;
   state: CheckState;
-  /** Shown only when the row is not green — what to do about it. */
+  /** Shown only when the row is not green, what to do about it. */
   hint?: string;
 };
 
@@ -66,7 +66,7 @@ export function checkCompleteness(input: CompletenessInput): CompletenessReport 
       key: 'protocolVersion',
       label: 'Protocol version',
       state: input.protocolVersion !== null ? 'documented' : input.protocolName ? 'incomplete' : 'missing',
-      hint: 'Record which version was used — this is what comparisons hinge on.',
+      hint: 'Record which version was used. This is what comparisons hinge on.',
     },
     { key: 'conditions', label: 'Experimental conditions', state: countState(input.conditionCount),
       hint: 'Add the variables you controlled (temperature, pH, concentration …).' },
@@ -94,7 +94,7 @@ export function checkCompleteness(input: CompletenessInput): CompletenessReport 
     { key: 'conclusion', label: 'Conclusion', state: textState(input.conclusion),
       hint: 'What do you take from this run?' },
     { key: 'nextSteps', label: 'Next steps', state: textState(input.nextSteps),
-      hint: 'What should happen after this — repeat, vary, stop?' },
+      hint: 'What should happen after this: repeat, vary, or stop?' },
   ];
 
   const documented = categories.filter((c) => c.state === 'documented').length;

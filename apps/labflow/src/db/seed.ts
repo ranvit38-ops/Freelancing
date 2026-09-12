@@ -192,10 +192,10 @@ async function main() {
         conclusion: 'The resin roughly doubles breakthrough time, but the recovery shortfall makes the absolute numbers uncertain.',
         nextSteps: 'Investigate the recovery loss before running further comparisons.',
       },
-      notes: ['Recovery check flagged during QC review — see the spike-check worksheet.'],
+      notes: ['Recovery check flagged during QC review. See the spike-check worksheet.'],
     },
     {
-      title: 'Recovery troubleshooting — rinse volume',
+      title: 'Recovery troubleshooting: rinse volume',
       performedOn: '2026-02-18',
       researcherId: assistant.id,
       status: 'needs_investigation' as const,
@@ -215,7 +215,7 @@ async function main() {
         nextSteps: null,
       },
       notes: [
-        'Blank contamination is the surprising part — worth checking the vials themselves rather than the method.',
+        'Blank contamination is the surprising part, so check the vials themselves rather than the method.',
       ],
     },
     {

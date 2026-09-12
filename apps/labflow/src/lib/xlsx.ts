@@ -5,7 +5,7 @@ import JSZip from 'jszip';
  *
  * An .xlsx is a zip of XML, and jszip is already here for PPTX export, so this
  * needs no spreadsheet library. It reads the first worksheet as a table of
- * strings — which is all the dataset layer wants, since it does its own type
+ * strings, which is all the dataset layer wants, since it does its own type
  * detection and never trusts Excel's formatting.
  *
  * Deliberately not supported: formulas (the cached value is used), multiple

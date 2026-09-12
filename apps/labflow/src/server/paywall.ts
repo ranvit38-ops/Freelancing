@@ -19,7 +19,7 @@ import type { SessionContext } from './auth';
  * Two separate ideas, deliberately kept apart:
  *
  *  - **Read-only.** A *paid* plan that lapsed stops accepting writes. Records
- *    stay readable and nothing is ever deleted — a research tool that destroys
+ *    stay readable and nothing is ever deleted, a research tool that destroys
  *    data on a timer is one no lab will trust, and it does not convert anyone.
  *  - **Free limits.** The free plan writes fine, up to small caps.
  *
@@ -102,7 +102,7 @@ export async function requireFeature(
  * Reason this workspace cannot write right now, or null.
  *
  * `adding` names what is about to be created so the per-plan cap for that thing
- * is checked too — a free workspace at ten experiments may still post a note.
+ * is checked too, a free workspace at ten experiments may still post a note.
  */
 export async function blockedReason(
   session: SessionContext,

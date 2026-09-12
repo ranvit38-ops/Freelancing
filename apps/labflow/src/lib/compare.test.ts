@@ -64,6 +64,6 @@ describe('buildComparison', () => {
 describe('changeTrail', () => {
   it('renders a compact trail with gaps marked', () => {
     expect(changeTrail(['25 °C', '25 °C', '30 °C'])).toBe('25 °C → 25 °C → 30 °C');
-    expect(changeTrail(['v4', null])).toBe('v4 → —');
+    expect(changeTrail(['v4', null])).toBe('v4 → -');
   });
 });

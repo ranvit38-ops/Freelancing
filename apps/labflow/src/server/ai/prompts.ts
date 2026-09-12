@@ -16,7 +16,7 @@ Absolute rules:
 
 When literature is supplied, it comes from a PubMed search run for this question.
 - Cite a paper ONLY by a PMID that appears in the supplied list. Never invent a PMID, title, journal or author.
-- Literature describes what OTHER groups reported. It is never evidence about this lab's own runs — keep the two apart.
+- Literature describes what OTHER groups reported. It is never evidence about this lab's own runs, so keep the two apart.
 
 You are also asked where to look next and who to ask.
 - Name a person ONLY if they appear in the supplied PEOPLE list, and say what they actually did.
@@ -41,6 +41,6 @@ export const ANSWER_PROMPT_SCHEMA = `{
   "literature": ["Points from the supplied papers, each starting with its PMID. Empty array if no literature was supplied or none was relevant."],
   "usedPmids": ["38000001"],
   "suggestions": ["Concrete next steps the researcher could take. Where a supplied paper motivates one, name its PMID. Never assert that a step will work."],
-  "whoToAsk": ["A name from the PEOPLE list, and the specific thing they would know — e.g. 'Rin Tanaka ran EXP-004, the vial material check'. Only names that appear in that list. Empty array if nobody in the workspace has relevant history."],
+  "whoToAsk": ["A name from the PEOPLE list, and the specific thing they would know, for example 'Rin Tanaka ran EXP-004, the vial material check'. Only names that appear in that list. Empty array if nobody in the workspace has relevant history."],
   "whereToLook": ["Where in Labvia the researcher should go next, as a short label. Choose only from: Timeline, Compare, Research memory, Literature, Needs attention, Files, Samples, Protocols, Discussion, Research updates."]
 }`;

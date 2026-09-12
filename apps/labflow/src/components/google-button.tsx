@@ -8,7 +8,7 @@ const ERRORS: Record<string, string> = {
 };
 
 /**
- * Rendered only when Google sign-in is actually configured — a button that
+ * Rendered only when Google sign-in is actually configured, a button that
  * cannot work is worse than no button.
  */
 export function GoogleButton({ invite, error }: { invite?: string; error?: string }) {

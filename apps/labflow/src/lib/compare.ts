@@ -2,7 +2,7 @@
  * Experiment comparison.
  *
  * Builds a field-by-field table across the selected runs and marks the rows
- * where the record actually differs. It reports documented differences only —
+ * where the record actually differs. It reports documented differences only -
  * a row that reads the same across two runs means the same thing was written
  * down, not that the two runs were identical.
  */
@@ -143,7 +143,7 @@ export function buildComparison(experiments: ComparableExperiment[]): Comparison
   return [...setup, ...conditions, ...reagents, ...outcome];
 }
 
-/** "25 °C → 25 °C → 30 °C" — the compact form used in summaries. */
+/** "25 °C → 25 °C → 30 °C", the compact form used in summaries. */
 export function changeTrail(values: (string | null)[]): string {
-  return values.map((v) => (v?.trim() ? v : '—')).join(' → ');
+  return values.map((v) => (v?.trim() ? v : '-')).join(' → ');
 }

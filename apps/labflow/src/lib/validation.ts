@@ -54,7 +54,7 @@ export const projectSchema = z
 
 /**
  * Only the title is required. The whole point of the create screen is that a
- * researcher can capture an experiment in seconds and fill in the rest later —
+ * researcher can capture an experiment in seconds and fill in the rest later -
  * the completeness check (lib/completeness.ts) is what nags them, not the form.
  */
 export const experimentSchema = z

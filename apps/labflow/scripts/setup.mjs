@@ -58,7 +58,7 @@ async function main() {
   if (url) {
     say(`  Using the Postgres already running at ${url.replace(/:[^:@/]*@/, ':****@')}`);
   } else if (has('docker')) {
-    say('  No Postgres reachable — starting one in Docker.');
+    say('  No Postgres reachable, starting one in Docker.');
     try {
       run(`docker start ${CONTAINER}`);
       say(`  Restarted the existing ${CONTAINER} container.`);
@@ -87,7 +87,7 @@ async function main() {
 
   step('2/4  Writing .env.local');
   if (existsSync('.env.local')) {
-    say('  .env.local already exists — leaving it alone.');
+    say('  .env.local already exists, leaving it alone.');
     const current = readFileSync('.env.local', 'utf8');
     if (!current.includes('DATABASE_URL')) {
       say('  \x1b[33mIt has no DATABASE_URL. Add:\x1b[0m');
@@ -100,7 +100,7 @@ async function main() {
         `DATABASE_URL="${url}"`,
         '',
         '# Explore the whole paid product locally without paying.',
-        '# Ignored in production — this cannot ship as a backdoor.',
+        '# Ignored in production, this cannot ship as a backdoor.',
         'LABFLOW_DISABLE_PAYWALL="1"',
         '',
         '# Optional. Without a key, LabBot says it is not configured',

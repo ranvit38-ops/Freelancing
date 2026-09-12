@@ -7,7 +7,7 @@ import { storeSubscription as store } from '@/server/billing-sync';
 export const runtime = 'nodejs';
 
 /**
- * Stripe webhook — the only place subscription state is written.
+ * Stripe webhook, the only place subscription state is written.
  *
  * The signature is verified against the raw body before anything is trusted;
  * without that check anyone could POST themselves a free plan. Stripe retries

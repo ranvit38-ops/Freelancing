@@ -4,7 +4,7 @@
  * Priced against what an academic lab actually faces: LabArchives is roughly
  * £/$330 per user per year for academics, while Benchling, SciNote and eLabFTW
  * all have a free tier. So Labvia is priced per *lab*, not per seat, and lands
- * well under the paid comparator — a five-person lab pays about a third of what
+ * well under the paid comparator, a five-person lab pays about a third of what
  * LabArchives charges for the same five people.
  *
  * There is deliberately no per-person add-on. A lab that outgrows its plan
@@ -31,7 +31,7 @@ export type Plan = {
 /**
  * What a plan allows. Free is deliberately thin: enough to see Labvia work,
  * not enough to run a lab on. When a paid plan lapses the workspace becomes
- * read-only — records stay visible and nothing is ever deleted, because a
+ * read-only, records stay visible and nothing is ever deleted, because a
  * research tool that destroys data on a timer is one nobody will trust.
  */
 export type Limits = {
@@ -200,7 +200,7 @@ function trialLive(sub: SubscriptionState, now: Date): boolean {
 }
 
 function paidActive(sub: SubscriptionState): boolean {
-  // past_due is a grace period, not a lockout — the card retry may still work.
+  // past_due is a grace period, not a lockout, the card retry may still work.
   return sub.status === 'active' || sub.status === 'past_due';
 }
 

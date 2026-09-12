@@ -8,7 +8,7 @@ const dot = {
 } as const;
 
 /**
- * A documentation checklist, not a reproducibility guarantee — the wording
+ * A documentation checklist, not a reproducibility guarantee, the wording
  * here is deliberate and should not be softened into "reproducible".
  */
 export function CompletenessPanel({ report }: { report: CompletenessReport }) {

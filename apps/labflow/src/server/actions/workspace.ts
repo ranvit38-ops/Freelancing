@@ -15,7 +15,7 @@ import type { ActionState } from './types';
 
 /**
  * Switching is a cookie write, but membership is re-checked here and again in
- * getSession — the cookie alone never grants access to a workspace.
+ * getSession, the cookie alone never grants access to a workspace.
  */
 export async function switchWorkspaceAction(formData: FormData) {
   await requireSession();

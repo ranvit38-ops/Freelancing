@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Next.js rejects a "use server" module that exports anything but an async
- * function — and it only says so at build time, after everything else passes.
+ * function, and it only says so at build time, after everything else passes.
  * This catches it in a second instead.
  */
 describe('"use server" modules', () => {

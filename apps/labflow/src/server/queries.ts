@@ -35,7 +35,7 @@ import { InUseError, NotFoundInWorkspaceError, assertFound, assertId } from './n
 
 /*
  * Every function here takes the caller's SessionContext and filters on
- * s.workspaceId. There is no "get by id" that skips that predicate — that is
+ * s.workspaceId. There is no "get by id" that skips that predicate, that is
  * what keeps one lab's records invisible to another.
  */
 
@@ -914,7 +914,7 @@ export async function dashboardData(s: SessionContext) {
       .where(eq(experiments.workspaceId, s.workspaceId)),
   ]);
 
-  // Completed experiments with no recorded conclusion — the documentation gap
+  // Completed experiments with no recorded conclusion, the documentation gap
   // that costs the most later.
   const undocumented = await db
     .select({
@@ -1236,7 +1236,7 @@ export async function nextActionSignals(s: SessionContext, opts: { projectId?: s
 /**
  * Every file in the workspace with the record it belongs to.
  *
- * This is the "where is that file?" view — but anchored to the experiment that
+ * This is the "where is that file?" view, but anchored to the experiment that
  * produced it, which is the thing a shared drive cannot tell you.
  */
 export async function listFiles(s: SessionContext) {
@@ -1290,7 +1290,7 @@ export async function protocolVersionUsage(s: SessionContext, protocolId: string
 }
 
 /**
- * The first dataset among the given experiments that has two numeric columns —
+ * The first dataset among the given experiments that has two numeric columns -
  * enough to draw one chart for a research update. Returns null when the
  * experiments carry no plottable data, and the deck simply omits the slide.
  */
@@ -1577,7 +1577,7 @@ export async function revokeInvite(s: SessionContext, inviteId: string) {
   assertFound(rows[0], 'Invitation');
 }
 
-/** Looks an invite up by token — used before a session exists. */
+/** Looks an invite up by token, used before a session exists. */
 export async function findInviteByToken(tokenHash: string) {
   const rows = await db
     .select({
@@ -1642,7 +1642,7 @@ export async function getSubscriptionByWorkspace(workspaceId: string) {
   return rows[0] ?? null;
 }
 
-/** Members plus outstanding invites — both consume a seat. */
+/** Members plus outstanding invites, both consume a seat. */
 export async function seatUsage(s: SessionContext) {
   const [members, invites] = await Promise.all([
     db
@@ -1706,7 +1706,7 @@ export async function setStripeCustomer(s: SessionContext, customerId: string) {
 
 /**
  * Applied from a Stripe webhook, so it is keyed on the Stripe ids rather than
- * a session — there is no user in that request.
+ * a session, there is no user in that request.
  */
 export async function applySubscriptionEvent(input: {
   workspaceId: string;

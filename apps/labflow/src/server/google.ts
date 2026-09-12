@@ -7,7 +7,7 @@ import { absoluteUrl } from './mailer';
  * https://console.cloud.google.com/apis/credentials (type: Web application),
  * add this app's callback as an authorised redirect URI, then set
  * GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. Without both, the button is not
- * shown and the routes refuse — never a half-working login.
+ * shown and the routes refuse, never a half-working login.
  */
 
 export class GoogleNotConfiguredError extends Error {
@@ -33,7 +33,7 @@ export type GoogleProfile = { email: string; name: string; emailVerified: boolea
  * Exchanges the code for tokens and reads the profile.
  *
  * The id_token's payload is read for the email, but the token is NOT trusted on
- * its signature alone — it came straight from Google's token endpoint over TLS
+ * its signature alone, it came straight from Google's token endpoint over TLS
  * in response to our own client secret, which is what makes it trustworthy
  * here. A token arriving any other way would need full signature verification.
  */

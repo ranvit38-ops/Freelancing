@@ -7,7 +7,7 @@ import { env } from '@/lib/env';
  * File storage behind a narrow interface.
  *
  * Local disk today. Swapping in S3 or Supabase Storage later means
- * implementing these two functions — nothing above this file changes.
+ * implementing these two functions, nothing above this file changes.
  */
 
 function root() {

@@ -3,7 +3,7 @@ import { deflateSync } from 'node:zlib';
 /**
  * Minimal PNG writer (8-bit RGBA, no interlacing).
  *
- * Node ships the only hard part — DEFLATE — so an image library would buy
+ * Node ships the only hard part, DEFLATE, so an image library would buy
  * nothing here. Used to put a chart into an exported PowerPoint deck.
  */
 

@@ -87,8 +87,8 @@ describe('section ordering', () => {
 
 describe('defaultUpdateTitle', () => {
   it('names a single experiment and a range', () => {
-    expect(defaultUpdateTitle('PFAS', [{ number: 4 }])).toBe('PFAS — EXP-004');
-    expect(defaultUpdateTitle('PFAS', [{ number: 6 }, { number: 4 }])).toBe('PFAS — EXP-004 to EXP-006');
+    expect(defaultUpdateTitle('PFAS', [{ number: 4 }])).toBe('PFAS: EXP-004');
+    expect(defaultUpdateTitle('PFAS', [{ number: 6 }, { number: 4 }])).toBe('PFAS: EXP-004 to EXP-006');
     expect(defaultUpdateTitle('PFAS', [])).toBe('PFAS');
   });
 });

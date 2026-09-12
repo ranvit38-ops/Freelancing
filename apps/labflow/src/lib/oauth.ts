@@ -12,7 +12,7 @@ export function randomToken(bytes = 32): string {
   return randomBytes(bytes).toString('base64url');
 }
 
-/** S256 challenge — the plain method is not offered. */
+/** S256 challenge, the plain method is not offered. */
 export function codeChallenge(verifier: string): string {
   return createHash('sha256').update(verifier).digest('base64url');
 }

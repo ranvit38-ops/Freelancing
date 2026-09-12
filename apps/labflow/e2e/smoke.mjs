@@ -36,7 +36,7 @@ page.on('console', (m) => {
 page.on('response', (r) => { if (r.status() >= 500) errors.push(`HTTP ${r.status()} ${r.url()}`); });
 
 try {
-  // 1. Sign up — creates account + workspace.
+  // 1. Sign up, creates account + workspace.
   await page.goto(`${BASE}/signup`);
   await page.fill('#name', 'Dr Test Researcher');
   await page.fill('#email', email);
@@ -198,7 +198,7 @@ try {
   }
   ok('needs-attention raises real gaps and stays quiet about in-progress work');
 
-  // 11d. Paste a Google Drive link — stored as a link, not copied.
+  // 11d. Paste a Google Drive link, stored as a link, not copied.
   await page.goto(expUrl);
   await page.fill('#link-url', 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUv/view');
   await page.fill('#link-label', 'Raw LC-MS export');
@@ -221,7 +221,7 @@ try {
   ok('pasted a YouTube link and it embedded a player inline');
 
   // 11e. Slack-style discussion on the experiment, with a threaded reply.
-  await page.fill('#new-message', 'Column pressure looked high on this run — worth a second look?');
+  await page.fill('#new-message', 'Column pressure looked high on this run, worth a second look?');
   await page.click('button:has-text("Post message")');
   await page.waitForSelector('text=Column pressure looked high', { timeout: 20000 });
   await page.click('button:has-text("Reply")');
@@ -248,7 +248,7 @@ try {
   if (/PMID \\d+/.test(litBody)) {
     ok('PubMed returned real citations with PMIDs');
   } else if (/PubMed/i.test(alerts)) {
-    ok(`PubMed unreachable here — reported honestly, no invented citations ("${alerts.trim()}")`);
+    ok(`PubMed unreachable here, reported honestly, no invented citations ("${alerts.trim()}")`);
   } else {
     throw new Error('literature search neither returned results nor reported a failure');
   }
@@ -304,7 +304,7 @@ try {
     await second.close();
     ok('a second person accepted the invite and belongs to both workspaces');
   } else {
-    ok('invite link not shown (mail configured) — link flow not exercised');
+    ok('invite link not shown (mail configured), link flow not exercised');
   }
 
   // 11. AI without a key must say so, never invent.

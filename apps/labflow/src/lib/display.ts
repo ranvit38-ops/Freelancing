@@ -34,9 +34,9 @@ export const projectStatusLabel: Record<ProjectStatus, string> = {
 
 /** Fixed locale and UTC so server and client render the same string. */
 export function formatDate(value: Date | string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -65,13 +65,13 @@ export function formatBytes(bytes: number): string {
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }
 
-/** "3 experiments" / "1 experiment" — used all over the dashboard. */
+/** "3 experiments" / "1 experiment", used all over the dashboard. */
 export function pluralise(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
 /**
- * First name for a greeting. "Dr Elena Marsh" → "Elena", not "Dr" — academic
+ * First name for a greeting. "Dr Elena Marsh" → "Elena", not "Dr", academic
  * names carry titles far more often than most products assume.
  */
 export function greetingName(fullName: string): string {

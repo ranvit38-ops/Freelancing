@@ -91,7 +91,7 @@ suite('workspace isolation', () => {
   });
 
   afterAll(async () => {
-    // Delete only this run's fixtures — an unscoped delete here would wipe
+    // Delete only this run's fixtures, an unscoped delete here would wipe
     // whatever else lives in the developer's database.
     const { inArray } = await import('drizzle-orm');
     await ctx.db
@@ -187,8 +187,8 @@ suite('workspace isolation', () => {
 });
 
 /**
- * Exercises the whole AI path — retrieval, prompt assembly, JSON extraction,
- * schema validation, evidence filtering and persistence — against a stubbed
+ * Exercises the whole AI path, retrieval, prompt assembly, JSON extraction,
+ * schema validation, evidence filtering and persistence, against a stubbed
  * transport. Only the network call itself is left uncovered.
  */
 suite('AI analysis pipeline', () => {
@@ -336,7 +336,7 @@ suite('AI analysis pipeline', () => {
       ),
     );
     expect(sent?.prompt).toContain('PEOPLE (the only names you may suggest asking)');
-    expect(sent?.prompt).toContain('Ada A — ran EXP-001');
+    expect(sent?.prompt).toContain('Ada A ran EXP-001');
   });
 
   it('refuses another workspace even with a working transport', async () => {

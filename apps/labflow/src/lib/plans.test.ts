@@ -35,7 +35,7 @@ describe('canWrite', () => {
     expect(usable(null, NOW)).toBe(true);
   });
 
-  it('keeps a past-due workspace working — a failed card is not a lockout', () => {
+  it('keeps a past-due workspace working, since a failed card is not a lockout', () => {
     expect(usable({ ...base, status: 'past_due' }, NOW)).toBe(true);
   });
 

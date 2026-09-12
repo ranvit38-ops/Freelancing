@@ -10,8 +10,8 @@ describe('display helpers', () => {
 
   it('formats dates in a fixed locale and timezone', () => {
     expect(formatDate(new Date('2026-04-02T23:30:00Z'))).toBe('2 Apr 2026');
-    expect(formatDate(null)).toBe('—');
-    expect(formatDate('not a date')).toBe('—');
+    expect(formatDate(null)).toBe('-');
+    expect(formatDate('not a date')).toBe('-');
   });
 
   it('produces date-input values', () => {

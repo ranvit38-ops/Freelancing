@@ -2,8 +2,8 @@
  * "What should I do next?" derived from the structured record.
  *
  * Deliberately not AI. These are mechanical observations about documentation
- * state — a run marked complete with no conclusion, a run left in progress for
- * weeks — so the guidance is always available, always explainable, and never
+ * state, a run marked complete with no conclusion, a run left in progress for
+ * weeks, so the guidance is always available, always explainable, and never
  * makes a scientific claim. Wording stays about the *record*, never the work.
  */
 

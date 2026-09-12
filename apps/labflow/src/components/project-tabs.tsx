@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cx } from './ui';
 
-/** Sub-navigation inside a project. Kept flat — depth costs clicks. */
+/** Sub-navigation inside a project. Kept flat, depth costs clicks. */
 export function ProjectTabs({ projectId }: { projectId: string }) {
   const pathname = usePathname();
   const base = `/projects/${projectId}`;

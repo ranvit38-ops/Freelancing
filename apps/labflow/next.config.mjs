@@ -2,8 +2,8 @@
 
 /**
  * Server Actions reject a request whose browser Origin differs from the
- * server's Host. Behind a proxy that rewrites the host — GitHub Codespaces, a
- * tunnel, a platform preview URL — they always differ, and every form on the
+ * server's Host. Behind a proxy that rewrites the host, GitHub Codespaces, a
+ * tunnel, a platform preview URL, they always differ, and every form on the
  * site fails with "Invalid Server Actions request".
  *
  * Codespaces publishes its own hostname, so name that exactly rather than

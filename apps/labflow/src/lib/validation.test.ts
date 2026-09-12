@@ -4,7 +4,7 @@ import { experimentSchema, parseSampleCodes, projectSchema, zipConditions } from
 describe('experimentSchema', () => {
   const base = { title: 'Column breakthrough run' };
 
-  it('accepts a title alone — capture must be fast', () => {
+  it('accepts a title alone, because capture must be fast', () => {
     const parsed = experimentSchema.parse(base);
     expect(parsed.status).toBe('planned');
     expect(parsed.objective).toBeNull();

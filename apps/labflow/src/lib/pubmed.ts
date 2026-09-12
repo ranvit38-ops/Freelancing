@@ -1,7 +1,7 @@
 /**
  * PubMed search via NCBI E-utilities.
  *
- * Public API, no key required — an api_key only raises the rate limit from 3
+ * Public API, no key required, an api_key only raises the rate limit from 3
  * to 10 requests/second, so it stays optional. Two calls: esearch returns
  * PMIDs, esummary turns them into records.
  *
@@ -110,11 +110,11 @@ export async function searchPubMed(
     .filter((a): a is Article => a !== null);
 }
 
-/** Compact rendering handed to the model — one line per citation. */
+/** Compact rendering handed to the model, one line per citation. */
 export function renderArticles(articles: Article[]): string {
   if (articles.length === 0) return 'No literature was retrieved for this question.';
   return articles
-    .map((a) => `PMID ${a.pmid} — ${a.title} (${a.authors ?? 'unknown authors'}, ${a.journal ?? 'unknown journal'}, ${a.year ?? 'n.d.'})`)
+    .map((a) => `PMID ${a.pmid}: ${a.title} (${a.authors ?? 'unknown authors'}, ${a.journal ?? 'unknown journal'}, ${a.year ?? 'n.d.'})`)
     .join('\n');
 }
 

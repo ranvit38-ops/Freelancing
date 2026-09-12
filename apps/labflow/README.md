@@ -61,14 +61,14 @@ workspace-isolation integration tests against a real database. CI provides one.
 src/
   app/                     routes (App Router)
     (auth)/                login, signup, password reset
-    (app)/                 the workspace — everything behind a session
+    (app)/                 the workspace, everything behind a session
     api/                   file upload/download, PPTX export
   components/              config-free UI; primitives live in ui.tsx
   db/                      Drizzle schema, SQL migrations, demo seed
-  lib/                     pure logic — no I/O, all unit tested
+  lib/                     pure logic, no I/O, all unit tested
   server/
     auth.ts                session cookies (SHA-256 hashed tokens)
-    authz.ts               requireSession — the single entry point
+    authz.ts               requireSession, the single entry point
     not-found.ts           NotFoundInWorkspaceError
     queries.ts             the ONLY place that touches the database
     storage.ts             file storage adapter (local disk today)
@@ -79,7 +79,7 @@ src/
 **The rule that matters:** every function in `server/queries.ts` takes a
 `SessionContext` and filters on `session.workspaceId`. There is no "load by id"
 that skips that predicate. A guessed UUID from another lab returns nothing, and
-`src/server/queries.integration.test.ts` proves it against a real database —
+`src/server/queries.integration.test.ts` proves it against a real database -
 cross-workspace reads, writes, listings, search and comparison are all covered.
 
 Pure logic lives in `src/lib/` so it can be tested without a database:
@@ -91,7 +91,7 @@ chart geometry, and the research-update draft.
 ## What the AI does and does not do
 
 - It is given a **bounded, plain-text rendering** of specific retrieved records
-  (`server/ai/context.ts`) — never database access, never raw data rows. Only
+  (`server/ai/context.ts`), never database access, never raw data rows. Only
   descriptive column statistics are sent.
 - Output is **schema-validated** before it is shown. A malformed response is an
   error, not a rendered guess.
@@ -106,7 +106,7 @@ are derived from the structured record, so every line traces to an experiment
 someone actually wrote, and both work with no API key at all.
 
 The AI chatbot is deliberately *not* the front door. It appears at specific
-points — analyse an experiment, ask a project — because a workspace that
+points, analyse an experiment, ask a project, because a workspace that
 understands your records is the product; a chat box on top of a database is not.
 
 ---
@@ -119,7 +119,7 @@ understands your records is the product; a chat box on top of a database is not.
 - Login costs the same for unknown emails, so the form cannot enumerate accounts.
 - Authorisation is server-side in the data layer, never in the browser.
 - Files are served through `/api/files/[id]` with a membership check and
-  `Content-Disposition: attachment` — never from a public bucket URL.
+  `Content-Disposition: attachment`, never from a public bucket URL.
 - Uploads are extension-allowlisted and capped at 25 MB. Storage keys are
   generated, never taken from the filename, and path traversal is rejected.
 - Research data is never used to train models.
@@ -136,12 +136,12 @@ Stated plainly rather than stubbed with buttons that do nothing:
 - **Legacy `.xls`** (pre-2007 binary) is stored but not parsed. `.xlsx` and
   CSV/TSV are parsed into datasets.
 - **Live-key AI.** The AI path is covered end to end against a stubbed
-  transport — retrieval, prompt, JSON extraction, schema validation, evidence
+  transport, retrieval, prompt, JSON extraction, schema validation, evidence
   filtering, persistence and workspace refusal. The network call itself is the
   only uncovered line.
-- **Full-text search.** Search is `ILIKE` across the record — fast and honest at
+- **Full-text search.** Search is `ILIKE` across the record, fast and honest at
   lab scale. A `tsvector` column is the upgrade when a lab has thousands of runs.
-- **Drive/OneDrive file sync.** Links are stored, files are not copied — see
+- **Drive/OneDrive file sync.** Links are stored, files are not copied, see
   above. OAuth sync is a deliberate non-goal until a lab asks for it.
 - **Real-time chat.** Discussion reloads on post; no websockets.
 - **Instrument and ELN integrations.** Absent until there is a real client and
@@ -152,19 +152,19 @@ Stated plainly rather than stubbed with buttons that do nothing:
 - **Workspaces and invitations.** Anyone can start a lab; owners and admins
   invite by email. The link carries a token whose hash alone is stored, so a
   database leak cannot be used to join a lab. Accepting works signed-in or
-  signed-out — a new account created from an invite joins that workspace rather
+  signed-out, a new account created from an invite joins that workspace rather
   than an empty one. A user in several labs gets a switcher, and the selected
   workspace is re-checked against membership on every request.
 - **Uploads.** Drop files onto the experiment, or click to choose. Several at
   once upload in sequence so each failure names its own file.
 
-- **Discussion** on every experiment and project — threaded one level deep,
+- **Discussion** on every experiment and project, threaded one level deep,
   stored with the record so the reasoning survives the run. Not real-time:
   a lab conversation happens over days, and websockets would add
   infrastructure for a problem nobody has yet.
 - **Link attachments.** Paste a Google Drive, Docs, Dropbox, OneDrive,
-  SharePoint, Notion, figshare, Zenodo, DOI, YouTube or Vimeo URL — or any link
-  — and it lands beside the experiment. Videos embed and play inline (via
+  SharePoint, Notion, figshare, Zenodo, DOI, YouTube or Vimeo URL, or any link
+ , and it lands beside the experiment. Videos embed and play inline (via
   youtube-nocookie, so a lab's viewing does not feed ad profiles).
   Labvia **stores the link, it does not copy the file**:
   reading a private Drive document needs OAuth and a Google Cloud project per
@@ -172,7 +172,7 @@ Stated plainly rather than stubbed with buttons that do nothing:
   common case while breaking your sharing rules.
 - **Literature.** Live PubMed search through NCBI E-utilities (no key needed;
   `NCBI_API_KEY` only raises the rate limit). Save papers to a project, and the
-  LabBot is handed them alongside your records — it may cite **only** a
+  LabBot is handed them alongside your records, it may cite **only** a
   PMID it was given, and published work is labelled separately from your own
   results. If PubMed is unreachable the UI says so; it never invents a citation.
 
@@ -181,12 +181,12 @@ Stated plainly rather than stubbed with buttons that do nothing:
 The point of Labvia is that nothing is an island:
 
 - **Files** (`/files`) lists every upload beside the experiment that produced it
-  and the project it belongs to — the thing a shared drive cannot tell you. A
+  and the project it belongs to, the thing a shared drive cannot tell you. A
   parsed CSV or spreadsheet links straight to its dataset and chart.
 - **Protocols** show which experiments used each version, so "what changed
   between v3 and v4" has an answer and a list of affected runs.
 - **Samples** link back to every experiment that consumed them.
-- **Needs attention** (`/actions`) derives concrete next steps from the record —
+- **Needs attention** (`/actions`) derives concrete next steps from the record -
   a finished run with no conclusion, a run left in progress for a fortnight, a
   protocol nothing references. It is mechanical, not AI, so it is always
   available and always explainable, and it only ever comments on the

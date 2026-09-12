@@ -75,7 +75,7 @@ export function buildUpdateDraft(
         joinLines(
           experiments.map(
             (e) =>
-              `${experimentCode(e.number)} — ${e.title} (${formatDate(e.performedOn)}${
+              `${experimentCode(e.number)}: ${e.title} (${formatDate(e.performedOn)}${
                 e.protocolName ? `, ${e.protocolName} v${e.protocolVersion ?? '?'}` : ''
               })`,
           ),
@@ -119,7 +119,7 @@ export function buildUpdateDraft(
   ];
 }
 
-/** Default title, e.g. "PFAS Removal Study — EXP-004 to EXP-006". */
+/** Default title, e.g. "PFAS Removal Study, EXP-004 to EXP-006". */
 export function defaultUpdateTitle(
   projectName: string,
   experiments: { number: number }[],
@@ -129,6 +129,6 @@ export function defaultUpdateTitle(
   const first = numbers[0]!;
   const last = numbers[numbers.length - 1]!;
   return first === last
-    ? `${projectName} — ${experimentCode(first)}`
-    : `${projectName} — ${experimentCode(first)} to ${experimentCode(last)}`;
+    ? `${projectName}: ${experimentCode(first)}`
+    : `${projectName}: ${experimentCode(first)} to ${experimentCode(last)}`;
 }

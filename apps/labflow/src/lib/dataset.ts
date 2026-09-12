@@ -4,7 +4,7 @@ import { readXlsxGrid } from './xlsx';
 /**
  * Tabular import.
  *
- * This layer only describes what is in the file — column names, types, and
+ * This layer only describes what is in the file, column names, types, and
  * descriptive statistics. It never infers a scientific claim from the numbers;
  * that is the researcher's job, and the AI layer's output is labelled separately.
  */
@@ -143,7 +143,7 @@ export async function parseSpreadsheet(data: Buffer): Promise<ParsedTable> {
 
 /** Formats a statistic for display without pretending to more precision. */
 export function formatStat(value: number | undefined): string {
-  if (value === undefined || !Number.isFinite(value)) return '—';
+  if (value === undefined || !Number.isFinite(value)) return '-';
   const abs = Math.abs(value);
   if (abs !== 0 && (abs < 0.001 || abs >= 1_000_000)) return value.toExponential(2);
   return String(Math.round(value * 1000) / 1000);

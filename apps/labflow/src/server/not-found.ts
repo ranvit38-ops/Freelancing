@@ -1,6 +1,6 @@
 /**
  * Kept separate from authz.ts so the data layer can import it without pulling
- * in next/headers and React — which only exist inside a request.
+ * in next/headers and React, which only exist inside a request.
  */
 
 /** Thrown when a record exists but belongs to a different workspace. */

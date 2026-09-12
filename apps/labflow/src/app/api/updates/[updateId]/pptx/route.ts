@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: { params: { updateId: s
     const update = await getResearchUpdate(session, params.updateId);
 
     // One chart, drawn from the first plottable dataset in the selected runs.
-    // No dataset means no chart slide — never an empty placeholder.
+    // No dataset means no chart slide, never an empty placeholder.
     const dataset = await firstPlottableDataset(session, update.experimentIds);
     let chart = null;
     if (dataset) {

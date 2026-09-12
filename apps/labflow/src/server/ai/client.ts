@@ -1,6 +1,6 @@
 import { env } from '@/lib/env';
 
-/** Thrown when no model credentials are configured — never faked around. */
+/** Thrown when no model credentials are configured, never faked around. */
 export class AiNotConfiguredError extends Error {
   constructor() {
     super(
@@ -14,7 +14,7 @@ export class AiRequestError extends Error {}
 
 /**
  * One place that talks to the model. Everything above it passes an already
- * assembled context — no caller gets to hand the model raw database access.
+ * assembled context, no caller gets to hand the model raw database access.
  */
 export type ModelTransport = typeof fetch;
 

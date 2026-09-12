@@ -23,7 +23,7 @@ describe('buildResearchMemory', () => {
     const known = section(sections, 'worked').entries[0]!;
     expect(known.text).toBe('GAC gives a short breakthrough time.');
     expect(known.sourceId).toBe('e1');
-    expect(known.sourceLabel).toBe('EXP-001 — Baseline run');
+    expect(known.sourceLabel).toBe('EXP-001: Baseline run');
   });
 
   it('lists flagged runs under what did not work', () => {

@@ -61,7 +61,7 @@ describe('formatStat', () => {
     expect(formatStat(2.5)).toBe('2.5');
     expect(formatStat(1.23456)).toBe('1.235');
     expect(formatStat(0.00001)).toBe('1.00e-5');
-    expect(formatStat(undefined)).toBe('—');
+    expect(formatStat(undefined)).toBe('-');
   });
 });
 

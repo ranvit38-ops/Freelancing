@@ -2,7 +2,7 @@ import { buildChart, type Point } from '@/lib/chart';
 import { formatStat } from '@/lib/dataset';
 
 /**
- * A plain SVG plot of two chosen columns. It draws the numbers as uploaded —
+ * A plain SVG plot of two chosen columns. It draws the numbers as uploaded -
  * no smoothing, no fitted line, no claim about what the shape means.
  */
 export function ScatterChart({

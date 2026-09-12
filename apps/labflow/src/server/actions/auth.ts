@@ -20,7 +20,7 @@ import { fieldErrorsFrom, formObject, type ActionState } from './types';
 
 /**
  * Credential endpoints are throttled. Without this, login is an unbounded
- * password oracle — and because scrypt is deliberately slow, that is a
+ * password oracle, and because scrypt is deliberately slow, that is a
  * denial-of-service surface as well as a brute-force one.
  *
  * Keyed on the account first, IP second. A university sits behind one NAT
@@ -205,7 +205,7 @@ export async function requestPasswordResetAction(
 
   const link = absoluteUrl(`/reset-password?token=${token}`);
   if (!mailConfigured()) {
-    console.info(`[labflow] email not configured — reset link for ${email}: ${link}`);
+    console.info(`[labflow] email not configured, reset link for ${email}: ${link}`);
     return {
       ok: true,
       message:
