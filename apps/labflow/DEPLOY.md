@@ -141,6 +141,22 @@ If Render rejects the Blueprint for any reason, nothing is lost: the manual
 steps above produce the same service, and you add `LABFLOW_PILOT_MODE=1` to the
 environment yourself.
 
+### Check it worked, without guessing
+
+```bash
+npm run pilot:check https://your-service.onrender.com
+```
+
+It looks at the live site the way a visitor would and says in plain words what
+is working and what is not: whether the site is up, whether the public address
+is set to the right thing, whether pilot mode is actually on, and whether
+Google sign-in is configured. When the address is right it prints the exact
+line to paste into Google Cloud, and when it is wrong it withholds that line
+rather than have you paste the wrong one.
+
+It sends no keys and changes nothing. What it cannot see is anything behind a
+login, so it ends by naming the three things you have to check by signing in.
+
 ### What the flag changes
 
 Set `LABFLOW_PILOT_MODE` to `1` and the deployment stops being a product for
