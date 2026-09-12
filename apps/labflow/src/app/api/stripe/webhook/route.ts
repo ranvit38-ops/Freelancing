@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
-import { applySubscriptionEvent, claimStripeEvent } from '@/server/queries';
-import { mapStatus, planForPrice, stripe } from '@/server/billing';
+import { claimStripeEvent } from '@/server/queries';
+import { stripe } from '@/server/billing';
+import { storeSubscription as store } from '@/server/billing-sync';
 
 export const runtime = 'nodejs';
 
@@ -64,27 +65,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ received: true });
-}
-
-/** Derives the plan from the subscription's own line items. */
-async function store(workspaceId: string, subscription: Stripe.Subscription) {
-  let plan: string | null = null;
-
-  for (const item of subscription.items.data) {
-    plan = planForPrice(item.price.id) ?? plan;
-  }
-  // Fall back to what checkout recorded if the price ids have since changed.
-  plan = plan ?? subscription.metadata?.plan ?? null;
-
-  await applySubscriptionEvent({
-    workspaceId,
-    plan,
-    status: mapStatus(subscription.status),
-    currentPeriodEnd: subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000)
-      : null,
-    stripeCustomerId:
-      typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id,
-    stripeSubscriptionId: subscription.id,
-  });
 }

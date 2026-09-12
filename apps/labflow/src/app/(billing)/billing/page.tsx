@@ -1,4 +1,4 @@
-import { BillingPortalButton, PlanPicker } from '@/components/billing-forms';
+import { BillingPortalButton, PlanPicker, SyncBillingButton } from '@/components/billing-forms';
 import { UnlockForm } from '@/components/unlock-form';
 import { Badge, Card, CardHeader, DefinitionList, PageHeader } from '@/components/ui';
 import { formatDate } from '@/lib/display';
@@ -37,7 +37,16 @@ export default async function BillingPage({
 
       {searchParams.checkout === 'success' ? (
         <p role="status" className="mb-5 rounded-lg border border-ok/25 bg-ok/5 px-4 py-3 text-sm text-ok">
-          Payment set up. Stripe confirms the subscription in a moment; this page updates once it does.
+          Payment set up, and the plan below is what Stripe says you are on.
+        </p>
+      ) : null}
+      {/* The payment went through. Stripe had just not finished creating the
+          subscription when the customer landed back here, which is normal and
+          resolves on its own. Never imply the charge failed. */}
+      {searchParams.checkout === 'pending' ? (
+        <p role="status" className="mb-5 rounded-lg border border-ok/25 bg-ok/5 px-4 py-3 text-sm text-ok">
+          Payment received. Stripe is still finishing the subscription, which usually takes a few
+          seconds. Reload this page, or use the refresh button below if it has not caught up.
         </p>
       ) : null}
       {searchParams.checkout === 'cancelled' ? (
@@ -97,6 +106,15 @@ export default async function BillingPage({
               <p className="mt-2 text-xs text-subtle">
                 Opens Stripe, where the card, past invoices and cancellation all live.
               </p>
+            </div>
+          ) : null}
+          {/* Shown to any manager, not only to workspaces that already have a
+              Stripe customer. The case worth rescuing is someone who paid and
+              whose workspace does not know it, and that workspace looks exactly
+              like one that never paid. */}
+          {canManage ? (
+            <div className="mt-4 border-t border-line pt-4">
+              <SyncBillingButton />
             </div>
           ) : null}
         </Card>

@@ -1626,6 +1626,22 @@ export async function getSubscription(s: SessionContext) {
   return rows[0] ?? null;
 }
 
+/**
+ * The same row keyed on the workspace rather than a session.
+ *
+ * Reconciling with Stripe runs from a redirect and from a webhook, neither of
+ * which has a workspace-scoped session to hand.
+ */
+export async function getSubscriptionByWorkspace(workspaceId: string) {
+  assertId(workspaceId, 'Workspace');
+  const rows = await db
+    .select()
+    .from(workspaceSubscriptions)
+    .where(eq(workspaceSubscriptions.workspaceId, workspaceId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 /** Members plus outstanding invites — both consume a seat. */
 export async function seatUsage(s: SessionContext) {
   const [members, invites] = await Promise.all([

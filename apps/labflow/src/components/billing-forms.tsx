@@ -3,7 +3,11 @@
 import { useFormState } from 'react-dom';
 import { Badge, Card, FormError, cx } from './ui';
 import { SubmitButton } from './submit-button';
-import { openBillingPortalAction, startCheckoutAction } from '@/server/actions/billing';
+import {
+  openBillingPortalAction,
+  startCheckoutAction,
+  syncBillingAction,
+} from '@/server/actions/billing';
 import { noState } from '@/server/actions/types';
 import { PLANS, PLAN_ORDER, type PlanId } from '@/lib/plans';
 
@@ -96,6 +100,29 @@ export function BillingPortalButton() {
       <FormError>{state.error}</FormError>
       <SubmitButton tone="secondary" size="sm" pendingLabel="Opening…">
         Manage billing, card and invoices
+      </SubmitButton>
+    </form>
+  );
+}
+
+/**
+ * Re-reads the plan from Stripe.
+ *
+ * Here for the case where someone has paid and the workspace still says
+ * otherwise, which is what a lost webhook looks like from the inside.
+ */
+export function SyncBillingButton() {
+  const [state, action] = useFormState(syncBillingAction, noState);
+  return (
+    <form action={action} className="space-y-2">
+      <FormError>{state.error}</FormError>
+      {state.ok ? (
+        <p role="status" className="text-sm text-ok">
+          {state.message}
+        </p>
+      ) : null}
+      <SubmitButton tone="ghost" size="sm" pendingLabel="Asking Stripe…">
+        Paid but still not showing? Refresh from Stripe
       </SubmitButton>
     </form>
   );
