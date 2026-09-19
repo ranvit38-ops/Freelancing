@@ -26,6 +26,7 @@ export async function postMessageAction(formData: FormData) {
 
   const experimentId = String(formData.get('experimentId') ?? '') || undefined;
   const projectId = String(formData.get('projectId') ?? '') || undefined;
+  const taskId = String(formData.get('taskId') ?? '') || undefined;
   const workspace = formData.get('workspace') === '1';
   const parentId = String(formData.get('parentId') ?? '') || null;
   const fileId = String(formData.get('fileId') ?? '') || null;
@@ -33,6 +34,7 @@ export async function postMessageAction(formData: FormData) {
   await q.postMessage(session, {
     experimentId,
     projectId,
+    taskId,
     workspace,
     parentId,
     body: body.slice(0, 10000),
@@ -43,7 +45,9 @@ export async function postMessageAction(formData: FormData) {
       ? `/experiments/${experimentId}`
       : projectId
         ? `/projects/${projectId}/discussion`
-        : '/team',
+        : taskId
+          ? `/tasks/${taskId}`
+          : '/team',
   );
 }
 

@@ -487,7 +487,40 @@ export type DatasetColumn = typeof datasetColumns.$inferSelect;
 export type ExperimentStatus = (typeof experimentStatus.enumValues)[number];
 export type ProjectStatus = (typeof projectStatus.enumValues)[number];
 
-/** Threaded discussion on a project or an experiment. */
+/**
+ * Who is doing what.
+ *
+ * Thin on purpose: a lab of six needs to know who is running the extraction
+ * this week, not a sprint board. See migration 0013.
+ */
+export const tasks = pgTable(
+  'tasks',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    detail: text('detail'),
+    /** Null means nobody has picked it up yet, which is a useful state. */
+    assignedTo: uuid('assigned_to').references(() => users.id, { onDelete: 'set null' }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    /** open | doing | done */
+    status: text('status').notNull().default('open'),
+    dueOn: date('due_on'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => ({
+    assigneeIdx: index('tasks_assignee_idx').on(t.workspaceId, t.assignedTo, t.status),
+    projectIdx: index('tasks_project_idx').on(t.projectId, t.status),
+  }),
+);
+
+export type Task = typeof tasks.$inferSelect;
+
+/** Threaded discussion on a project, an experiment or a task. */
 export const discussions = pgTable(
   'discussions',
   {
@@ -497,6 +530,8 @@ export const discussions = pgTable(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     experimentId: uuid('experiment_id').references(() => experiments.id, { onDelete: 'cascade' }),
+    /** Progress and feedback on one task, rather than a second comment table. */
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
     /** Null for a top-level message; set for a reply. One level deep only. */
     parentId: uuid('parent_id'),
     authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
@@ -510,6 +545,7 @@ export const discussions = pgTable(
     expIdx: index('discussions_experiment_idx').on(t.experimentId, t.createdAt),
     projIdx: index('discussions_project_idx').on(t.projectId, t.createdAt),
     parentIdx: index('discussions_parent_idx').on(t.parentId),
+    taskIdx: index('discussions_task_idx').on(t.taskId, t.createdAt),
   }),
 );
 

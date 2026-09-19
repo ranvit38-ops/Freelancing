@@ -1,4 +1,5 @@
 import { and, count, desc, eq, gt, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/db';
 import { normaliseEmail } from '@/lib/trial-eligibility';
 import {
@@ -30,6 +31,7 @@ import {
   experimentLots,
   trialGrants,
   pilotFeedback,
+  tasks,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { InUseError, NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
@@ -1379,16 +1381,25 @@ export type DiscussionMessage = {
  */
 export async function listDiscussion(
   s: SessionContext,
-  scope: { experimentId?: string; projectId?: string; workspace?: boolean },
+  scope: { experimentId?: string; projectId?: string; taskId?: string; workspace?: boolean },
 ): Promise<DiscussionMessage[]> {
   // An empty string is not a uuid; Postgres would reject the whole query.
   const target = scope.experimentId
     ? eq(discussions.experimentId, scope.experimentId)
     : scope.projectId
       ? eq(discussions.projectId, scope.projectId)
-      : scope.workspace
-        ? and(isNull(discussions.projectId), isNull(discussions.experimentId))
-        : null;
+      : scope.taskId
+        ? eq(discussions.taskId, scope.taskId)
+        : scope.workspace
+          ? // The lab channel is "attached to nothing". Task threads are
+            // attached to a task but to no project, so without the third
+            // clause every progress note would surface in the lab channel.
+            and(
+              isNull(discussions.projectId),
+              isNull(discussions.experimentId),
+              isNull(discussions.taskId),
+            )
+          : null;
   if (!target) return [];
 
   const rows = await db
@@ -1427,6 +1438,7 @@ export async function postMessage(
   input: {
     experimentId?: string;
     projectId?: string;
+    taskId?: string;
     workspace?: boolean;
     parentId: string | null;
     body: string;
@@ -1437,6 +1449,7 @@ export async function postMessage(
   // workspace channel needs no such check: the session already names it.
   if (input.experimentId) await getExperiment(s, input.experimentId);
   else if (input.projectId) await getProject(s, input.projectId);
+  else if (input.taskId) await getTask(s, input.taskId);
   else if (!input.workspace) throw new NotFoundInWorkspaceError('Discussion target');
 
   // Confirms the attachment is this workspace's before it is pointed at.
@@ -1446,6 +1459,7 @@ export async function postMessage(
     workspaceId: s.workspaceId,
     experimentId: input.experimentId ?? null,
     projectId: input.projectId ?? null,
+    taskId: input.taskId ?? null,
     parentId: input.parentId,
     authorId: s.userId,
     body: input.body,
@@ -1613,6 +1627,136 @@ export async function acceptInvite(inviteId: string, workspaceId: string, userId
       .set({ acceptedAt: new Date() })
       .where(eq(workspaceInvites.id, inviteId));
   });
+}
+
+/* ── tasks ──────────────────────────────────────────────────────────────── */
+
+export const TASK_STATUS = ['open', 'doing', 'done'] as const;
+export type TaskStatus = (typeof TASK_STATUS)[number];
+
+export function isTaskStatus(value: string): value is TaskStatus {
+  return (TASK_STATUS as readonly string[]).includes(value);
+}
+
+/**
+ * Every task in the lab, newest first, with the names already joined on.
+ *
+ * One query rather than a per-assignee one: a lab has tens of tasks, not
+ * thousands, and the board wants them all anyway to group them.
+ */
+export async function listTasks(s: SessionContext, filter?: { projectId?: string }) {
+  const assignee = alias(users, 'task_assignee');
+  const where = filter?.projectId
+    ? and(eq(tasks.workspaceId, s.workspaceId), eq(tasks.projectId, filter.projectId))
+    : eq(tasks.workspaceId, s.workspaceId);
+
+  return db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      detail: tasks.detail,
+      status: tasks.status,
+      dueOn: tasks.dueOn,
+      createdAt: tasks.createdAt,
+      assignedTo: tasks.assignedTo,
+      assigneeName: assignee.name,
+      projectId: tasks.projectId,
+      projectName: projects.name,
+    })
+    .from(tasks)
+    .leftJoin(assignee, eq(assignee.id, tasks.assignedTo))
+    .leftJoin(projects, eq(projects.id, tasks.projectId))
+    .where(where)
+    .orderBy(desc(tasks.createdAt));
+}
+
+export async function getTask(s: SessionContext, taskId: string) {
+  assertId(taskId, 'Task');
+  const assignee = alias(users, 'task_assignee');
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      detail: tasks.detail,
+      status: tasks.status,
+      dueOn: tasks.dueOn,
+      createdAt: tasks.createdAt,
+      assignedTo: tasks.assignedTo,
+      assigneeName: assignee.name,
+      projectId: tasks.projectId,
+      projectName: projects.name,
+    })
+    .from(tasks)
+    .leftJoin(assignee, eq(assignee.id, tasks.assignedTo))
+    .leftJoin(projects, eq(projects.id, tasks.projectId))
+    .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, s.workspaceId)))
+    .limit(1);
+  return assertFound(rows[0], 'Task');
+}
+
+export async function createTask(
+  s: SessionContext,
+  input: {
+    title: string;
+    detail: string | null;
+    assignedTo: string | null;
+    projectId: string | null;
+    dueOn: string | null;
+  },
+) {
+  // Both point at rows a caller could have named from another workspace.
+  if (input.projectId) await getProject(s, input.projectId);
+  if (input.assignedTo) await assertWorkspaceMember(s, input.assignedTo);
+
+  const [row] = await db
+    .insert(tasks)
+    .values({ ...input, workspaceId: s.workspaceId, createdBy: s.userId })
+    .returning({ id: tasks.id });
+  return assertFound(row, 'Task').id;
+}
+
+export async function updateTask(
+  s: SessionContext,
+  taskId: string,
+  patch: { status?: TaskStatus; assignedTo?: string | null; title?: string; detail?: string | null; dueOn?: string | null },
+) {
+  assertId(taskId, 'Task');
+  if (patch.assignedTo) await assertWorkspaceMember(s, patch.assignedTo);
+
+  const rows = await db
+    .update(tasks)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, s.workspaceId)))
+    .returning({ id: tasks.id });
+  assertFound(rows[0], 'Task');
+}
+
+export async function deleteTask(s: SessionContext, taskId: string) {
+  assertId(taskId, 'Task');
+  const rows = await db
+    .delete(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, s.workspaceId)))
+    .returning({ id: tasks.id });
+  assertFound(rows[0], 'Task');
+}
+
+/**
+ * Refuses to assign work to somebody outside the lab.
+ *
+ * Without it, a crafted form could point a task at any user id in the
+ * database, and that person's name would then be rendered inside a workspace
+ * they are not a member of.
+ */
+async function assertWorkspaceMember(s: SessionContext, userId: string) {
+  assertId(userId, 'Person');
+  const rows = await db
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(
+      and(eq(workspaceMembers.workspaceId, s.workspaceId), eq(workspaceMembers.userId, userId)),
+    )
+    .limit(1);
+  if (!rows[0]) throw new NotFoundInWorkspaceError('Person');
 }
 
 /* ── join links ─────────────────────────────────────────────────────────── */

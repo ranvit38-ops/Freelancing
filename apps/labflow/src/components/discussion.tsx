@@ -16,6 +16,7 @@ export function Discussion({
   messages,
   experimentId,
   projectId,
+  taskId,
   workspace,
   title = 'Discussion',
   currentUserId,
@@ -24,6 +25,8 @@ export function Discussion({
   messages: DiscussionMessage[];
   experimentId?: string;
   projectId?: string;
+  /** Progress and feedback on one delegated task. */
+  taskId?: string;
   /** The workspace-wide channel: no project, no experiment, everyone in it. */
   workspace?: boolean;
   title?: string;
@@ -37,6 +40,7 @@ export function Discussion({
     <>
       {experimentId ? <input type="hidden" name="experimentId" value={experimentId} /> : null}
       {projectId ? <input type="hidden" name="projectId" value={projectId} /> : null}
+      {taskId ? <input type="hidden" name="taskId" value={taskId} /> : null}
       {workspace ? <input type="hidden" name="workspace" value="1" /> : null}
     </>
   );
@@ -45,7 +49,9 @@ export function Discussion({
     <Card>
       <CardHeader title={title} description={`${count} message${count === 1 ? '' : 's'}`} />
 
-      <Composer hidden={hidden} canAttach={Boolean(workspace)} />
+      {/* Attachments on a task thread as well as the lab channel: "here is
+          the gel" is most of what a progress note is. */}
+      <Composer hidden={hidden} canAttach={Boolean(workspace || taskId)} />
 
       {messages.length === 0 ? (
         <EmptyState

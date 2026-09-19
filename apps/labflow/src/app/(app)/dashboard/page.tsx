@@ -11,17 +11,21 @@ import {
   projectStatusLabel,
 } from '@/lib/display';
 import { requireSession } from '@/server/authz';
-import { dashboardData, nextActionSignals } from '@/server/queries';
+import { dashboardData, listTasks, nextActionSignals } from '@/server/queries';
 
 export const metadata = { title: 'Dashboard' };
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const session = await requireSession();
-  const [data, signals] = await Promise.all([
+  const [data, signals, tasks] = await Promise.all([
     dashboardData(session),
     nextActionSignals(session),
+    listTasks(session),
   ]);
+  // The first question on opening the app is "what am I meant to be doing",
+  // and it should not cost a click to answer.
+  const mine = tasks.filter((t) => t.assignedTo === session.userId && t.status !== 'done');
   const actions = buildNextActions(signals.experiments, signals.protocols);
   const activeProjects = data.projects.filter((p) => p.status === 'active' || p.status === 'planning');
 
@@ -41,6 +45,37 @@ export default async function DashboardPage() {
           defaults to min-width:auto, so it refuses to shrink below its content
           and the truncation further down never gets the chance to run. Without
           it this whole page scrolls sideways on a tablet. */}
+      {mine.length > 0 ? (
+        <Card className="mb-5">
+          <CardHeader
+            title="Assigned to you"
+            description={pluralise(mine.length, 'open task')}
+            action={
+              <Link href="/tasks" className="text-sm text-muted underline underline-offset-2 hover:text-fg">
+                The whole board
+              </Link>
+            }
+          />
+          <ul className="divide-y divide-line">
+            {mine.slice(0, 5).map((task) => (
+              <li key={task.id} className="px-5 py-3">
+                <Link
+                  href={`/tasks/${task.id}`}
+                  className="text-sm font-medium underline-offset-2 hover:underline"
+                >
+                  {task.title}
+                </Link>
+                <p className="mt-0.5 text-xs text-muted">
+                  {task.status === 'doing' ? 'In progress' : 'Not started'}
+                  {task.projectName ? ` · ${task.projectName}` : ''}
+                  {task.dueOn ? ` · due ${formatDate(new Date(`${task.dueOn}T00:00:00Z`))}` : ''}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
       <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
         <Card className="lg:col-span-2">
           <CardHeader

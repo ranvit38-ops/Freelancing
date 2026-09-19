@@ -346,3 +346,93 @@ suite('AI analysis pipeline', () => {
     ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
   });
 });
+
+/**
+ * Tasks carry two risks the other records do not: a task can be pointed at a
+ * person, and its thread shares a table with every other conversation. Both
+ * are ways for one lab's work to surface in another's.
+ */
+suite('tasks', () => {
+  let ctx: Ctx;
+  let taskA: string;
+
+  beforeAll(async () => {
+    ctx = await setup();
+    taskA = await ctx.q.createTask(ctx.sessionA, {
+      title: 'Lab A task',
+      detail: 'Private detail',
+      assignedTo: ctx.sessionA.userId,
+      projectId: null,
+      dueOn: null,
+    });
+  });
+
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db
+      .delete(ctx.schema.workspaces)
+      .where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db
+      .delete(ctx.schema.users)
+      .where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId]));
+  });
+
+  it('lists and reads its own', async () => {
+    expect((await ctx.q.getTask(ctx.sessionA, taskA)).title).toBe('Lab A task');
+    expect((await ctx.q.listTasks(ctx.sessionA)).map((t) => t.id)).toContain(taskA);
+  });
+
+  it('refuses a read, an update and a delete from another workspace', async () => {
+    await expect(ctx.q.getTask(ctx.sessionB, taskA)).rejects.toBeInstanceOf(
+      ctx.NotFoundInWorkspaceError,
+    );
+    await expect(
+      ctx.q.updateTask(ctx.sessionB, taskA, { status: 'done' }),
+    ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+    await expect(ctx.q.deleteTask(ctx.sessionB, taskA)).rejects.toBeInstanceOf(
+      ctx.NotFoundInWorkspaceError,
+    );
+    expect((await ctx.q.listTasks(ctx.sessionB)).map((t) => t.id)).not.toContain(taskA);
+  });
+
+  it('refuses to assign work to somebody outside the lab', async () => {
+    // Otherwise a crafted form points a task at any user id in the database,
+    // and that person's name is rendered inside a lab they never joined.
+    await expect(
+      ctx.q.createTask(ctx.sessionA, {
+        title: 'x',
+        detail: null,
+        assignedTo: ctx.sessionB.userId,
+        projectId: null,
+        dueOn: null,
+      }),
+    ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+
+    await expect(
+      ctx.q.updateTask(ctx.sessionA, taskA, { assignedTo: ctx.sessionB.userId }),
+    ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+  });
+
+  it('keeps a task thread out of the lab channel', async () => {
+    // The lab channel selects messages attached to no project and no
+    // experiment. A task message matches both of those, so without the third
+    // clause every progress note would appear in the whole lab's feed.
+    await ctx.q.postMessage(ctx.sessionA, {
+      taskId: taskA,
+      parentId: null,
+      body: 'Progress on the task only',
+    });
+
+    const onTask = await ctx.q.listDiscussion(ctx.sessionA, { taskId: taskA });
+    expect(onTask.map((m) => m.body)).toContain('Progress on the task only');
+
+    const channel = await ctx.q.listDiscussion(ctx.sessionA, { workspace: true });
+    expect(channel.map((m) => m.body)).not.toContain('Progress on the task only');
+  });
+
+  it('refuses to post onto another workspace task', async () => {
+    await expect(
+      ctx.q.postMessage(ctx.sessionB, { taskId: taskA, parentId: null, body: 'nope' }),
+    ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+  });
+});
