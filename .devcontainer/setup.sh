@@ -152,7 +152,7 @@ else
 fi
 
 echo "==> 4/4  Migrating and seeding"
-DATABASE_URL="$URL" npx tsx src/db/migrate.ts || exit 1
+DATABASE_URL="$URL" node scripts/migrate.mjs || exit 1
 EXISTING=$(DATABASE_URL="$URL" node -e "
   const { Client } = require('pg');
   const c = new Client({ connectionString: process.env.DATABASE_URL });
