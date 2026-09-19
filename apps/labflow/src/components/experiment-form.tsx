@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useFormState } from 'react-dom';
 import { Button, Card, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
+import { PendingFiles } from './experiment-dropzone';
 import { createExperimentAction, updateExperimentAction } from '@/server/actions/records';
 import { noState } from '@/server/actions/types';
 import { experimentCode, experimentStatusLabel } from '@/lib/display';
@@ -14,6 +15,11 @@ export type ConditionRow = { name: string; value: string; unit: string };
 
 export type ExperimentFormProps = {
   mode: 'create' | 'edit';
+  /**
+   * Files dropped on the create screen, submitted with the form so the
+   * experiment and its data are saved in one action rather than two.
+   */
+  pendingFiles?: File[];
   projectId: string;
   projectName: string;
   experimentId?: string;
@@ -91,6 +97,9 @@ export function ExperimentForm(props: ExperimentFormProps) {
   return (
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="projectId" value={props.projectId} />
+      {props.pendingFiles && props.pendingFiles.length > 0 ? (
+        <PendingFiles files={props.pendingFiles} />
+      ) : null}
       {props.experimentId ? (
         <input type="hidden" name="experimentId" value={props.experimentId} />
       ) : null}

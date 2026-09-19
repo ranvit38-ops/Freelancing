@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { ExperimentForm } from '@/components/experiment-form';
+import { NewExperiment } from '@/components/new-experiment';
 import { PageHeader } from '@/components/ui';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
 import {
@@ -27,10 +27,9 @@ export default async function NewExperimentPage({ params }: { params: { projectI
         <PageHeader
           eyebrow={project.name}
           title="New experiment"
-          description="Everything except the name is optional. Record what you have now and come back to the rest."
+          description="Drop the files you already have and Labvia fills in what it can read. Everything except the name is optional either way."
         />
-        <ExperimentForm
-          mode="create"
+        <NewExperiment
           projectId={project.id}
           projectName={project.name}
           nextNumber={number}
