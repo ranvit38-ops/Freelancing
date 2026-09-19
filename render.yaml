@@ -60,8 +60,16 @@ services:
       # pretending to work.
       - key: ANTHROPIC_API_KEY
         sync: false
-      # Your own address. Signing in with it comps your workspace and unlocks
-      # the owner dashboard, which is where the pilot answers appear.
+      # Which model LabBot uses. Opus is the strongest and the most expensive;
+      # a pilot where six labs ask questions all week is real money out of your
+      # own pocket. claude-sonnet-5 costs a fraction and is more than good
+      # enough for "explain this result to me". Change it here, redeploy, done.
+      - key: LABFLOW_AI_MODEL
+        value: claude-opus-5
+      # Your own address. Every pilot answer is emailed here, with the
+      # researcher in reply-to so you can answer them straight from your inbox.
+      # Signing in with it also comps your workspace and unlocks the owner
+      # dashboard.
       - key: LABFLOW_OWNER_EMAIL
         sync: false
       # Google sign-in. Leave both blank and the button is hidden rather than

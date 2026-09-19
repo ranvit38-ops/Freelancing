@@ -150,9 +150,22 @@ if (login.status < 400 && login.body.includes('Continue with Google')) {
   ok('The Google button is showing on the login page.');
 }
 
+// ── Is the join link reachable? ────────────────────────────────────────────
+//
+// Not whether one exists, which needs a login, but whether the page a lab
+// lands on works at all. A join link that 500s is a lab that never signs up.
+const join = await get('/join?code=definitely-not-a-real-code-000000');
+if (join.error || join.status >= 500) {
+  no('The join page is broken.', join.error ?? `It answered ${join.status}.`);
+} else if (join.body.includes('not valid')) {
+  ok('The join link page works, and refuses a made-up code.');
+}
+
 // ── What only you can check ────────────────────────────────────────────────
 console.log('');
 ask('Sign in and ask LabBot a question. If it answers, the AI key works.');
+ask('Answer the "what is it worth" question yourself. The email should reach your inbox.');
+ask('Turn on the join link under Team, open it in a private window, and join as a second person.');
 ask('Drag a file into a lab channel, then redeploy, then check the file is still there. That proves the disk.');
 ask('Open a private window, invite a second account, and chat between them. That is what a lab will do first.');
 
