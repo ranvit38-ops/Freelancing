@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { PILOT_PLAN, isWouldPay, parseMonthlyValue, pilotBanner, pilotMode } from './pilot';
+import {
+  PILOT_PLAN,
+  feedbackEmail,
+  isWouldPay,
+  parseMonthlyValue,
+  pilotBanner,
+  pilotMode,
+} from './pilot';
 import { PLANS } from './plans';
 
 const original = process.env.LABFLOW_PILOT_MODE;
@@ -66,5 +73,40 @@ describe('parseMonthlyValue', () => {
 
   it('refuses a figure too large to be a monthly price for a lab', () => {
     expect(parseMonthlyValue('999999999')).toBeNull();
+  });
+});
+
+describe('feedbackEmail', () => {
+  const from = { name: 'Dr Rao', email: 'rao@uni.edu', workspace: 'Rao Lab' };
+
+  it('leads with the verdict and the lab, so a full inbox still sorts itself', () => {
+    const { subject } = feedbackEmail(
+      { wouldPay: 'yes', monthlyValue: 80, blocker: null, decisionMaker: null },
+      from,
+    );
+    expect(subject).toBe('Labvia pilot: Would pay — Rao Lab');
+  });
+
+  it('carries who said it, so the reply has a name on it', () => {
+    const { text } = feedbackEmail(
+      { wouldPay: 'no', monthlyValue: 0, blocker: 'We use OneNote', decisionMaker: 'The PI' },
+      from,
+    );
+    expect(text).toContain('Dr Rao <rao@uni.edu>');
+    expect(text).toContain('Would not pay');
+    expect(text).toContain('$0');
+    expect(text).toContain('We use OneNote');
+    expect(text).toContain('The PI');
+  });
+
+  it('says a question went unanswered rather than leaving a gap that reads as a bug', () => {
+    const { text } = feedbackEmail(
+      { wouldPay: 'maybe', monthlyValue: null, blocker: null, decisionMaker: null },
+      from,
+    );
+    expect(text).toContain('(not answered)');
+    // A blank figure must never render as zero: "nothing" and "did not say"
+    // are the two answers most worth telling apart.
+    expect(text).not.toContain('$0');
   });
 });

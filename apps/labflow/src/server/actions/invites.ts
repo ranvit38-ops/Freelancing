@@ -4,6 +4,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { normaliseEmail } from '@/lib/normalise';
 import { PLANS } from '@/lib/plans';
+import { isValidEmail } from '@/lib/validation';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
 import { requireSession } from '../authz';
 import { workspacePlan } from '../paywall';
@@ -29,7 +30,7 @@ export async function inviteMemberAction(
   }
 
   const email = normaliseEmail(String(formData.get('email') ?? ''));
-  if (!email.includes('@') || email.length < 5) {
+  if (!isValidEmail(email)) {
     return { fieldErrors: { email: 'Enter a valid email address' } };
   }
   const role = formData.get('role') === 'admin' ? 'admin' : 'member';
@@ -100,4 +101,24 @@ export async function revokeInviteAction(formData: FormData) {
   if (session.role === 'member') return;
   await q.revokeInvite(session, String(formData.get('inviteId') ?? ''));
   revalidatePath('/settings');
+}
+
+/**
+ * Turns the lab's join link on, rotates it, or switches it off.
+ *
+ * Deliberately not per-person. A PI pastes one link into the lab's group chat
+ * and everyone is in, which is the difference between nine people trying this
+ * and the two who happened to be in the room when the invitations went out.
+ *
+ * Only an owner or admin may touch it, and the code is long enough that it
+ * cannot be found by guessing: 32 random bytes is the same strength as the
+ * per-person invitation tokens.
+ */
+export async function setJoinLinkAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  if (session.role === 'member') return;
+
+  const wanted = String(formData.get('mode') ?? '');
+  await q.setJoinCode(session, wanted === 'off' ? null : randomBytes(32).toString('base64url'));
+  revalidatePath('/team');
 }

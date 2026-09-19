@@ -11,13 +11,20 @@ import { randomToken } from '@/lib/oauth';
 import { TRIAL_DAYS } from '@/lib/plans';
 import { createSession } from '@/server/auth';
 import { absoluteUrl } from '@/server/mailer';
+import { joinByCode, joinWouldBeRefused } from '@/server/join';
 import {
   GoogleAuthError,
   GoogleNotConfiguredError,
   exchangeGoogleCode,
   isOwnerEmail,
 } from '@/server/google';
-import { acceptInvite, applySubscriptionEvent, findInviteByToken, startTrial } from '@/server/queries';
+import {
+  acceptInvite,
+  applySubscriptionEvent,
+  findInviteByToken,
+  findWorkspaceByJoinCode,
+  startTrial,
+} from '@/server/queries';
 
 export const runtime = 'nodejs';
 // Never prerendered. Every path through this route reads per-request state or
@@ -44,7 +51,8 @@ export async function GET(request: Request) {
   const state = jar.get('g_state')?.value;
   const verifier = jar.get('g_verifier')?.value;
   const inviteToken = jar.get('g_invite')?.value;
-  for (const name of ['g_state', 'g_verifier', 'g_invite']) jar.delete(name);
+  const joinCode = jar.get('g_join')?.value;
+  for (const name of ['g_state', 'g_verifier', 'g_invite', 'g_join']) jar.delete(name);
 
   if (url.searchParams.get('error')) return back('google_cancelled');
   if (!statesMatch(state, url.searchParams.get('state') ?? undefined)) return back('google_state');
@@ -64,6 +72,22 @@ export async function GET(request: Request) {
   const email = normaliseEmail(profile.email);
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
 
+  // Resolved before the account is created, because it decides whether a
+  // workspace is created at all. Someone who followed a link into a lab and
+  // then also got their own empty "Alex's Lab" lands in the wrong one and
+  // concludes the link did not work.
+  const invite = inviteToken
+    ? await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'))
+    : null;
+  const joinTarget = !invite && joinCode ? await findWorkspaceByJoinCode(joinCode) : null;
+
+  // Checked here rather than after the account is created: a new account that
+  // is then refused a seat has no workspace at all, and nothing on the sign-in
+  // screen can get it one.
+  if (joinTarget && !existing[0] && (await joinWouldBeRefused(joinTarget.id))) {
+    return back('google_join_full');
+  }
+
   let userId = existing[0]?.id;
   if (!userId) {
     // No password is set: this account signs in with Google until it sets one
@@ -75,6 +99,10 @@ export async function GET(request: Request) {
         .values({ email, name: profile.name, passwordHash: 'google-oauth-no-password' })
         .returning({ id: users.id });
       if (!user) throw new Error('Could not create the account');
+
+      // Joining a lab that already exists: no second workspace, and no trial
+      // or example project, both of which belong to the lab they are joining.
+      if (invite || joinTarget) return { userId: user.id, workspaceId: '' };
 
       const workspaceName = `${profile.name.split(' ')[0]}'s Lab`;
       const [workspace] = await tx
@@ -89,17 +117,20 @@ export async function GET(request: Request) {
       return { userId: user.id, workspaceId: workspace.id };
     });
     userId = created.userId;
-    await startTrial(created.workspaceId, TRIAL_DAYS, email);
-    try {
-      await seedExampleProject(created.workspaceId, created.userId);
-    } catch {
-      // As above: an empty workspace is a worse first run, not a broken one.
+    if (created.workspaceId) {
+      await startTrial(created.workspaceId, TRIAL_DAYS, email);
+      try {
+        await seedExampleProject(created.workspaceId, created.userId);
+      } catch {
+        // As above: an empty workspace is a worse first run, not a broken one.
+      }
     }
   }
 
-  if (inviteToken) {
-    const invite = await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'));
-    if (invite) await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
+  if (invite) {
+    await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
+  } else if (joinTarget) {
+    await joinByCode(joinCode!, userId);
   }
 
   // The deployment owner is comped rather than trialled. Checked on every

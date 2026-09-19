@@ -5,13 +5,23 @@ const ERRORS: Record<string, string> = {
   google_cancelled: 'Google sign-in was cancelled.',
   google_state: 'That sign-in attempt expired or did not start here. Try again.',
   google_failed: 'Google could not complete the sign-in. Nothing was changed.',
+  google_join_full:
+    'That lab has used all the seats on its plan, so the join link could not add you. Nothing was changed — ask whoever runs the lab.',
 };
 
 /**
  * Rendered only when Google sign-in is actually configured, a button that
  * cannot work is worse than no button.
  */
-export function GoogleButton({ invite, error }: { invite?: string; error?: string }) {
+export function GoogleButton({
+  invite,
+  joinCode,
+  error,
+}: {
+  invite?: string;
+  joinCode?: string;
+  error?: string;
+}) {
   const message = error ? ERRORS[error] : undefined;
 
   if (!googleConfigured()) {
@@ -30,7 +40,13 @@ export function GoogleButton({ invite, error }: { invite?: string; error?: strin
         </p>
       ) : null}
       <a
-        href={invite ? `/api/auth/google?invite=${encodeURIComponent(invite)}` : '/api/auth/google'}
+        href={
+          invite
+            ? `/api/auth/google?invite=${encodeURIComponent(invite)}`
+            : joinCode
+              ? `/api/auth/google?code=${encodeURIComponent(joinCode)}`
+              : '/api/auth/google'
+        }
         className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-line bg-surface text-sm font-medium text-fg transition-colors hover:bg-raised"
       >
         <svg aria-hidden viewBox="0 0 18 18" className="h-4 w-4">

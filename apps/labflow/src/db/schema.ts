@@ -119,6 +119,12 @@ export const workspaces = pgTable(
     name: text('name').notNull(),
     slug: text('slug').notNull(),
     institution: text('institution'),
+    /**
+     * The shareable join link's code, or null when the lab has not turned one
+     * on. Stored in the clear on purpose: it has to be readable off the screen
+     * to be pasteable. See migration 0012.
+     */
+    joinCode: text('join_code'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

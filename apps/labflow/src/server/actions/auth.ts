@@ -7,11 +7,12 @@ import { db } from '@/db';
 import { passwordResetTokens, users, workspaceMembers, workspaces } from '@/db/schema';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { normaliseEmail, slugify } from '@/lib/normalise';
-import { loginSchema, signupSchema } from '@/lib/validation';
+import { isValidEmail, loginSchema, signupSchema } from '@/lib/validation';
+import { joinByCode, joinRefusalMessage } from '../join';
 import { TRIAL_DAYS } from '@/lib/plans';
 import { isDisposableEmail } from '@/lib/trial-eligibility';
 import { seedExampleProject } from '../example-project';
-import { acceptInvite, findInviteByToken, startTrial } from '../queries';
+import { acceptInvite, findInviteByToken, findWorkspaceByJoinCode, startTrial } from '../queries';
 import { createSession, destroySession } from '../auth';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
 import { headers } from 'next/headers';
@@ -75,9 +76,19 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     ? await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'))
     : null;
 
+  // A shared join link does the same job as an invitation: it names the lab
+  // this account belongs in, so no empty second one gets created. Checked
+  // before the account exists, because refusing a full lab afterwards would
+  // leave someone signed in with nowhere to be.
+  const joinCode = String(formData.get('joinCode') ?? '');
+  const joinTarget = !invite && joinCode ? await findWorkspaceByJoinCode(joinCode) : null;
+  if (joinCode && !invite && !joinTarget) {
+    return { error: 'That join link is not valid. Ask the lab for a new one.' };
+  }
+
   // Only someone starting a lab names one. The invited get the lab they were
   // invited to, and the form does not ask them for a name it would discard.
-  if (!invite && !parsed.data.workspaceName) {
+  if (!invite && !joinTarget && !parsed.data.workspaceName) {
     return { fieldErrors: { workspaceName: 'Name your lab or research group' } };
   }
 
@@ -89,7 +100,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
       .values({ email, name: parsed.data.name, passwordHash })
       .returning({ id: users.id });
     if (!user) throw new Error('Could not create the account');
-    if (invite) return user.id;
+    if (invite || joinTarget) return user.id;
 
     // Slug collisions are rare; a short suffix is cheaper than a retry loop.
     const workspaceName = parsed.data.workspaceName!;
@@ -109,6 +120,12 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
 
   if (invite) {
     await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
+  } else if (joinTarget) {
+    const outcome = await joinByCode(joinCode, userId);
+    const refusal = joinRefusalMessage(outcome);
+    // The account exists by now, so a refusal has to leave them somewhere. The
+    // login page with the reason beats a dead end on a form they just passed.
+    if (refusal) return { error: refusal };
   } else {
     await startTrial(workspaceIdCreated, TRIAL_DAYS, parsed.data.email);
     // A worked example, so the first screen shows what the product is rather
@@ -150,7 +167,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     .from(workspaceMembers)
     .where(eq(workspaceMembers.userId, user.id))
     .limit(1);
-  if (membership.length === 0) {
+  if (membership.length === 0 && !formData.get('inviteToken') && !formData.get('joinCode')) {
     return { error: 'This account is not a member of any workspace. Ask a lab owner to invite you.' };
   }
 
@@ -160,6 +177,12 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
       createHash('sha256').update(inviteToken).digest('hex'),
     );
     if (invite) await acceptInvite(invite.id, invite.workspaceId, user.id, invite.role);
+  }
+
+  const joinCode = String(formData.get('joinCode') ?? '');
+  if (joinCode) {
+    const refusal = joinRefusalMessage(await joinByCode(joinCode, user.id));
+    if (refusal) return { error: refusal };
   }
 
   await createSession(user.id);
@@ -190,7 +213,7 @@ export async function requestPasswordResetAction(
     ok: true as const,
     message: 'If an account exists for that address, a reset link is on its way.',
   };
-  if (!email.includes('@')) return { fieldErrors: { email: 'Enter a valid email address' } };
+  if (!isValidEmail(email)) return { fieldErrors: { email: 'Enter a valid email address' } };
 
   const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   const user = rows[0];

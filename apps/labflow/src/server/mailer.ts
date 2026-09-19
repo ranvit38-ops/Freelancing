@@ -22,7 +22,7 @@ export function mailConfigured(): boolean {
 }
 
 export async function sendEmail(
-  message: { to: string; subject: string; text: string },
+  message: { to: string; subject: string; text: string; replyTo?: string },
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -32,7 +32,16 @@ export async function sendEmail(
   const response = await fetchImpl('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ from, to: [message.to], subject: message.subject, text: message.text }),
+    body: JSON.stringify({
+      from,
+      to: [message.to],
+      subject: message.subject,
+      text: message.text,
+      // Sent from the deployment's own address, so a plain reply would go
+      // nowhere. This puts the researcher in the reply field instead: hitting
+      // reply in a normal mail client reaches the person who wrote it.
+      ...(message.replyTo ? { reply_to: [message.replyTo] } : {}),
+    }),
   });
 
   if (!response.ok) {

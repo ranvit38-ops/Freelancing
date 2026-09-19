@@ -5,7 +5,8 @@ import { SignupForm } from '@/components/auth-forms';
 import { GoogleButton } from '@/components/google-button';
 import { Card } from '@/components/ui';
 import { getSession } from '@/server/auth';
-import { acceptInvite, findInviteByToken } from '@/server/queries';
+import { joinByCode, joinRefusalMessage } from '@/server/join';
+import { acceptInvite, findInviteByToken, findWorkspaceByJoinCode } from '@/server/queries';
 
 export const metadata = { title: 'Join a lab' };
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,14 @@ export const dynamic = 'force-dynamic';
  * Not signed in → they sign up, and the token rides along on the form so the
  * new account joins the inviting workspace instead of creating an empty one.
  */
-export default async function JoinPage({ searchParams }: { searchParams: { token?: string } }) {
+export default async function JoinPage({
+  searchParams,
+}: {
+  searchParams: { token?: string; code?: string };
+}) {
+  const code = searchParams.code ?? '';
+  if (code) return <JoinByLink code={code} />;
+
   const token = searchParams.token ?? '';
   const invite = token
     ? await findInviteByToken(createHash('sha256').update(token).digest('hex'))
@@ -63,6 +71,73 @@ export default async function JoinPage({ searchParams }: { searchParams: { token
           className="font-medium text-fg underline underline-offset-2"
         >
           Log in to accept
+        </Link>
+      </p>
+    </>
+  );
+}
+
+/**
+ * The shared link branch.
+ *
+ * Signed in already → joined on the spot. Not signed in → the code rides along
+ * on the signup form, exactly as an invitation token does, so the new account
+ * lands in that lab instead of creating an empty one.
+ */
+async function JoinByLink({ code }: { code: string }) {
+  const workspace = await findWorkspaceByJoinCode(code);
+  if (!workspace) {
+    return (
+      <>
+        <h1 className="text-xl font-semibold tracking-tight">This join link is not valid</h1>
+        <p className="mt-1.5 text-sm text-muted">
+          It may have been switched off, or replaced with a new one. Ask whoever sent it to you.
+        </p>
+        <p className="mt-6 text-sm text-muted">
+          <Link href="/login" className="underline underline-offset-2">
+            Back to login
+          </Link>
+        </p>
+      </>
+    );
+  }
+
+  const session = await getSession();
+  if (session) {
+    const outcome = await joinByCode(code, session.userId);
+    const refusal = joinRefusalMessage(outcome);
+    if (!refusal) redirect('/dashboard');
+    return (
+      <>
+        <h1 className="text-xl font-semibold tracking-tight">Could not join {workspace.name}</h1>
+        <p className="mt-1.5 text-sm text-muted">{refusal}</p>
+        <p className="mt-6 text-sm text-muted">
+          <Link href="/dashboard" className="underline underline-offset-2">
+            Back to your lab
+          </Link>
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h1 className="text-xl font-semibold tracking-tight">Join {workspace.name}</h1>
+      <p className="mt-1.5 text-sm text-muted">
+        Create your account and you will land in that lab. Everything the lab has recorded is
+        there waiting.
+      </p>
+      <Card className="mt-6 space-y-4 p-6">
+        <GoogleButton joinCode={code} />
+        <SignupForm joinCode={code} />
+      </Card>
+      <p className="mt-6 text-center text-sm text-muted">
+        Already have an account?{' '}
+        <Link
+          href={`/login?code=${encodeURIComponent(code)}`}
+          className="font-medium text-fg underline underline-offset-2"
+        >
+          Log in to join
         </Link>
       </p>
     </>

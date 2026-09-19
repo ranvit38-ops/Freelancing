@@ -10,7 +10,7 @@ export const metadata = { title: 'Log in' };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { invite?: string; error?: string };
+  searchParams: { invite?: string; code?: string; error?: string };
 }) {
   if (await getSession()) redirect('/dashboard');
   return (
@@ -18,8 +18,12 @@ export default async function LoginPage({
       <h1 className="text-xl font-semibold tracking-tight">Log in to Labvia</h1>
       <p className="mt-1.5 text-sm text-muted">Pick up where your lab left off.</p>
       <Card className="mt-6 space-y-4 p-6">
-        <GoogleButton error={searchParams.error} invite={searchParams.invite} />
-        <LoginForm inviteToken={searchParams.invite} />
+        <GoogleButton
+          error={searchParams.error}
+          invite={searchParams.invite}
+          joinCode={searchParams.code}
+        />
+        <LoginForm inviteToken={searchParams.invite} joinCode={searchParams.code} />
       </Card>
       <p className="mt-6 text-center text-sm text-muted">
         New here?{' '}

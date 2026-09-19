@@ -18,7 +18,9 @@ export async function GET(request: Request) {
 
   const state = randomToken();
   const verifier = randomToken();
-  const invite = new URL(request.url).searchParams.get('invite') ?? '';
+  const params = new URL(request.url).searchParams;
+  const invite = params.get('invite') ?? '';
+  const joinCode = params.get('code') ?? '';
 
   // httpOnly so no script can read them; short-lived because a sign-in that
   // takes more than ten minutes should start over.
@@ -33,6 +35,7 @@ export async function GET(request: Request) {
   jar.set('g_state', state, options);
   jar.set('g_verifier', verifier, options);
   if (invite) jar.set('g_invite', invite, options);
+  if (joinCode) jar.set('g_join', joinCode, options);
 
   return NextResponse.redirect(
     googleAuthUrl({

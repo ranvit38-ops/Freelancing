@@ -63,3 +63,47 @@ export function parseMonthlyValue(input: string): number | null {
   if (!Number.isFinite(value) || value < 0 || value > 1_000_000) return null;
   return value;
 }
+
+export type FeedbackAnswers = {
+  wouldPay: WouldPay;
+  monthlyValue: number | null;
+  blocker: string | null;
+  decisionMaker: string | null;
+};
+
+/**
+ * The email that lands in the owner's inbox when a researcher answers.
+ *
+ * An answer sitting in a database table is an answer nobody reads. The whole
+ * point of a pilot is the conversation that follows, and that conversation
+ * starts within the day or not at all.
+ *
+ * The subject leads with the verdict and the lab, so a full inbox still sorts
+ * itself. Unanswered questions are said to be unanswered rather than left out:
+ * a lab that skipped "what would stop you" told you something, and a gap in
+ * the email reads like a bug instead.
+ */
+export function feedbackEmail(
+  answers: FeedbackAnswers,
+  from: { name: string; email: string; workspace: string },
+): { subject: string; text: string } {
+  const notSaid = '(not answered)';
+  return {
+    subject: `Labvia pilot: ${WOULD_PAY_LABEL[answers.wouldPay]} — ${from.workspace}`,
+    text: [
+      `${from.name} <${from.email}> from ${from.workspace} answered the pilot question.`,
+      '',
+      `Would pay:        ${WOULD_PAY_LABEL[answers.wouldPay]}`,
+      `Worth per month:  ${answers.monthlyValue === null ? notSaid : `$${answers.monthlyValue}`}`,
+      '',
+      'What would stop them:',
+      answers.blocker ?? notSaid,
+      '',
+      'Who decides:',
+      answers.decisionMaker ?? notSaid,
+      '',
+      '—',
+      'Reply to this email to answer them directly.',
+    ].join('\n'),
+  };
+}

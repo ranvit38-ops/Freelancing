@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { Discussion } from '@/components/discussion';
 import { InviteForm } from '@/components/invite-form';
+import { JoinLink } from '@/components/join-link';
 import { UpgradePanel } from '@/components/upgrade-panel';
 import { Badge, Card, CardHeader, PageHeader } from '@/components/ui';
 import { formatBytes, formatDate } from '@/lib/display';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
-import { listDiscussion, listFiles, listWorkspaceMembers } from '@/server/queries';
+import { absoluteUrl } from '@/server/mailer';
+import { getJoinCode, listDiscussion, listFiles, listWorkspaceMembers } from '@/server/queries';
 
 export const metadata = { title: 'Team' };
 export const dynamic = 'force-dynamic';
@@ -36,10 +38,11 @@ export default async function TeamPage() {
     );
   }
 
-  const [messages, members, files] = await Promise.all([
+  const [messages, members, files, joinCode] = await Promise.all([
     listDiscussion(session, { workspace: true }),
     listWorkspaceMembers(session),
     listFiles(session),
+    getJoinCode(session),
   ]);
   const recent = files.slice(0, 6);
 
@@ -80,6 +83,11 @@ export default async function TeamPage() {
           {/* Adding someone belongs where you can see who is already here,
               not two pages away under Settings. */}
           <InviteForm canInvite={session.role !== 'member'} />
+
+          <JoinLink
+            link={joinCode ? absoluteUrl(`/join?code=${encodeURIComponent(joinCode)}`) : null}
+            canManage={session.role !== 'member'}
+          />
 
           <Card>
             <CardHeader

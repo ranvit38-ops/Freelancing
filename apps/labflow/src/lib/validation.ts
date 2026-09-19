@@ -17,10 +17,24 @@ const optionalText = (max: number) =>
     .nullable()
     .default(null);
 
+/**
+ * One definition of a valid address, used by every form that takes one.
+ *
+ * The forms that reached for `includes('@')` accepted "a@" and "@b", which
+ * gets stored, gets an invitation posted to it, and bounces. Zod's check is
+ * not RFC-complete and cannot be — only sending mail proves an address — but
+ * it rejects everything a person plausibly typos.
+ */
+export const emailSchema = z.string().trim().email('Enter a valid email address');
+
+export function isValidEmail(value: string): boolean {
+  return emailSchema.safeParse(value).success;
+}
+
 export const signupSchema = z
   .object({
     name: trimmed(120).min(1, 'Your name is required'),
-    email: z.string().trim().email('Enter a valid email address'),
+    email: emailSchema,
     password: z.string().min(10, 'Use at least 10 characters'),
     /** Only when starting a lab. Someone joining one by invitation has none. */
     workspaceName: trimmed(120).optional(),
@@ -29,7 +43,7 @@ export const signupSchema = z
 
 export const loginSchema = z
   .object({
-    email: z.string().trim().email('Enter a valid email address'),
+    email: emailSchema,
     password: z.string().min(1, 'Enter your password'),
   });
 

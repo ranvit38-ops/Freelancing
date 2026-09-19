@@ -12,11 +12,12 @@ import {
 } from '@/server/actions/auth';
 import { noState } from '@/server/actions/types';
 
-export function LoginForm({ inviteToken }: { inviteToken?: string }) {
+export function LoginForm({ inviteToken, joinCode }: { inviteToken?: string; joinCode?: string }) {
   const [state, action] = useFormState(loginAction, noState);
   return (
     <form action={action} className="space-y-4">
       {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
+      {joinCode ? <input type="hidden" name="joinCode" value={joinCode} /> : null}
       <FormError>{state.error}</FormError>
       <Field label="Email" htmlFor="email" error={state.fieldErrors?.email}>
         <Input id="email" name="email" type="email" autoComplete="email" required autoFocus />
@@ -39,14 +40,20 @@ export function LoginForm({ inviteToken }: { inviteToken?: string }) {
 export function SignupForm({
   inviteToken,
   invitedEmail,
+  joinCode,
 }: {
   inviteToken?: string;
   invitedEmail?: string;
+  joinCode?: string;
 }) {
   const [state, action] = useFormState(signupAction, noState);
+  // Either one means they are joining a lab that already exists, so the form
+  // must not ask them to name one.
+  const joining = Boolean(inviteToken || joinCode);
   return (
     <form action={action} className="space-y-4">
       {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
+      {joinCode ? <input type="hidden" name="joinCode" value={joinCode} /> : null}
       <FormError>{state.error}</FormError>
       <Field label="Your name" htmlFor="name" error={state.fieldErrors?.name}>
         <Input id="name" name="name" autoComplete="name" required autoFocus />
@@ -79,7 +86,7 @@ export function SignupForm({
       {/* Someone arriving on an invitation is joining a lab, not starting one.
           Asking them to name one produced a second, empty workspace that they
           then landed in, so they never saw the lab that invited them. */}
-      {inviteToken ? null : (
+      {joining ? null : (
         <>
           <Field
             label="Lab or research group"
@@ -104,8 +111,8 @@ export function SignupForm({
           </Field>
         </>
       )}
-      <SubmitButton className="w-full" pendingLabel={inviteToken ? 'Joining…' : 'Creating your lab…'}>
-        {inviteToken ? 'Join the lab' : 'Start a lab'}
+      <SubmitButton className="w-full" pendingLabel={joining ? 'Joining…' : 'Creating your lab…'}>
+        {joining ? 'Join the lab' : 'Start a lab'}
       </SubmitButton>
     </form>
   );

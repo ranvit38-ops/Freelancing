@@ -11,7 +11,7 @@ import {
   type SubscriptionState,
 } from '@/lib/plans';
 import { PILOT_PLAN, pilotMode } from '@/lib/pilot';
-import { getSubscription, usageCounts } from './queries';
+import { getSubscription, getSubscriptionByWorkspace, usageCounts } from './queries';
 import type { SessionContext } from './auth';
 
 /**
@@ -46,7 +46,25 @@ function paywallDisabled(): boolean {
   return process.env.NODE_ENV !== 'production' && process.env.LABFLOW_DISABLE_PAYWALL === '1';
 }
 
+/**
+ * The plan for a workspace nobody is signed into yet.
+ *
+ * Someone arriving on a join link has no session scoped to that lab, but the
+ * seat limit still has to be read from that lab's plan and not from a default.
+ * Every override above applies identically, which is the point of routing both
+ * callers through one function.
+ */
+export async function workspacePlanById(workspaceId: string): Promise<WorkspacePlan> {
+  return planFrom(() => getSubscriptionByWorkspace(workspaceId));
+}
+
 export async function workspacePlan(session: SessionContext): Promise<WorkspacePlan> {
+  return planFrom(() => getSubscription(session));
+}
+
+async function planFrom(
+  load: () => Promise<Awaited<ReturnType<typeof getSubscription>>>,
+): Promise<WorkspacePlan> {
   // A pilot deployment gives every workspace the top plan, free and with no
   // end date. Kept separate from paywallDisabled on purpose: that one is a
   // local convenience and refuses to run in production, while this one is only
@@ -70,7 +88,7 @@ export async function workspacePlan(session: SessionContext): Promise<WorkspaceP
     };
   }
 
-  const state = toSubscriptionState(await getSubscription(session));
+  const state = toSubscriptionState(await load());
   return {
     state,
     plan: effectivePlan(state),

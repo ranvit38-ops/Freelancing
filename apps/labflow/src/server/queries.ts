@@ -1615,6 +1615,82 @@ export async function acceptInvite(inviteId: string, workspaceId: string, userId
   });
 }
 
+/* ── join links ─────────────────────────────────────────────────────────── */
+
+/** The lab's current join code, for the settings screen. */
+export async function getJoinCode(s: SessionContext): Promise<string | null> {
+  const rows = await db
+    .select({ joinCode: workspaces.joinCode })
+    .from(workspaces)
+    .where(eq(workspaces.id, s.workspaceId))
+    .limit(1);
+  return rows[0]?.joinCode ?? null;
+}
+
+/**
+ * Turns the link on with a fresh code, or off with null.
+ *
+ * Replacing the code is how a link is revoked: everyone still holding the old
+ * one is locked out at once, and the people already in the lab are members and
+ * unaffected.
+ */
+export async function setJoinCode(s: SessionContext, code: string | null): Promise<void> {
+  await db
+    .update(workspaces)
+    .set({ joinCode: code, updatedAt: new Date() })
+    .where(eq(workspaces.id, s.workspaceId));
+}
+
+/** Resolves a pasted link, for someone who has no session yet. */
+export async function findWorkspaceByJoinCode(code: string) {
+  if (code.length < 16) return null;
+  const rows = await db
+    .select({ id: workspaces.id, name: workspaces.name })
+    .from(workspaces)
+    .where(eq(workspaces.joinCode, code))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Whether this person is already in that lab, so the link is a no-op. */
+export async function isMember(workspaceId: string, userId: string): Promise<boolean> {
+  assertId(workspaceId, 'Workspace');
+  const rows = await db
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * The same seat count as seatUsage, for a workspace nobody is signed into yet.
+ *
+ * Someone arriving on a join link has no session scoped to that lab, and the
+ * seat limit still has to hold: without this a pasted link in a group chat
+ * would take a five-seat lab to thirty.
+ */
+export async function seatUsageByWorkspace(workspaceId: string) {
+  assertId(workspaceId, 'Workspace');
+  const [members, invites] = await Promise.all([
+    db.select({ n: count() }).from(workspaceMembers).where(eq(workspaceMembers.workspaceId, workspaceId)),
+    db
+      .select({ n: count() })
+      .from(workspaceInvites)
+      .where(and(eq(workspaceInvites.workspaceId, workspaceId), isNull(workspaceInvites.acceptedAt))),
+  ]);
+  return { members: members[0]?.n ?? 0, pending: invites[0]?.n ?? 0 };
+}
+
+/** Adds someone to a lab from a join link. Always a plain member. */
+export async function joinWorkspaceByCode(workspaceId: string, userId: string): Promise<void> {
+  assertId(workspaceId, 'Workspace');
+  await db
+    .insert(workspaceMembers)
+    .values({ workspaceId, userId, role: 'member' })
+    .onConflictDoNothing();
+}
+
 /* ── billing ────────────────────────────────────────────────────────────── */
 
 /** The workspace's subscription, or null when it somehow has none. */
