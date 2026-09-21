@@ -6,7 +6,7 @@ import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
 import { listProjects } from '@/server/queries';
 import { isOwnerEmail } from '@/server/google';
-import { pilotBanner, pilotMode } from '@/lib/pilot';
+import { ephemeralUploads, ephemeralUploadsWarning, pilotBanner, pilotMode } from '@/lib/pilot';
 import { LabBotPanel } from '@/components/labbot-panel';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
@@ -137,6 +137,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/billing" className="font-medium underline underline-offset-2">
               Tell us what it is worth
             </Link>
+          </div>
+        ) : null}
+        {ephemeralUploads() ? (
+          <div className="border-b border-warn/25 bg-warn/5 px-5 py-2.5 text-sm text-warn sm:px-8">
+            {ephemeralUploadsWarning()}
           </div>
         ) : null}
         {writable ? null : (

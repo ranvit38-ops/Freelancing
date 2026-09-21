@@ -107,3 +107,24 @@ export function feedbackEmail(
     ].join('\n'),
   };
 }
+
+/**
+ * Whether this deployment loses uploaded files when it restarts.
+ *
+ * A free host has no persistent disk. Files still upload, still attach and
+ * still download — right up until the container restarts, and then they are
+ * gone with no trace. That is the worst possible failure for a research tool:
+ * a lab finds out a month later that the gel image backing a figure has
+ * vanished, and the only thing they learn is not to trust it.
+ *
+ * So a deployment without a disk has to say so, in the product, before anyone
+ * uploads anything. Set LABFLOW_EPHEMERAL_UPLOADS to 1 on any host where the
+ * uploads directory is not on a real disk.
+ */
+export function ephemeralUploads(): boolean {
+  return process.env.LABFLOW_EPHEMERAL_UPLOADS === '1';
+}
+
+export function ephemeralUploadsWarning(): string {
+  return 'Files are not kept on this preview. Anything uploaded here disappears when the server restarts, so keep your own copy.';
+}
