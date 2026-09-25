@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useFormState } from 'react-dom';
 import { Badge, Select, Textarea, cx } from './ui';
@@ -69,6 +70,10 @@ export function LabBotPanel({
     }
   }
 
+  // In Chat the bottom-right corner is the Send button, so the pill sits
+  // above the message box there instead of on top of it.
+  const inChat = usePathname()?.startsWith('/chat') ?? false;
+
   return (
     <>
       {/* Bottom right on every page and every screen size. It was a thin
@@ -79,7 +84,10 @@ export function LabBotPanel({
         aria-expanded={open}
         aria-controls="labbot-panel"
         hidden={open}
-        className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg shadow-lg transition-opacity hover:opacity-90"
+        className={cx(
+          'fixed right-5 z-30 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg shadow-lg transition-opacity hover:opacity-90',
+          inChat ? 'bottom-36' : 'bottom-5',
+        )}
       >
         <span aria-hidden className="h-2 w-2 rounded-full bg-accent-fg/80" />
         Ask LabBot

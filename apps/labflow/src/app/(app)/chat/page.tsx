@@ -81,9 +81,10 @@ export default async function ChatPage({ searchParams }: { searchParams: { c?: s
         </nav>
         <ChatRoom
           key={channel.key}
-          channel={{ name: channel.name, projectId: channel.projectId }}
+          channel={{ key: channel.key, name: channel.name, projectId: channel.projectId }}
           messages={messages}
           currentUserId={session.userId}
+          currentUserName={session.userName}
         />
       </div>
     </>

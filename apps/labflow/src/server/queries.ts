@@ -1481,16 +1481,32 @@ export async function postMessage(
     if (file.private) throw new NotFoundInWorkspaceError('File');
   }
 
-  await db.insert(discussions).values({
-    workspaceId: s.workspaceId,
-    experimentId: input.experimentId ?? null,
-    projectId: input.projectId ?? null,
-    taskId: input.taskId ?? null,
-    parentId: input.parentId,
-    authorId: s.userId,
-    body: input.body,
-    fileId: input.fileId ?? null,
-  });
+  // A reply must answer a message in this lab. Unchecked, a stray id is a
+  // database error in the middle of someone's conversation.
+  if (input.parentId) {
+    assertId(input.parentId, 'Message');
+    const parent = await db
+      .select({ id: discussions.id })
+      .from(discussions)
+      .where(and(eq(discussions.id, input.parentId), eq(discussions.workspaceId, s.workspaceId)))
+      .limit(1);
+    if (!parent[0]) throw new NotFoundInWorkspaceError('Message');
+  }
+
+  const [row] = await db
+    .insert(discussions)
+    .values({
+      workspaceId: s.workspaceId,
+      experimentId: input.experimentId ?? null,
+      projectId: input.projectId ?? null,
+      taskId: input.taskId ?? null,
+      parentId: input.parentId,
+      authorId: s.userId,
+      body: input.body,
+      fileId: input.fileId ?? null,
+    })
+    .returning({ id: discussions.id });
+  return row!.id;
 }
 
 export async function deleteMessage(s: SessionContext, messageId: string) {

@@ -44,7 +44,26 @@ const dir = join(process.cwd(), 'src/db/migrations');
 // rejectUnauthorized:false here, as this once did, turned a verified connection
 // into an unverified one for no reason at all. The app's own pool does the same
 // thing, so migrations and queries reach the database identically.
-const pool = new pg.Pool({ connectionString: url });
+const pool = new pg.Pool({ connectionString: url, connectionTimeoutMillis: 20_000 });
+// A dropped idle connection must not kill the boot with an unhandled event.
+pool.on('error', (error) => console.warn(`database connection dropped: ${error.message}`));
+
+// A free Neon database sleeps when idle and takes a few seconds to wake. A
+// deploy that happens to land then should wait for it, not fail.
+for (let attempt = 1; ; attempt++) {
+  try {
+    await pool.query('select 1');
+    break;
+  } catch (error) {
+    if (attempt === 5) {
+      console.error(`Could not reach the database after ${attempt} tries: ${error.message}`);
+      console.error('Check DATABASE_URL is the full connection string from your database provider.');
+      process.exit(1);
+    }
+    console.warn(`Database not reachable yet (${error.message}); trying again in ${attempt * 3}s`);
+    await new Promise((resolve) => setTimeout(resolve, attempt * 3000));
+  }
+}
 
 const files = readdirSync(dir)
   .filter((f) => f.endsWith('.sql'))

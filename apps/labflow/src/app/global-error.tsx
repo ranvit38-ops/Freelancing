@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
+import { reloadOnceForStaleDeploy, tabIsStale } from '@/lib/stale-deploy';
+
 /**
  * The last resort, when even the page frame fails to render.
  *
@@ -7,7 +10,12 @@
  * having loaded; the few styles it needs are inline, and it adapts to a dark
  * system theme on its own.
  */
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    void tabIsStale().then((stale) => {
+      if (stale) reloadOnceForStaleDeploy();
+    });
+  }, [error]);
   return (
     <html lang="en">
       <body

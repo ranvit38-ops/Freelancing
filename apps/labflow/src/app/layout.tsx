@@ -1,3 +1,4 @@
+import { StaleTabGuard } from '@/components/stale-tab-guard';
 import { ThemeScript } from '@/components/theme-toggle';
 import type { Metadata } from 'next';
 import './globals.css';
@@ -18,7 +19,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <ThemeScript />
       </head>
-      <body className="min-h-dvh font-sans antialiased">{children}</body>
+      <body className="min-h-dvh font-sans antialiased">
+        {children}
+        <StaleTabGuard />
+      </body>
     </html>
   );
 }

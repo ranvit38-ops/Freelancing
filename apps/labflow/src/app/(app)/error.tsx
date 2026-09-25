@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { reloadOnceForStaleDeploy, tabIsStale } from '@/lib/stale-deploy';
 
 /**
  * What anyone sees if a page inside the app fails.
@@ -13,10 +14,20 @@ import { useEffect } from 'react';
  * page again, or go Home. The sidebar stays, so nothing feels lost.
  */
 export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  // A tab opened before the site was updated: reload into the new version
+  // rather than showing an error for something the reader did not do.
+  const [reloading, setReloading] = useState(false);
   useEffect(() => {
     // Still reported to the server log, where the digest ties it to the cause.
     console.error(error);
+    void tabIsStale().then((stale) => {
+      if (stale && reloadOnceForStaleDeploy()) setReloading(true);
+    });
   }, [error]);
+
+  if (reloading) {
+    return <p className="py-16 text-center text-sm text-muted">Labvia was just updated. Loading the new version…</p>;
+  }
 
   return (
     <div className="mx-auto max-w-md py-16 text-center">
