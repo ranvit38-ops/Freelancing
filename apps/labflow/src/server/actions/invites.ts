@@ -6,6 +6,7 @@ import { normaliseEmail } from '@/lib/normalise';
 import { PLANS } from '@/lib/plans';
 import { isValidEmail } from '@/lib/validation';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
+import { linkForViewer } from '../origin';
 import { requireSession } from '../authz';
 import { workspacePlan } from '../paywall';
 import * as q from '../queries';
@@ -63,15 +64,27 @@ export async function inviteMemberAction(
     expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000),
   });
 
-  const link = absoluteUrl(`/join?token=${token}`);
   revalidatePath('/settings');
 
+  // Shown to the inviter, who passes it on themselves: the address they are
+  // using right now is the right one, whether or not it is configured.
   if (!mailConfigured()) {
+    const link = linkForViewer(`/join?token=${token}`);
     return {
       ok: true,
       message: `Email is not configured on this deployment, so nothing was sent. Send them this link yourself: ${link}`,
     };
   }
+
+  // Going into an email to someone else, so it must be the configured
+  // address and never one read off this request.
+  if (!process.env.NEXT_PUBLIC_APP_URL) {
+    return {
+      error:
+        'The invitation is saved, but it cannot be emailed until NEXT_PUBLIC_APP_URL is set on the server. Use the join link below instead.',
+    };
+  }
+  const link = absoluteUrl(`/join?token=${token}`);
 
   try {
     await sendEmail({

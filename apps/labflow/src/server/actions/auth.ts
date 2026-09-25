@@ -226,6 +226,16 @@ export async function requestPasswordResetAction(
     expiresAt: new Date(Date.now() + 60 * 60 * 1000),
   });
 
+  // The link is emailed, so it must be the configured address. Without one,
+  // say so rather than throw: a crash here would read as "reset is broken"
+  // to someone already locked out.
+  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_APP_URL) {
+    console.error('Password reset requested but NEXT_PUBLIC_APP_URL is not set, so no link can be sent.');
+    return {
+      error:
+        'Password reset is not available on this deployment yet. Ask whoever runs your lab to contact the site owner.',
+    };
+  }
   const link = absoluteUrl(`/reset-password?token=${token}`);
   if (!mailConfigured()) {
     console.info(`[labflow] email not configured, reset link for ${email}: ${link}`);

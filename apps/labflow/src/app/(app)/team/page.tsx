@@ -7,7 +7,7 @@ import { Badge, Card, CardHeader, PageHeader } from '@/components/ui';
 import { formatBytes, formatDate } from '@/lib/display';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
-import { absoluteUrl } from '@/server/mailer';
+import { linkForViewer } from '@/server/origin';
 import { getJoinCode, listDiscussion, listFiles, listWorkspaceMembers } from '@/server/queries';
 
 export const metadata = { title: 'Team' };
@@ -85,7 +85,7 @@ export default async function TeamPage() {
           <InviteForm canInvite={session.role !== 'member'} />
 
           <JoinLink
-            link={joinCode ? absoluteUrl(`/join?code=${encodeURIComponent(joinCode)}`) : null}
+            link={joinCode ? linkForViewer(`/join?code=${encodeURIComponent(joinCode)}`) : null}
             canManage={session.role !== 'member'}
           />
 
