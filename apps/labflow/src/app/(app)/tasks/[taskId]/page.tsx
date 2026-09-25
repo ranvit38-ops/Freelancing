@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Discussion } from '@/components/discussion';
 import { Badge, Card, CardHeader, PageHeader } from '@/components/ui';
 import { formatDate } from '@/lib/display';
+import { EVERYONE, dueLabel, todayIso } from '@/lib/tasks';
 import { requireSession } from '@/server/authz';
 import { NotFoundInWorkspaceError } from '@/server/not-found';
 import { assignTaskAction, deleteTaskAction, setTaskStatusAction } from '@/server/actions/tasks';
@@ -64,10 +65,8 @@ export default async function TaskPage({ params }: { params: { taskId: string } 
             <div className="space-y-3 px-5 py-4">
               <div className="flex items-center gap-2">
                 <Badge tone={tone}>{task.status}</Badge>
-                {task.dueOn ? (
-                  <span className="text-xs text-muted">
-                    due {formatDate(new Date(`${task.dueOn}T00:00:00Z`))}
-                  </span>
+                {task.dueOn && task.status !== 'done' ? (
+                  <span className="text-xs font-medium text-muted">{dueLabel(task.dueOn, todayIso()).text}</span>
                 ) : null}
               </div>
 
@@ -95,11 +94,12 @@ export default async function TaskPage({ params }: { params: { taskId: string } 
               <input type="hidden" name="taskId" value={task.id} />
               <select
                 name="assignedTo"
-                defaultValue={task.assignedTo ?? ''}
+                defaultValue={task.forEveryone ? EVERYONE : (task.assignedTo ?? '')}
                 aria-label="Assign this task"
                 className="h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm text-fg"
               >
                 <option value="">Nobody yet</option>
+                <option value={EVERYONE}>Everyone in the lab</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name ?? m.email}

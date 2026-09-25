@@ -44,6 +44,11 @@ export async function POST(request: Request) {
     );
   }
 
+  // "Only me" from the Files page. Anything shared in a conversation is
+  // lab-wide by definition, and the message would otherwise link to a file
+  // nobody else can open.
+  const isPrivate = form.get('private') === '1';
+
   const bytes = Buffer.from(await file.arrayBuffer());
   const storageKey = await putFile(session.workspaceId, file.name, bytes);
   const fileId = await q.recordFile(session, {
@@ -51,8 +56,11 @@ export async function POST(request: Request) {
     contentType: file.type || 'application/octet-stream',
     byteSize: bytes.byteLength,
     storageKey,
+    private: isPrivate,
   });
 
   revalidatePath('/team');
+  revalidatePath('/files');
+  revalidatePath('/chat');
   return NextResponse.json({ fileId, filename: file.name });
 }

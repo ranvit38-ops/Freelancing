@@ -436,3 +436,61 @@ suite('tasks', () => {
     ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
   });
 });
+
+/**
+ * A private file is private from the rest of the same lab, which is the case
+ * workspace scoping alone does not cover: both people pass the workspace
+ * check, so every read has to ask about the uploader too.
+ */
+suite('private files', () => {
+  let ctx: Ctx;
+  let colleague: { userId: string; userName: string; userEmail: string; workspaceId: string; workspaceName: string; workspaceSlug: string; role: 'member' };
+  let privateId: string;
+  let sharedId: string;
+
+  beforeAll(async () => {
+    ctx = await setup();
+    const { randomUUID } = await import('node:crypto');
+    const [user] = await ctx.db
+      .insert(ctx.schema.users)
+      .values({ email: `c-${randomUUID().slice(0, 8)}@test.local`, name: 'Cole C', passwordHash: 'x' })
+      .returning({ id: ctx.schema.users.id, email: ctx.schema.users.email });
+    await ctx.db.insert(ctx.schema.workspaceMembers).values({ workspaceId: ctx.wsA.id, userId: user!.id, role: 'member' });
+    colleague = { ...ctx.sessionA, userId: user!.id, userName: 'Cole C', userEmail: user!.email, role: 'member' };
+
+    const base = { contentType: 'text/plain', byteSize: 1, storageKey: `k-${randomUUID()}` };
+    privateId = await ctx.q.recordFile(ctx.sessionA, { ...base, filename: 'draft.txt', private: true });
+    sharedId = await ctx.q.recordFile(ctx.sessionA, { ...base, filename: 'slides.txt' });
+  });
+
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.schema.workspaces).where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db
+      .delete(ctx.schema.users)
+      .where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId, colleague.userId]));
+  });
+
+  it('lets the uploader see and open their own private file', async () => {
+    expect((await ctx.q.listFiles(ctx.sessionA)).map((f) => f.id)).toContain(privateId);
+    expect((await ctx.q.getFileForDownload(ctx.sessionA, privateId)).filename).toBe('draft.txt');
+  });
+
+  it('hides it from a colleague in the same lab: list, download, search and delete', async () => {
+    expect((await ctx.q.listFiles(colleague)).map((f) => f.id)).not.toContain(privateId);
+    await expect(ctx.q.getFileForDownload(colleague, privateId)).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+    await expect(ctx.q.deleteFile(colleague, privateId)).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+    const results = await ctx.q.search(colleague, 'draft');
+    expect(results.map((r) => r.id)).not.toContain(privateId);
+  });
+
+  it('still shares everything else with the lab', async () => {
+    expect((await ctx.q.listFiles(colleague)).map((f) => f.id)).toContain(sharedId);
+  });
+
+  it('refuses to post a private file into a conversation others would read', async () => {
+    await expect(
+      ctx.q.postMessage(ctx.sessionA, { workspace: true, parentId: null, body: 'see this', fileId: privateId }),
+    ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+  });
+});

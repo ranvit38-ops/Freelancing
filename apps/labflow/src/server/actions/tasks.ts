@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { requireSession } from '../authz';
 import { blockedReason } from '../paywall';
 import * as q from '../queries';
+import { EVERYONE } from '@/lib/tasks';
 import type { ActionState } from './types';
 
 /**
@@ -21,6 +22,13 @@ import type { ActionState } from './types';
 function optionalId(formData: FormData, key: string): string | null {
   const value = String(formData.get(key) ?? '').trim();
   return value === '' ? null : value;
+}
+
+/** Reads a "who" picker: a person, the whole lab, or nobody yet. */
+function assignee(formData: FormData): { assignedTo: string | null; forEveryone: boolean } {
+  const value = optionalId(formData, 'assignedTo');
+  if (value === EVERYONE) return { assignedTo: null, forEveryone: true };
+  return { assignedTo: value, forEveryone: false };
 }
 
 function optionalText(formData: FormData, key: string, max: number): string | null {
@@ -47,13 +55,14 @@ export async function createTaskAction(
   await q.createTask(session, {
     title: title.slice(0, 200),
     detail: optionalText(formData, 'detail', 4000),
-    assignedTo: optionalId(formData, 'assignedTo'),
+    ...assignee(formData),
     projectId: optionalId(formData, 'projectId'),
     dueOn,
   });
 
   revalidatePath('/tasks');
   revalidatePath('/dashboard');
+  revalidatePath('/calendar');
   return { ok: true, message: 'Added.' };
 }
 
@@ -79,7 +88,7 @@ export async function assignTaskAction(formData: FormData): Promise<void> {
   const session = await requireSession();
   const taskId = String(formData.get('taskId') ?? '');
 
-  await q.updateTask(session, taskId, { assignedTo: optionalId(formData, 'assignedTo') });
+  await q.updateTask(session, taskId, assignee(formData));
   revalidatePath('/tasks');
   revalidatePath(`/tasks/${taskId}`);
   revalidatePath('/dashboard');

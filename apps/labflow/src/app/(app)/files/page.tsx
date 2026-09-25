@@ -1,128 +1,159 @@
-import { ConfirmSubmit } from '@/components/file-upload';
-import { deleteFileAction } from '@/server/actions/records';
 import Link from 'next/link';
-import { Badge, Card, CardHeader, EmptyState, PageHeader } from '@/components/ui';
+import { ConfirmSubmit } from '@/components/file-upload';
+import { FileDrop } from '@/components/file-drop';
+import { Badge, Card, CardHeader, EmptyState, PageHeader, cx } from '@/components/ui';
 import { experimentCode, formatBytes, formatDate, pluralise } from '@/lib/display';
+import { deleteFileAction } from '@/server/actions/records';
 import { requireSession } from '@/server/authz';
 import { listFiles } from '@/server/queries';
 
 export const metadata = { title: 'Files' };
 export const dynamic = 'force-dynamic';
 
-export default async function FilesPage({ searchParams }: { searchParams: { q?: string } }) {
+/** Spreadsheets Labvia can read an experiment out of. */
+const READABLE = /\.(csv|tsv|xlsx)$/i;
+
+/**
+ * The lab's files, and your own.
+ *
+ * Two views of one list rather than two stores: a file uploaded by you and
+ * shared with the lab shows in both, and a private one only under yours. The
+ * privacy itself is enforced in the query, not here — this page just asks.
+ */
+export default async function FilesPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; view?: string };
+}) {
   const session = await requireSession();
+  const mine = searchParams.view === 'mine';
   const all = await listFiles(session);
+
+  const scoped = mine ? all.filter((f) => f.uploadedById === session.userId) : all.filter((f) => !f.private);
   const query = (searchParams.q ?? '').trim().toLowerCase();
   const files = query
-    ? all.filter((f) =>
-        [f.filename, f.experimentTitle, f.projectName]
+    ? scoped.filter((f) =>
+        [f.filename, f.experimentTitle, f.projectName, f.uploaderName]
           .filter(Boolean)
           .some((v) => v!.toLowerCase().includes(query)),
       )
-    : all;
+    : scoped;
+
+  const tab = (active: boolean) =>
+    cx(
+      'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+      active ? 'bg-surface text-fg shadow-sm' : 'text-muted hover:text-fg',
+    );
 
   return (
     <>
       <PageHeader
         title="Files"
-        description="Every file in this workspace, shown with the experiment that produced it, the thing a shared drive can never tell you."
+        description="Everything the lab has uploaded, and your own files. Drop a spreadsheet in and Labvia can turn it into an experiment."
       />
 
-      {/* A GET form so a filtered view is linkable. */}
-      <form className="mb-5 flex gap-2">
-        <label htmlFor="q" className="sr-only">
-          Filter files
-        </label>
-        <input
-          id="q"
-          name="q"
-          type="search"
-          defaultValue={searchParams.q ?? ''}
-          placeholder="Filter by file, experiment or project"
-          className="h-9 w-full max-w-md rounded-lg border border-line bg-surface px-3 text-sm"
-        />
-        <button
-          type="submit"
-          className="h-9 shrink-0 rounded-lg border border-line bg-surface px-4 text-sm font-medium hover:bg-raised"
-        >
-          Filter
-        </button>
-      </form>
+      <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
+        <div className="space-y-4 lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex rounded-xl bg-raised p-1" role="tablist" aria-label="Whose files">
+              <Link href="/files" role="tab" aria-selected={!mine} className={tab(!mine)}>
+                Lab files
+              </Link>
+              <Link href="/files?view=mine" role="tab" aria-selected={mine} className={tab(mine)}>
+                My files
+              </Link>
+            </div>
+            <form className="flex gap-2">
+              {mine ? <input type="hidden" name="view" value="mine" /> : null}
+              <label htmlFor="q" className="sr-only">
+                Filter files
+              </label>
+              <input
+                id="q"
+                name="q"
+                type="search"
+                defaultValue={searchParams.q ?? ''}
+                placeholder="Find a file"
+                className="h-9 w-48 rounded-lg border border-line bg-surface px-3 text-sm"
+              />
+            </form>
+          </div>
 
-      <Card>
-        <CardHeader title="All files" description={pluralise(files.length, 'file')} />
-        {files.length === 0 ? (
-          <EmptyState
-            title={query ? `No files match “${searchParams.q}”` : 'No files uploaded yet'}
-            description={
-              query
-                ? undefined
-                : 'Attach a file to an experiment and it appears here, linked to that record.'
-            }
-          />
-        ) : (
-          <ul className="divide-y divide-line">
-            {files.map((f) => (
-              <li key={`${f.id}:${f.experimentId ?? 'none'}`} className="px-5 py-3.5">
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <a
-                    href={`/api/files/${f.id}`}
-                    className="min-w-0 flex-1 truncate text-sm font-medium underline underline-offset-2"
-                  >
-                    {f.filename}
-                  </a>
-                  {f.datasetId ? (
-                    <Link href={`/datasets/${f.datasetId}`}>
-                      <Badge tone="accent">Parsed dataset</Badge>
-                    </Link>
-                  ) : null}
-                  <span className="shrink-0 text-xs text-subtle">{formatBytes(f.byteSize)}</span>
-                  <span className="shrink-0 text-xs text-subtle">{formatDate(f.createdAt)}</span>
-                  <form action={deleteFileAction} className="shrink-0">
-                    <input type="hidden" name="fileId" value={f.id} />
-                    {f.experimentId ? (
-                      <input type="hidden" name="experimentId" value={f.experimentId} />
-                    ) : null}
-                    <ConfirmSubmit
-                      tone="secondary"
-                      size="sm"
-                      message={`Delete ${f.filename}? This removes the file and anything parsed from it, and cannot be undone.`}
-                    >
-                      Delete
-                    </ConfirmSubmit>
-                  </form>
-                </div>
-                <p className="mt-1 text-xs text-muted">
-                  {f.experimentId ? (
-                    <>
-                      <Link
-                        href={`/experiments/${f.experimentId}`}
-                        className="underline underline-offset-2 hover:text-fg"
+          <Card>
+            <CardHeader
+              title={mine ? 'Uploaded by you' : 'Shared with the lab'}
+              description={pluralise(files.length, 'file')}
+            />
+            {files.length === 0 ? (
+              <EmptyState
+                title={query ? `Nothing matches “${searchParams.q}”` : mine ? 'You have not uploaded anything yet' : 'No files yet'}
+                description={query ? undefined : 'Drop files on the right to upload them.'}
+              />
+            ) : (
+              <ul className="divide-y divide-line">
+                {files.map((f) => (
+                  <li key={`${f.id}:${f.experimentId ?? 'none'}`} className="px-5 py-3.5">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <a
+                        href={f.sourceUrl ?? `/api/files/${f.id}`}
+                        className="min-w-0 flex-1 truncate text-sm font-medium underline-offset-2 hover:underline"
                       >
-                        {experimentCode(f.experimentNumber!)} · {f.experimentTitle}
-                      </Link>
-                      {f.projectId ? (
+                        {f.filename}
+                      </a>
+                      {f.private ? <Badge>Only you</Badge> : null}
+                      {READABLE.test(f.filename) && !f.experimentId ? (
+                        <Link
+                          href={`/experiments/new?file=${f.id}`}
+                          className="shrink-0 rounded-lg border border-accent/30 bg-accent/5 px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent/10"
+                        >
+                          Make an experiment from this
+                        </Link>
+                      ) : null}
+                      {f.uploadedById === session.userId || session.role !== 'member' ? (
+                        <form action={deleteFileAction} className="shrink-0">
+                          <input type="hidden" name="fileId" value={f.id} />
+                          {f.experimentId ? (
+                            <input type="hidden" name="experimentId" value={f.experimentId} />
+                          ) : null}
+                          <ConfirmSubmit
+                            tone="ghost"
+                            size="sm"
+                            message={`Delete ${f.filename}? This cannot be undone.`}
+                          >
+                            Delete
+                          </ConfirmSubmit>
+                        </form>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-xs text-muted">
+                      {formatBytes(f.byteSize)} · {formatDate(f.createdAt)}
+                      {f.uploaderName ? ` · ${f.uploaderName}` : ''}
+                      {f.experimentId ? (
                         <>
                           {' · '}
                           <Link
-                            href={`/projects/${f.projectId}`}
+                            href={`/experiments/${f.experimentId}`}
                             className="underline underline-offset-2 hover:text-fg"
                           >
-                            {f.projectName}
+                            {experimentCode(f.experimentNumber!)} {f.experimentTitle}
                           </Link>
                         </>
                       ) : null}
-                    </>
-                  ) : (
-                    'Not attached to an experiment'
-                  )}
-                  {f.uploaderName ? ` · uploaded by ${f.uploaderName}` : null}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader title="Upload" description="Shared with the whole lab unless you tick Only me." />
+          <div className="px-5 py-4">
+            <FileDrop />
+          </div>
+        </Card>
+      </div>
     </>
   );
 }

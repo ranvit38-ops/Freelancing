@@ -2,7 +2,8 @@ import { UnsupportedFormatError, parseDelimitedText, parseSpreadsheet } from '@/
 import { XlsxError } from '@/lib/xlsx';
 import type { SessionContext } from './auth';
 import * as q from './queries';
-import { extensionOf, isAllowedUpload, maxBytesFor, putFile } from './storage';
+import { buildDraft, type ExperimentDraft } from '@/lib/experiment-draft';
+import { extensionOf, getFile, isAllowedUpload, maxBytesFor, putFile } from './storage';
 
 /**
  * Storing one upload against an experiment, and reading it as a dataset when
@@ -94,4 +95,59 @@ export async function storeExperimentFile(
   }
 
   return { fileId, datasetId, notice };
+}
+
+/** Reads a table out of stored bytes, or null for a format that is not a table. */
+async function readTable(filename: string, bytes: Buffer) {
+  const extension = extensionOf(filename);
+  try {
+    if (extension === 'csv' || extension === 'tsv') return parseDelimitedText(bytes.toString('utf8'));
+    if (extension === 'xlsx') return await parseSpreadsheet(bytes);
+  } catch (error) {
+    if (error instanceof UnsupportedFormatError || error instanceof XlsxError) return null;
+    throw error;
+  }
+  return null;
+}
+
+/**
+ * A filled-in experiment from a file already in the lab's Files.
+ *
+ * The same reading as dropping files on the form, for a file someone uploaded
+ * earlier: the spreadsheet is already here, so nobody should have to download
+ * it and drop it back in.
+ */
+export async function draftFromStoredFile(
+  session: SessionContext,
+  fileId: string,
+): Promise<{ draft: ExperimentDraft; file: { id: string; name: string } }> {
+  const file = await q.getFileForDownload(session, fileId);
+  const table = file.storageKey ? await readTable(file.filename, await getFile(file.storageKey)) : null;
+  return {
+    draft: buildDraft([{ filename: file.filename, table }]),
+    file: { id: file.id, name: file.filename },
+  };
+}
+
+/**
+ * Attaches a file that is already stored to a new experiment, and makes a
+ * dataset from it where it can. Nothing is uploaded twice.
+ */
+export async function attachStoredFile(
+  session: SessionContext,
+  experimentId: string,
+  fileId: string,
+): Promise<void> {
+  const file = await q.getFileForDownload(session, fileId);
+  await q.attachFileToExperiment(session, experimentId, file.id);
+  if (!file.storageKey) return;
+  const table = await readTable(file.filename, await getFile(file.storageKey));
+  if (table) {
+    await q.createDataset(session, experimentId, {
+      name: file.filename,
+      fileId: file.id,
+      rows: table.rows,
+      columns: table.columns,
+    });
+  }
 }

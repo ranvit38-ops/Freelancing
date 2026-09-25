@@ -1,131 +1,67 @@
-import Link from 'next/link';
-import { Discussion } from '@/components/discussion';
 import { InviteForm } from '@/components/invite-form';
 import { JoinLink } from '@/components/join-link';
-import { UpgradePanel } from '@/components/upgrade-panel';
 import { Badge, Card, CardHeader, PageHeader } from '@/components/ui';
-import { formatBytes, formatDate } from '@/lib/display';
-import { requireSession } from '@/server/authz';
-import { workspacePlan } from '@/server/paywall';
 import { linkForViewer } from '@/server/origin';
-import { getJoinCode, listDiscussion, listFiles, listWorkspaceMembers } from '@/server/queries';
+import { requireSession } from '@/server/authz';
+import { getJoinCode, listWorkspaceMembers } from '@/server/queries';
 
-export const metadata = { title: 'Team' };
+export const metadata = { title: 'People' };
 export const dynamic = 'force-dynamic';
 
 /**
- * The workspace channel: one conversation for the whole lab, rather than one
- * per project.
+ * Who is in the lab, and how to bring the rest of them in.
  *
- * It is the same threaded discussion used on a project, pointed at a row with
- * no project and no experiment. Group meeting notes, a question about who has
- * the good pipettes, a link to a result worth everyone seeing.
+ * The lab channel that used to live here moved to Chat, where people look
+ * for a conversation. This page is now just the roster and the two ways in:
+ * one link for everyone, or a named invitation.
  */
-export default async function TeamPage() {
+export default async function PeoplePage() {
   const session = await requireSession();
-  const { limits } = await workspacePlan(session);
-
-  if (!limits.discussion) {
-    return (
-      <>
-        <PageHeader title="Team" />
-        <UpgradePanel
-          title="Team conversation"
-          what="One channel for the whole lab, alongside the threads on each project and run."
-          why="Your current plan does not include it. Nothing already written is affected, and it comes back the moment the plan does."
-        />
-      </>
-    );
-  }
-
-  const [messages, members, files, joinCode] = await Promise.all([
-    listDiscussion(session, { workspace: true }),
-    listWorkspaceMembers(session),
-    listFiles(session),
-    getJoinCode(session),
-  ]);
-  const recent = files.slice(0, 6);
+  const [members, joinCode] = await Promise.all([listWorkspaceMembers(session), getJoinCode(session)]);
+  const canManage = session.role !== 'member';
 
   return (
     <>
       <PageHeader
-        title="Team"
-        description="One conversation for the whole lab. Discussion about a particular run belongs on that run, where it stays attached to the result it explains."
+        title="People"
+        description={`Everyone in ${session.workspaceName}. Share the join link in your group chat and the whole lab is in.`}
       />
 
       <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
-        <div className="lg:col-span-2">
-          <Discussion
-            messages={messages}
-            workspace
-            title="Lab channel"
-            currentUserId={session.userId}
-            returnTo="/team"
-          />
-        </div>
+        <Card className="lg:col-span-2">
+          <CardHeader title="In this lab" description={`${members.length} ${members.length === 1 ? 'person' : 'people'}`} />
+          <ul className="divide-y divide-line">
+            {members.map((m) => (
+              <li key={m.id} className="flex items-center gap-3 px-5 py-3">
+                <div
+                  aria-hidden
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent/10 text-xs font-semibold text-accent"
+                >
+                  {(m.name ?? m.email)
+                    .split(/\s+/)
+                    .slice(0, 2)
+                    .map((w) => w[0]?.toUpperCase())
+                    .join('')}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {m.name ?? m.email}
+                    {m.id === session.userId ? <span className="ml-1.5 text-xs font-normal text-subtle">you</span> : null}
+                  </p>
+                  <p className="truncate text-xs text-muted">{m.email}</p>
+                </div>
+                <Badge tone={m.role === 'owner' ? 'accent' : 'neutral'}>{m.role}</Badge>
+              </li>
+            ))}
+          </ul>
+        </Card>
 
         <div className="space-y-5">
-          <Card>
-            <CardHeader title="People" description={`${members.length} in this workspace`} />
-            <ul className="divide-y divide-line">
-              {members.map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{m.name ?? m.email}</p>
-                    <p className="truncate text-xs text-muted">{m.email}</p>
-                  </div>
-                  <Badge>{m.role}</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          {/* Adding someone belongs where you can see who is already here,
-              not two pages away under Settings. */}
-          <InviteForm canInvite={session.role !== 'member'} />
-
           <JoinLink
             link={joinCode ? linkForViewer(`/join?code=${encodeURIComponent(joinCode)}`) : null}
-            canManage={session.role !== 'member'}
+            canManage={canManage}
           />
-
-          <Card>
-            <CardHeader
-              title="Latest files"
-              description="Uploaded anywhere in the workspace"
-            />
-            {recent.length === 0 ? (
-              <p className="px-5 py-4 text-sm text-muted">
-                Nothing uploaded yet. Files are attached to the run that produced them, which is
-                what makes them findable a year later.
-              </p>
-            ) : (
-              <ul className="divide-y divide-line">
-                {recent.map((f) => (
-                  <li key={f.id} className="px-5 py-3">
-                    <Link
-                      href={`/api/files/${f.id}`}
-                      className="block truncate text-sm underline underline-offset-2"
-                    >
-                      {f.filename}
-                    </Link>
-                    <p className="mt-0.5 truncate text-xs text-muted">
-                      {formatBytes(f.byteSize)} · {formatDate(f.createdAt)}
-                      {f.experimentTitle ? ` · ${f.experimentTitle}` : ''}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="border-t border-line px-5 py-3">
-              <Link
-                href="/files"
-                className="text-sm text-muted underline underline-offset-2 hover:text-fg"
-              >
-                All files
-              </Link>
-            </div>
-          </Card>
+          <InviteForm canInvite={canManage} />
         </div>
       </div>
     </>

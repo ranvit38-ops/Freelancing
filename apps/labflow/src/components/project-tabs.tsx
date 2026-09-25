@@ -12,11 +12,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
     { href: base, label: 'Overview' },
     { href: `${base}/timeline`, label: 'Timeline' },
     { href: `${base}/compare`, label: 'Compare' },
-    { href: `${base}/samples`, label: 'Samples' },
-    { href: `${base}/discussion`, label: 'Discussion' },
-    { href: `${base}/literature`, label: 'Literature' },
     { href: `${base}/memory`, label: 'Research memory' },
-    { href: `${base}/assistant`, label: 'LabBot' },
     { href: `${base}/updates`, label: 'Research updates' },
   ];
 

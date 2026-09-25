@@ -49,6 +49,9 @@ export async function postMessageAction(formData: FormData) {
           ? `/tasks/${taskId}`
           : '/team',
   );
+  // Project channels and the lab channel are both read from Chat now.
+  if (!experimentId && !taskId) revalidatePath('/chat');
+  revalidatePath('/dashboard');
 }
 
 export async function deleteMessageAction(formData: FormData) {

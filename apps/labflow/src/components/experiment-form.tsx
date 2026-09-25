@@ -20,6 +20,8 @@ export type ExperimentFormProps = {
    * experiment and its data are saved in one action rather than two.
    */
   pendingFiles?: File[];
+  /** A file already in the lab's Files, attached on save. */
+  storedFileId?: string;
   projectId: string;
   projectName: string;
   experimentId?: string;
@@ -97,6 +99,9 @@ export function ExperimentForm(props: ExperimentFormProps) {
   return (
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="projectId" value={props.projectId} />
+      {props.storedFileId ? (
+        <input type="hidden" name="existingFileId" value={props.storedFileId} />
+      ) : null}
       {props.pendingFiles && props.pendingFiles.length > 0 ? (
         <PendingFiles files={props.pendingFiles} />
       ) : null}

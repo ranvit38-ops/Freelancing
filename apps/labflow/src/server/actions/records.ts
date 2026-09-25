@@ -15,7 +15,7 @@ import {
 import { requireSession, NotFoundInWorkspaceError } from '../authz';
 import { InUseError } from '../not-found';
 import { removeFile } from '../storage';
-import { UploadRejected, storeExperimentFile } from '../uploads';
+import { UploadRejected, attachStoredFile, storeExperimentFile } from '../uploads';
 import { blockedReason } from '../paywall';
 import * as q from '../queries';
 import { fieldErrorsFrom, formObject, type ActionState } from './types';
@@ -134,6 +134,17 @@ export async function createExperimentAction(
   // Files dropped on the form that produced this draft. Attached after the
   // record exists, and deliberately after the try above: the experiment is
   // saved by now, so a rejected file must not read as "nothing was saved".
+  // A file picked from the lab's Files: already stored, so it is attached
+  // rather than uploaded again.
+  const existingFileId = String(formData.get('existingFileId') ?? '');
+  if (existingFileId) {
+    try {
+      await attachStoredFile(session, experimentId, existingFileId);
+    } catch (error) {
+      if (!(error instanceof NotFoundInWorkspaceError)) throw error;
+    }
+  }
+
   const dropped = formData.getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
   for (const file of dropped) {
     try {

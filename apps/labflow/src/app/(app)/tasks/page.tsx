@@ -1,19 +1,20 @@
 import Link from 'next/link';
 import { TaskComposer } from '@/components/task-forms';
-import { TaskRow } from '@/components/task-row';
-import { Card, CardHeader, EmptyState, PageHeader } from '@/components/ui';
+import { TaskRow, type TaskSummary } from '@/components/task-row';
+import { Card, CardHeader, PageHeader, cx } from '@/components/ui';
+import { byDeadline, dueLabel, todayIso } from '@/lib/tasks';
 import { requireSession } from '@/server/authz';
 import { listProjects, listTasks, listWorkspaceMembers } from '@/server/queries';
 
-export const metadata = { title: 'Who is doing what' };
+export const metadata = { title: 'Tasks' };
 export const dynamic = 'force-dynamic';
 
 /**
- * The lab's work, in the order a person actually wants it.
+ * The lab's work, in the order a person wants it.
  *
- * Mine first, unclaimed second, everyone else's last. A board sorted by
- * project or by date makes you hunt for your own name, and the question this
- * page is opened with is always "what am I meant to be doing".
+ * Yours first, then what the whole lab owes, then what nobody has picked up,
+ * then everyone else's. Within each, the soonest deadline first, because that
+ * is the order the work gets done in.
  */
 export default async function TasksPage() {
   const session = await requireSession();
@@ -22,97 +23,103 @@ export default async function TasksPage() {
     listWorkspaceMembers(session),
     listProjects(session),
   ]);
+  const today = todayIso();
 
-  const live = tasks.filter((t) => t.status !== 'done');
+  const live = tasks.filter((t) => t.status !== 'done').sort(byDeadline);
   const mine = live.filter((t) => t.assignedTo === session.userId);
-  const unclaimed = live.filter((t) => t.assignedTo === null);
-  const others = live.filter((t) => t.assignedTo !== null && t.assignedTo !== session.userId);
-  const done = tasks.filter((t) => t.status === 'done').slice(0, 15);
+  const lab = live.filter((t) => t.forEveryone);
+  const unclaimed = live.filter((t) => !t.assignedTo && !t.forEveryone);
+  const others = live.filter((t) => t.assignedTo && t.assignedTo !== session.userId);
+  const done = tasks.filter((t) => t.status === 'done').slice(0, 20);
 
-  const sections = [
-    {
-      key: 'mine',
-      title: 'Yours',
-      description: 'What the lab is expecting from you.',
-      items: mine,
-      empty: 'Nothing assigned to you right now.',
-    },
-    {
-      key: 'unclaimed',
-      title: 'Nobody has picked these up',
-      description: 'Work the lab agreed on that has no name against it yet.',
-      items: unclaimed,
-      empty: 'Everything has someone on it.',
-    },
-    {
-      key: 'others',
-      title: 'Everyone else',
-      description: 'So you can see what is already being done before you start it again.',
-      items: others,
-      empty: 'Nobody else has anything open.',
-    },
+  const onMe = [...mine, ...lab];
+  const overdue = onMe.filter((t) => dueLabel(t.dueOn, today).tone === 'overdue').length;
+  const thisWeek = onMe.filter((t) => dueLabel(t.dueOn, today).tone === 'soon').length;
+
+  const sections: { key: string; title: string; hint: string; items: TaskSummary[]; empty: string }[] = [
+    { key: 'mine', title: 'Yours', hint: 'Assigned to you', items: mine, empty: 'Nothing assigned to you. Nice.' },
+    { key: 'lab', title: 'Whole lab', hint: 'Everyone is expected to do these', items: lab, empty: 'Nothing for the whole lab right now.' },
+    { key: 'free', title: 'Up for grabs', hint: 'Nobody has picked these up yet', items: unclaimed, empty: 'Everything has someone on it.' },
+    { key: 'others', title: 'Everyone else', hint: 'So you can see what is already being done', items: others, empty: 'Nobody else has anything open.' },
   ];
+
+  const row = (t: TaskSummary) => (
+    <TaskRow key={t.id} task={t} members={members} currentUserId={session.userId} today={today} />
+  );
 
   return (
     <>
       <PageHeader
-        title="Who is doing what"
-        description="Delegate a piece of work, say how it is going on the task itself, and let the rest of the lab answer there. The thread stays attached, so whoever picks this up in six months can read how it went."
+        title="Tasks"
+        description="Hand out work, set a deadline, and say how it is going on the task itself."
       />
+
+      <div className="mb-5 flex flex-wrap gap-2">
+        <Stat label="on your plate" value={onMe.length} />
+        <Stat label="due this week" value={thisWeek} tone={thisWeek ? 'warn' : undefined} />
+        <Stat label="overdue" value={overdue} tone={overdue ? 'danger' : undefined} />
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
         <div className="space-y-5 lg:col-span-2">
-          {tasks.length === 0 ? (
-            <EmptyState
-              title="No tasks yet"
-              description="Add the first one on the right. The thing you would otherwise say out loud in a meeting and nobody would write down."
-            />
-          ) : (
-            sections.map((section) => (
+          {sections.map((section) =>
+            // Empty sections other than your own are noise; yours stays so
+            // "nothing assigned" is a statement rather than a missing box.
+            section.items.length === 0 && section.key !== 'mine' ? null : (
               <Card key={section.key}>
-                <CardHeader
-                  title={section.title}
-                  description={`${section.items.length} · ${section.description}`}
-                />
+                <CardHeader title={`${section.title} · ${section.items.length}`} description={section.hint} />
                 {section.items.length === 0 ? (
                   <p className="px-5 py-4 text-sm text-muted">{section.empty}</p>
                 ) : (
-                  <ul className="divide-y divide-line">
-                    {section.items.map((task) => (
-                      <TaskRow key={task.id} task={task} members={members} />
-                    ))}
-                  </ul>
+                  <ul className="divide-y divide-line">{section.items.map(row)}</ul>
                 )}
               </Card>
-            ))
+            ),
           )}
 
           {done.length > 0 ? (
-            <Card>
-              <CardHeader title="Finished" description="The fifteen most recent." />
-              <ul className="divide-y divide-line">
-                {done.map((task) => (
-                  <li key={task.id} className="px-5 py-2.5">
-                    <Link
-                      href={`/tasks/${task.id}`}
-                      className="text-sm text-muted line-through underline-offset-2 hover:text-fg hover:no-underline"
-                    >
-                      {task.title}
+            <details className="rounded-xl border border-line bg-surface">
+              <summary className="cursor-pointer px-5 py-3 text-sm font-medium">
+                Done · {done.length}
+              </summary>
+              <ul className="divide-y divide-line border-t border-line">
+                {done.map((t) => (
+                  <li key={t.id} className="px-5 py-2.5 text-sm">
+                    <Link href={`/tasks/${t.id}`} className="text-muted line-through hover:text-fg hover:no-underline">
+                      {t.title}
                     </Link>
-                    {task.assigneeName ? (
-                      <span className="ml-2 text-xs text-subtle">{task.assigneeName}</span>
-                    ) : null}
+                    <span className="ml-2 text-xs text-subtle">
+                      {t.forEveryone ? 'Whole lab' : (t.assigneeName ?? '')}
+                    </span>
                   </li>
                 ))}
               </ul>
-            </Card>
+            </details>
           ) : null}
         </div>
 
         <div>
-          <TaskComposer members={members} projects={projects} />
+          <TaskComposer members={members} projects={projects} currentUserId={session.userId} />
         </div>
       </div>
     </>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: 'warn' | 'danger' }) {
+  return (
+    <div
+      className={cx(
+        'rounded-xl border px-4 py-2.5',
+        tone === 'danger'
+          ? 'border-danger/25 bg-danger/5 text-danger'
+          : tone === 'warn'
+            ? 'border-warn/25 bg-warn/5 text-warn'
+            : 'border-line bg-surface',
+      )}
+    >
+      <span className="text-lg font-semibold tabular-nums">{value}</span>
+      <span className="ml-1.5 text-sm">{label}</span>
+    </div>
   );
 }

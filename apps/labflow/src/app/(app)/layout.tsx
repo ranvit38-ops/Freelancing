@@ -8,24 +8,29 @@ import { listProjects } from '@/server/queries';
 import { isOwnerEmail } from '@/server/google';
 import { ephemeralUploads, ephemeralUploadsWarning, pilotBanner, pilotMode } from '@/lib/pilot';
 import { LabBotPanel } from '@/components/labbot-panel';
+import { BackBar } from '@/components/back-bar';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
 
+/**
+ * Seven places, each one a thing a lab does every week. Samples, inventory,
+ * protocols, search and the literature tools still exist and are reached from
+ * inside a project or experiment where they apply; they were crowding out the
+ * things people open Labvia for.
+ */
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/team', label: 'Team' },
-  { href: '/tasks', label: 'Who is doing what' },
-  { href: '/projects', label: 'Projects' },
-  { href: '/experiments', label: 'Experiments' },
-  { href: '/actions', label: 'Needs attention' },
+  { href: '/dashboard', label: 'Home' },
+  { href: '/tasks', label: 'Tasks' },
+  { href: '/chat', label: 'Chat' },
+  { href: '/calendar', label: 'Calendar' },
   { href: '/files', label: 'Files' },
-  { href: '/samples', label: 'Samples' },
-  { href: '/inventory', label: 'Inventory' },
-  { href: '/protocols', label: 'Protocols' },
-  { href: '/updates', label: 'Research updates' },
-  { href: '/search', label: 'Search' },
-  { href: '/billing', label: 'Billing' },
+  { href: '/projects', label: 'Projects' },
+  { href: '/team', label: 'People' },
+];
+
+const footerItems: NavItem[] = [
   { href: '/settings', label: 'Settings' },
+  { href: '/billing', label: 'Billing' },
 ];
 
 /**
@@ -34,12 +39,11 @@ const navItems: NavItem[] = [
  * "Billing" on a product they are being given for free.
  */
 function navFor(pilot: boolean): NavItem[] {
-  if (!pilot) return navItems;
-  return navItems.map((item) =>
+  if (!pilot) return footerItems;
+  return footerItems.map((item) =>
     item.href === '/billing' ? { ...item, label: 'What is it worth?' } : item,
   );
 }
-
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
   // Read access is never blocked, only writes. The banner says what applies.
@@ -51,10 +55,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // The owner link is added for the owner alone. Everyone else never sees the
   // route exists, and the page itself refuses them regardless of the nav.
-  const base = navFor(pilotMode());
-  const items = isOwnerEmail(session.userEmail)
-    ? [...base, { href: '/owner', label: 'Owner' }]
-    : base;
+  const footer = navFor(pilotMode());
+  const secondary = isOwnerEmail(session.userEmail)
+    ? [...footer, { href: '/owner', label: 'Owner' }]
+    : footer;
+  const items = navItems;
 
   // Only worth showing once a user actually belongs to more than one lab.
   const workspacePicker =
@@ -111,6 +116,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </summary>
         <nav aria-label="Main" className="px-3 pb-3">
           <NavList items={items} />
+          <NavList items={secondary} className="mt-3 border-t border-line pt-3" />
         </nav>
         {identity}
       </details>
@@ -126,6 +132,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <nav aria-label="Main" className="flex-1 overflow-y-auto px-3">
           <NavList items={items} />
+          <NavList items={secondary} className="mt-4 border-t border-line pt-4" />
         </nav>
         {identity}
       </aside>
@@ -179,9 +186,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           </div>
         ) : null}
-        <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">{children}</div>
+        {/* Bottom padding clears the floating Ask LabBot button, so it never
+            sits on top of the last row of a page. */}
+        <div className="mx-auto max-w-6xl px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
+          <BackBar />
+          {children}
+        </div>
       </main>
-      <LabBotPanel projects={projectsForBot} />
+      <LabBotPanel projects={projectsForBot} configured={Boolean(process.env.ANTHROPIC_API_KEY)} />
     </div>
   );
 }

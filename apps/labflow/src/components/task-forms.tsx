@@ -6,6 +6,7 @@ import { Card, CardHeader, Field, FormError, Input, Select, Textarea } from './u
 import { SubmitButton } from './submit-button';
 import { createTaskAction } from '@/server/actions/tasks';
 import { noState } from '@/server/actions/types';
+import { EVERYONE } from '@/lib/tasks';
 
 type Member = { id: string; name: string | null; email: string };
 type Project = { id: string; name: string };
@@ -18,7 +19,15 @@ type Project = { id: string; name: string };
  * extraction" is a form nobody fills in, and the task that never got written
  * down is the one the next student repeats by accident.
  */
-export function TaskComposer({ members, projects }: { members: Member[]; projects: Project[] }) {
+export function TaskComposer({
+  members,
+  projects,
+  currentUserId,
+}: {
+  members: Member[];
+  projects: Project[];
+  currentUserId: string;
+}) {
   const [state, action] = useFormState(createTaskAction, noState);
   const form = useRef<HTMLFormElement>(null);
 
@@ -50,12 +59,17 @@ export function TaskComposer({ members, projects }: { members: Member[]; project
         <Field label="Who" htmlFor="task-assignee" optional>
           <Select id="task-assignee" name="assignedTo" defaultValue="">
             <option value="">Nobody yet</option>
+            <option value={EVERYONE}>Everyone in the lab</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.name ?? m.email}
+                {m.id === currentUserId ? `${m.name ?? m.email} (you)` : (m.name ?? m.email)}
               </option>
             ))}
           </Select>
+        </Field>
+
+        <Field label="Deadline" htmlFor="task-due" optional error={state.fieldErrors?.dueOn}>
+          <Input id="task-due" name="dueOn" type="date" />
         </Field>
 
         <Field label="Project" htmlFor="task-project" optional>
@@ -67,10 +81,6 @@ export function TaskComposer({ members, projects }: { members: Member[]; project
               </option>
             ))}
           </Select>
-        </Field>
-
-        <Field label="By when" htmlFor="task-due" optional error={state.fieldErrors?.dueOn}>
-          <Input id="task-due" name="dueOn" type="date" />
         </Field>
 
         <Field

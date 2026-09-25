@@ -353,6 +353,8 @@ export const files = pgTable(
     /** "google-drive", "dropbox", "web" … derived from the URL host. */
     provider: text('provider'),
     uploadedById: uuid('uploaded_by_id').references(() => users.id, { onDelete: 'set null' }),
+    /** Visible only to its uploader. See migration 0014. */
+    private: boolean('private').notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => ({ wsIdx: index('files_workspace_id_idx').on(t.workspaceId) }),
@@ -508,6 +510,8 @@ export const tasks = pgTable(
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     /** open | doing | done */
     status: text('status').notNull().default('open'),
+    /** A task for the whole lab rather than one person. */
+    forEveryone: boolean('for_everyone').notNull().default(false),
     dueOn: date('due_on'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -519,6 +523,25 @@ export const tasks = pgTable(
 );
 
 export type Task = typeof tasks.$inferSelect;
+
+/** Something that happens on a day. Task deadlines live on the task. */
+export const events = pgTable(
+  'events',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    onDate: date('on_date').notNull(),
+    /** "HH:MM" in the lab's local time, or null for all day. */
+    atTime: text('at_time'),
+    notes: text('notes'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+  },
+  (t) => ({ dateIdx: index('events_workspace_date_idx').on(t.workspaceId, t.onDate) }),
+);
 
 /** Threaded discussion on a project, an experiment or a task. */
 export const discussions = pgTable(

@@ -27,7 +27,14 @@ const PROJECT_KEY = 'labvia-labbot-project';
  * rather than an overlay, so the record stays readable beside the answer, and
  * its open state survives navigation.
  */
-export function LabBotPanel({ projects }: { projects: ProjectOption[] }) {
+export function LabBotPanel({
+  projects,
+  configured,
+}: {
+  projects: ProjectOption[];
+  /** False when the server has no model key, so the panel says so before anyone types. */
+  configured: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [projectId, setProjectId] = useState('');
   const [state, action] = useFormState(askProjectAction, emptyAnswerState);
@@ -62,27 +69,20 @@ export function LabBotPanel({ projects }: { projects: ProjectOption[] }) {
     }
   }
 
-  if (projects.length === 0) return null;
-
   return (
     <>
-      {/* Always in the same place, whatever page you are on. It hides while
-          the panel is open rather than sliding aside: a tab that moves is a
-          target you have to chase, and the panel has its own Close. */}
+      {/* Bottom right on every page and every screen size. It was a thin
+          sideways tab on wide screens only, and people did not find it. */}
       <button
         type="button"
         onClick={toggle}
         aria-expanded={open}
         aria-controls="labbot-panel"
         hidden={open}
-        className={cx(
-          'fixed right-0 top-1/2 z-30 hidden -translate-y-1/2 items-center gap-2 rounded-l-xl border border-r-0 border-line bg-surface px-2.5 py-4 text-xs font-medium tracking-wide shadow-sm transition-colors hover:bg-raised',
-          !open && 'lg:flex',
-        )}
-        style={{ writingMode: 'vertical-rl' }}
+        className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg shadow-lg transition-opacity hover:opacity-90"
       >
-        <span aria-hidden className="h-2 w-2 rounded-full bg-accent" />
-        LabBot
+        <span aria-hidden className="h-2 w-2 rounded-full bg-accent-fg/80" />
+        Ask LabBot
       </button>
 
       {/* Display is controlled by classes, not the hidden attribute: a
@@ -93,8 +93,8 @@ export function LabBotPanel({ projects }: { projects: ProjectOption[] }) {
         id="labbot-panel"
         aria-hidden={!open}
         className={cx(
-          'fixed right-0 top-0 z-30 h-dvh w-[26rem] flex-col border-l border-line bg-surface',
-          open ? 'hidden lg:flex' : 'hidden',
+          'fixed inset-0 z-40 flex-col bg-surface sm:inset-auto sm:right-0 sm:top-0 sm:h-dvh sm:w-[26rem] sm:border-l sm:border-line sm:shadow-xl',
+          open ? 'flex' : 'hidden',
         )}
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-3">
@@ -111,6 +111,19 @@ export function LabBotPanel({ projects }: { projects: ProjectOption[] }) {
           </button>
         </div>
 
+        {!configured ? (
+          <p className="border-b border-line bg-warn/5 px-5 py-3 text-sm text-warn">
+            LabBot is not switched on for this site yet. It needs an AI key added on the
+            server. Everything else works without it.
+          </p>
+        ) : null}
+
+        {projects.length === 0 ? (
+          <p className="px-5 py-4 text-sm text-muted">
+            LabBot answers from a project&rsquo;s own records. Create a project first, then ask
+            it anything about the work.
+          </p>
+        ) : (
         <form action={action} className="space-y-3 border-b border-line px-5 py-4">
           <input type="hidden" name="projectId" value={projectId} />
           <label className="sr-only" htmlFor="labbot-project">
@@ -138,14 +151,11 @@ export function LabBotPanel({ projects }: { projects: ProjectOption[] }) {
             required
             placeholder="What should we try next? Why did EXP-004 differ from EXP-003?"
           />
-          <label className="flex items-center gap-2 text-xs text-muted">
-            <input type="checkbox" name="includeLiterature" value="1" defaultChecked />
-            Search PubMed alongside our records
-          </label>
-          <SubmitButton size="sm" pendingLabel="Thinking…">
+          <SubmitButton size="sm" pendingLabel="Thinking…" disabled={!configured}>
             Ask
           </SubmitButton>
         </form>
+        )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {state.error ? <p className="text-sm text-danger">{state.error}</p> : null}

@@ -32,6 +32,7 @@ import {
   trialGrants,
   pilotFeedback,
   tasks,
+  events,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { InUseError, NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
@@ -616,9 +617,27 @@ export async function addProtocolVersion(
 
 /* ── files ──────────────────────────────────────────────────────────────── */
 
+/**
+ * The files this person may see: everything shared with the lab, plus their
+ * own private ones. Every query that reads files goes through this, because a
+ * private file that leaks through search or a download link is not private.
+ */
+function fileVisibleTo(s: SessionContext) {
+  return and(
+    eq(files.workspaceId, s.workspaceId),
+    or(eq(files.private, false), eq(files.uploadedById, s.userId)),
+  );
+}
+
 export async function recordFile(
   s: SessionContext,
-  input: { filename: string; contentType: string; byteSize: number; storageKey: string },
+  input: {
+    filename: string;
+    contentType: string;
+    byteSize: number;
+    storageKey: string;
+    private?: boolean;
+  },
 ) {
   const rows = await db
     .insert(files)
@@ -642,7 +661,7 @@ export async function getFileForDownload(s: SessionContext, fileId: string) {
   const rows = await db
     .select()
     .from(files)
-    .where(and(eq(files.id, fileId), eq(files.workspaceId, s.workspaceId)))
+    .where(and(eq(files.id, fileId), fileVisibleTo(s)))
     .limit(1);
   return assertFound(rows[0], 'File');
 }
@@ -820,7 +839,7 @@ export async function search(s: SessionContext, rawQuery: string): Promise<Searc
       db
         .select({ id: files.id, filename: files.filename })
         .from(files)
-        .where(and(eq(files.workspaceId, s.workspaceId), allTerms(files.filename)))
+        .where(and(fileVisibleTo(s), allTerms(files.filename)))
         .limit(10),
     ]);
 
@@ -1259,6 +1278,8 @@ export async function listFiles(s: SessionContext) {
       projectId: projects.id,
       projectName: projects.name,
       datasetId: datasets.id,
+      private: files.private,
+      uploadedById: files.uploadedById,
     })
     .from(files)
     .leftJoin(users, eq(users.id, files.uploadedById))
@@ -1266,7 +1287,7 @@ export async function listFiles(s: SessionContext) {
     .leftJoin(experiments, eq(experiments.id, experimentFiles.experimentId))
     .leftJoin(projects, eq(projects.id, experiments.projectId))
     .leftJoin(datasets, eq(datasets.fileId, files.id))
-    .where(eq(files.workspaceId, s.workspaceId))
+    .where(fileVisibleTo(s))
     .orderBy(desc(files.createdAt));
 }
 
@@ -1452,8 +1473,13 @@ export async function postMessage(
   else if (input.taskId) await getTask(s, input.taskId);
   else if (!input.workspace) throw new NotFoundInWorkspaceError('Discussion target');
 
-  // Confirms the attachment is this workspace's before it is pointed at.
-  if (input.fileId) await getFileForDownload(s, input.fileId);
+  // Confirms the attachment is this workspace's before it is pointed at, and
+  // that it is not private: everyone reading the thread would see a link
+  // they cannot open.
+  if (input.fileId) {
+    const file = await getFileForDownload(s, input.fileId);
+    if (file.private) throw new NotFoundInWorkspaceError('File');
+  }
 
   await db.insert(discussions).values({
     workspaceId: s.workspaceId,
@@ -1657,6 +1683,7 @@ export async function listTasks(s: SessionContext, filter?: { projectId?: string
       detail: tasks.detail,
       status: tasks.status,
       dueOn: tasks.dueOn,
+      forEveryone: tasks.forEveryone,
       createdAt: tasks.createdAt,
       assignedTo: tasks.assignedTo,
       assigneeName: assignee.name,
@@ -1680,6 +1707,7 @@ export async function getTask(s: SessionContext, taskId: string) {
       detail: tasks.detail,
       status: tasks.status,
       dueOn: tasks.dueOn,
+      forEveryone: tasks.forEveryone,
       createdAt: tasks.createdAt,
       assignedTo: tasks.assignedTo,
       assigneeName: assignee.name,
@@ -1702,6 +1730,7 @@ export async function createTask(
     assignedTo: string | null;
     projectId: string | null;
     dueOn: string | null;
+    forEveryone?: boolean;
   },
 ) {
   // Both point at rows a caller could have named from another workspace.
@@ -1718,7 +1747,14 @@ export async function createTask(
 export async function updateTask(
   s: SessionContext,
   taskId: string,
-  patch: { status?: TaskStatus; assignedTo?: string | null; title?: string; detail?: string | null; dueOn?: string | null },
+  patch: {
+    status?: TaskStatus;
+    assignedTo?: string | null;
+    forEveryone?: boolean;
+    title?: string;
+    detail?: string | null;
+    dueOn?: string | null;
+  },
 ) {
   assertId(taskId, 'Task');
   if (patch.assignedTo) await assertWorkspaceMember(s, patch.assignedTo);
@@ -1757,6 +1793,86 @@ async function assertWorkspaceMember(s: SessionContext, userId: string) {
     )
     .limit(1);
   if (!rows[0]) throw new NotFoundInWorkspaceError('Person');
+}
+
+/* ── calendar ───────────────────────────────────────────────────────────── */
+
+/** Dates are YYYY-MM-DD strings throughout, the same shape the column holds. */
+function assertIsoDate(value: string, what: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+    throw new NotFoundInWorkspaceError(what);
+  }
+}
+
+/** Events and task deadlines between two dates, inclusive: one calendar's worth. */
+export async function listCalendar(s: SessionContext, from: string, to: string) {
+  assertIsoDate(from, 'Date');
+  assertIsoDate(to, 'Date');
+  const assignee = alias(users, 'calendar_assignee');
+  const [eventRows, taskRows] = await Promise.all([
+    db
+      .select({
+        id: events.id,
+        title: events.title,
+        onDate: events.onDate,
+        atTime: events.atTime,
+        notes: events.notes,
+        createdBy: events.createdBy,
+        creatorName: users.name,
+      })
+      .from(events)
+      .leftJoin(users, eq(users.id, events.createdBy))
+      .where(
+        and(
+          eq(events.workspaceId, s.workspaceId),
+          sql`${events.onDate} >= ${from}`,
+          sql`${events.onDate} <= ${to}`,
+        ),
+      )
+      .orderBy(events.onDate, events.atTime),
+    db
+      .select({
+        id: tasks.id,
+        title: tasks.title,
+        dueOn: tasks.dueOn,
+        status: tasks.status,
+        assignedTo: tasks.assignedTo,
+        forEveryone: tasks.forEveryone,
+        assigneeName: assignee.name,
+      })
+      .from(tasks)
+      .leftJoin(assignee, eq(assignee.id, tasks.assignedTo))
+      .where(
+        and(
+          eq(tasks.workspaceId, s.workspaceId),
+          sql`${tasks.dueOn} >= ${from}`,
+          sql`${tasks.dueOn} <= ${to}`,
+        ),
+      ),
+  ]);
+  return { events: eventRows, deadlines: taskRows };
+}
+
+export async function createEvent(
+  s: SessionContext,
+  input: { title: string; onDate: string; atTime: string | null; notes: string | null },
+) {
+  assertIsoDate(input.onDate, 'Date');
+  const [row] = await db
+    .insert(events)
+    .values({ ...input, workspaceId: s.workspaceId, createdBy: s.userId })
+    .returning({ id: events.id });
+  return assertFound(row, 'Event').id;
+}
+
+/** Anyone in the lab may remove an event; a shared calendar is kept by everyone. */
+export async function deleteEvent(s: SessionContext, eventId: string) {
+  assertId(eventId, 'Event');
+  const rows = await db
+    .delete(events)
+    .where(and(eq(events.id, eventId), eq(events.workspaceId, s.workspaceId)))
+    .returning({ id: events.id });
+  assertFound(rows[0], 'Event');
 }
 
 /* ── join links ─────────────────────────────────────────────────────────── */
@@ -2343,7 +2459,7 @@ export async function deleteFile(s: SessionContext, fileId: string) {
   assertId(fileId, 'File');
   const rows = await db
     .delete(files)
-    .where(and(eq(files.id, fileId), eq(files.workspaceId, s.workspaceId)))
+    .where(and(eq(files.id, fileId), fileVisibleTo(s)))
     .returning({ id: files.id, storageKey: files.storageKey });
   const row = assertFound(rows[0], 'File');
   return row;
