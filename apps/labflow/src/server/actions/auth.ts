@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { randomBytes, createHash } from 'node:crypto';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { db } from '@/db';
@@ -13,7 +14,7 @@ import { TRIAL_DAYS } from '@/lib/plans';
 import { isDisposableEmail } from '@/lib/trial-eligibility';
 import { seedExampleProject } from '../example-project';
 import { acceptInvite, findInviteByToken, findWorkspaceByJoinCode, startTrial } from '../queries';
-import { createSession, destroySession } from '../auth';
+import { createSession, destroySession, getSession, selectWorkspace } from '../auth';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
 import { headers } from 'next/headers';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
@@ -118,14 +119,19 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     return user.id;
   });
 
+  let joined = false;
   if (invite) {
     await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
+    selectWorkspace(invite.workspaceId);
+    joined = true;
   } else if (joinTarget) {
     const outcome = await joinByCode(joinCode, userId);
     const refusal = joinRefusalMessage(outcome);
     // The account exists by now, so a refusal has to leave them somewhere. The
     // login page with the reason beats a dead end on a form they just passed.
     if (refusal) return { error: refusal };
+    selectWorkspace(joinTarget.id);
+    joined = true;
   } else {
     await startTrial(workspaceIdCreated, TRIAL_DAYS, parsed.data.email);
     // A worked example, so the first screen shows what the product is rather
@@ -138,7 +144,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     }
   }
   await createSession(userId);
-  redirect('/dashboard');
+  redirect(joined ? '/dashboard?joined=1' : '/dashboard');
 }
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -171,22 +177,77 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     return { error: 'This account is not a member of any workspace. Ask a lab owner to invite you.' };
   }
 
+  // Whichever lab the link named is the one they came to see, so that is where
+  // they land, even if they already had a lab of their own.
+  let joined = false;
   const inviteToken = String(formData.get('inviteToken') ?? '');
   if (inviteToken) {
     const invite = await findInviteByToken(
       createHash('sha256').update(inviteToken).digest('hex'),
     );
-    if (invite) await acceptInvite(invite.id, invite.workspaceId, user.id, invite.role);
+    if (invite) {
+      await acceptInvite(invite.id, invite.workspaceId, user.id, invite.role);
+      selectWorkspace(invite.workspaceId);
+      joined = true;
+    }
   }
 
   const joinCode = String(formData.get('joinCode') ?? '');
   if (joinCode) {
-    const refusal = joinRefusalMessage(await joinByCode(joinCode, user.id));
+    const outcome = await joinByCode(joinCode, user.id);
+    const refusal = joinRefusalMessage(outcome);
     if (refusal) return { error: refusal };
+    if (outcome.status === 'joined' || outcome.status === 'already') {
+      selectWorkspace(outcome.workspaceId);
+      joined = true;
+    }
   }
 
   await createSession(user.id);
-  redirect('/dashboard');
+  redirect(joined ? '/dashboard?joined=1' : '/dashboard');
+}
+
+/**
+ * The Join button on the join page, for someone already signed in.
+ *
+ * A button rather than joining the moment the page renders: a page render
+ * cannot switch which lab you are looking at, and a lab you did not see
+ * yourself join is a lab you think you are not in. It also shows who you are
+ * signed in as before anything happens, which matters on a shared computer.
+ */
+export async function joinLabAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  const joinCode = String(formData.get('joinCode') ?? '');
+  const inviteToken = String(formData.get('inviteToken') ?? '');
+  if (!session) {
+    redirect(joinCode ? `/join?code=${encodeURIComponent(joinCode)}` : `/join?token=${encodeURIComponent(inviteToken)}`);
+  }
+
+  if (inviteToken) {
+    const invite = await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'));
+    if (!invite) return { error: 'That invitation has already been used or has expired.' };
+    await acceptInvite(invite.id, invite.workspaceId, session.userId, invite.role);
+    selectWorkspace(invite.workspaceId);
+  } else {
+    const outcome = await joinByCode(joinCode, session.userId);
+    const refusal = joinRefusalMessage(outcome);
+    if (refusal) return { error: refusal };
+    if (outcome.status === 'joined' || outcome.status === 'already') selectWorkspace(outcome.workspaceId);
+  }
+  revalidatePath('/', 'layout');
+  redirect('/dashboard?joined=1');
+}
+
+/** "Not you?" on the join page: sign out, then come straight back to the link. */
+export async function switchAccountForJoinAction(formData: FormData) {
+  await destroySession();
+  const joinCode = String(formData.get('joinCode') ?? '');
+  const inviteToken = String(formData.get('inviteToken') ?? '');
+  redirect(
+    joinCode
+      ? `/join?code=${encodeURIComponent(joinCode)}&have=1`
+      : `/join?token=${encodeURIComponent(inviteToken)}`,
+  );
 }
 
 export async function logoutAction() {

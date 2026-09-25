@@ -1,46 +1,55 @@
 import Link from 'next/link';
 import { createHash } from 'node:crypto';
-import { redirect } from 'next/navigation';
-import { SignupForm } from '@/components/auth-forms';
+import { JoinLabForm, LoginForm, SignupForm } from '@/components/auth-forms';
 import { GoogleButton } from '@/components/google-button';
-import { Card } from '@/components/ui';
-import { getSession } from '@/server/auth';
-import { joinByCode, joinRefusalMessage } from '@/server/join';
-import { acceptInvite, findInviteByToken, findWorkspaceByJoinCode } from '@/server/queries';
+import { Card, cx } from '@/components/ui';
+import { getSession, type SessionContext } from '@/server/auth';
+import { switchAccountForJoinAction } from '@/server/actions/auth';
+import { joinWouldBeRefused } from '@/server/join';
+import { findInviteByToken, findWorkspaceByJoinCode, isMember } from '@/server/queries';
 
 export const metadata = { title: 'Join a lab' };
 export const dynamic = 'force-dynamic';
 
 /**
- * The invite landing page.
+ * Where a join link or an emailed invitation lands.
  *
- * Signed in already → the membership is added and they go straight through.
- * Not signed in → they sign up, and the token rides along on the form so the
- * new account joins the inviting workspace instead of creating an empty one.
+ * Signed out → they either create an account or log in to the one they have,
+ * and either way the link rides along so they finish inside the lab.
+ * Signed in → they see who they are signed in as and press Join. Nothing
+ * happens without that press: joining on page load could not switch them into
+ * the lab, so it looked like the link had done nothing.
  */
 export default async function JoinPage({
   searchParams,
 }: {
-  searchParams: { token?: string; code?: string };
+  searchParams: { token?: string; code?: string; have?: string };
 }) {
   const code = searchParams.code ?? '';
-  if (code) return <JoinByLink code={code} />;
+  const token = code ? '' : (searchParams.token ?? '');
+  const haveAccount = searchParams.have === '1';
 
-  const token = searchParams.token ?? '';
-  const invite = token
-    ? await findInviteByToken(createHash('sha256').update(token).digest('hex'))
-    : null;
+  const target: { id: string; name: string; email?: string } | null = code
+    ? await findWorkspaceByJoinCode(code)
+    : token
+      ? await findInviteByToken(createHash('sha256').update(token).digest('hex')).then((invite) =>
+          invite ? { id: invite.workspaceId, name: invite.workspaceName, email: invite.email } : null,
+        )
+      : null;
 
-  if (!invite) {
+  if (!target) {
     return (
       <>
-        <h1 className="text-xl font-semibold tracking-tight">This invitation is not valid</h1>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {code ? 'This join link is not valid' : 'This invitation is not valid'}
+        </h1>
         <p className="mt-1.5 text-sm text-muted">
-          It may have already been used, or expired. Ask whoever invited you to send a new one.
+          It may have been switched off, used already, or replaced with a new one. Ask whoever sent
+          it to you for a fresh link.
         </p>
         <p className="mt-6 text-sm text-muted">
           <Link href="/login" className="underline underline-offset-2">
-            Back to login
+            Go to login
           </Link>
         </p>
       </>
@@ -48,98 +57,119 @@ export default async function JoinPage({
   }
 
   const session = await getSession();
-  if (session) {
-    await acceptInvite(invite.id, invite.workspaceId, session.userId, invite.role);
-    redirect('/dashboard');
-  }
+  if (session) return <SignedIn session={session} lab={target} code={code} token={token} />;
+
+  const base = code ? `/join?code=${encodeURIComponent(code)}` : `/join?token=${encodeURIComponent(token)}`;
 
   return (
     <>
-      <h1 className="text-xl font-semibold tracking-tight">Join {invite.workspaceName}</h1>
+      <p className="text-sm font-medium text-accent">You&rsquo;re invited</p>
+      <h1 className="mt-1 text-xl font-semibold tracking-tight">Join {target.name}</h1>
       <p className="mt-1.5 text-sm text-muted">
-        You were invited as {invite.role === 'admin' ? 'an admin' : 'a member'}. Create your account
-        and you will land in that lab.
+        {haveAccount
+          ? 'Log in and you will be added to the lab straight away.'
+          : 'Make an account and you will be added to the lab straight away.'}
       </p>
-      <Card className="mt-6 space-y-4 p-6">
-        <GoogleButton invite={token} />
-        <SignupForm inviteToken={token} invitedEmail={invite.email} />
+
+      <div role="tablist" aria-label="New or returning" className="mt-6 grid grid-cols-2 gap-1 rounded-lg border border-line bg-raised p-1 text-sm">
+        <TabLink href={base} active={!haveAccount}>
+          I&rsquo;m new here
+        </TabLink>
+        <TabLink href={`${base}&have=1`} active={haveAccount}>
+          I have an account
+        </TabLink>
+      </div>
+
+      <Card className="mt-3 space-y-4 p-6">
+        <GoogleButton joinCode={code || undefined} invite={token || undefined} />
+        {haveAccount ? (
+          <LoginForm joinCode={code || undefined} inviteToken={token || undefined} />
+        ) : (
+          <SignupForm joinCode={code || undefined} inviteToken={token || undefined} invitedEmail={target.email} />
+        )}
       </Card>
-      <p className="mt-6 text-center text-sm text-muted">
-        Already have an account?{' '}
-        <Link
-          href={`/login?invite=${encodeURIComponent(token)}`}
-          className="font-medium text-fg underline underline-offset-2"
-        >
-          Log in to accept
-        </Link>
-      </p>
     </>
   );
 }
 
-/**
- * The shared link branch.
- *
- * Signed in already → joined on the spot. Not signed in → the code rides along
- * on the signup form, exactly as an invitation token does, so the new account
- * lands in that lab instead of creating an empty one.
- */
-async function JoinByLink({ code }: { code: string }) {
-  const workspace = await findWorkspaceByJoinCode(code);
-  if (!workspace) {
-    return (
-      <>
-        <h1 className="text-xl font-semibold tracking-tight">This join link is not valid</h1>
-        <p className="mt-1.5 text-sm text-muted">
-          It may have been switched off, or replaced with a new one. Ask whoever sent it to you.
-        </p>
-        <p className="mt-6 text-sm text-muted">
-          <Link href="/login" className="underline underline-offset-2">
-            Back to login
-          </Link>
-        </p>
-      </>
-    );
-  }
+function TabLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      role="tab"
+      aria-selected={active}
+      replace
+      className={cx(
+        'rounded-md px-3 py-1.5 text-center font-medium transition-colors',
+        active ? 'bg-surface text-accent shadow-sm ring-1 ring-accent/40' : 'text-muted hover:text-fg',
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
 
-  const session = await getSession();
-  if (session) {
-    const outcome = await joinByCode(code, session.userId);
-    const refusal = joinRefusalMessage(outcome);
-    if (!refusal) redirect('/dashboard');
-    return (
-      <>
-        <h1 className="text-xl font-semibold tracking-tight">Could not join {workspace.name}</h1>
-        <p className="mt-1.5 text-sm text-muted">{refusal}</p>
-        <p className="mt-6 text-sm text-muted">
-          <Link href="/dashboard" className="underline underline-offset-2">
-            Back to your lab
-          </Link>
-        </p>
-      </>
-    );
-  }
+async function SignedIn({
+  session,
+  lab,
+  code,
+  token,
+}: {
+  session: SessionContext;
+  lab: { id: string; name: string };
+  code: string;
+  token: string;
+}) {
+  const already = await isMember(lab.id, session.userId);
+  // Asked before they press anything, so a full lab is explained up front
+  // rather than after a button that looked like it would work.
+  const full = !already && code ? await joinWouldBeRefused(lab.id) : false;
 
   return (
     <>
-      <h1 className="text-xl font-semibold tracking-tight">Join {workspace.name}</h1>
+      <p className="text-sm font-medium text-accent">{already ? 'Welcome back' : 'You’re invited'}</p>
+      <h1 className="mt-1 text-xl font-semibold tracking-tight">
+        {already ? `You’re already in ${lab.name}` : `Join ${lab.name}`}
+      </h1>
       <p className="mt-1.5 text-sm text-muted">
-        Create your account and you will land in that lab. Everything the lab has recorded is
-        there waiting.
+        {already
+          ? 'This is the link to send to the rest of your lab. Anyone who opens it can join.'
+          : full
+            ? `${lab.name} has used all of its seats, so this link cannot add anyone else right now. Ask whoever runs the lab.`
+            : 'One click and you are in. Everything the lab has shared will be waiting.'}
       </p>
+
       <Card className="mt-6 space-y-4 p-6">
-        <GoogleButton joinCode={code} />
-        <SignupForm joinCode={code} />
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent/10 text-sm font-semibold text-accent"
+          >
+            {(session.userName || session.userEmail).slice(0, 1).toUpperCase()}
+          </span>
+          <span className="min-w-0 text-sm">
+            <span className="block text-xs text-muted">Signed in as</span>
+            <span className="block truncate font-medium">{session.userName}</span>
+            <span className="block truncate text-xs text-muted">{session.userEmail}</span>
+          </span>
+        </div>
+        {full ? null : (
+          <JoinLabForm
+            joinCode={code || undefined}
+            inviteToken={token || undefined}
+            label={already ? `Open ${lab.name}` : `Join ${lab.name}`}
+          />
+        )}
       </Card>
-      <p className="mt-6 text-center text-sm text-muted">
-        Already have an account?{' '}
-        <Link
-          href={`/login?code=${encodeURIComponent(code)}`}
-          className="font-medium text-fg underline underline-offset-2"
-        >
-          Log in to join
-        </Link>
-      </p>
+
+      <form action={switchAccountForJoinAction} className="mt-6 text-center text-sm text-muted">
+        {code ? <input type="hidden" name="joinCode" value={code} /> : null}
+        {token ? <input type="hidden" name="inviteToken" value={token} /> : null}
+        Not you?{' '}
+        <button type="submit" className="font-medium text-fg underline underline-offset-2">
+          Use a different account
+        </button>
+      </form>
     </>
   );
 }

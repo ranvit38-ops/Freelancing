@@ -17,8 +17,8 @@ import {
  */
 
 export type JoinOutcome =
-  | { status: 'joined'; workspaceName: string }
-  | { status: 'already' }
+  | { status: 'joined'; workspaceId: string; workspaceName: string }
+  | { status: 'already'; workspaceId: string; workspaceName: string }
   | { status: 'invalid' }
   | { status: 'full'; workspaceName: string; seats: number };
 
@@ -28,7 +28,9 @@ export async function joinByCode(code: string, userId: string): Promise<JoinOutc
 
   // Already in the lab: a second click on the same link must not read as an
   // error, and must not consume a seat it is not taking.
-  if (await isMember(workspace.id, userId)) return { status: 'already' };
+  if (await isMember(workspace.id, userId)) {
+    return { status: 'already', workspaceId: workspace.id, workspaceName: workspace.name };
+  }
 
   const [{ plan }, usage] = await Promise.all([
     workspacePlanById(workspace.id),
@@ -43,7 +45,7 @@ export async function joinByCode(code: string, userId: string): Promise<JoinOutc
   }
 
   await joinWorkspaceByCode(workspace.id, userId);
-  return { status: 'joined', workspaceName: workspace.name };
+  return { status: 'joined', workspaceId: workspace.id, workspaceName: workspace.name };
 }
 
 /**

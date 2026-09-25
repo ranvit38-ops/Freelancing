@@ -5,6 +5,7 @@ import { useFormState } from 'react-dom';
 import { Field, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import {
+  joinLabAction,
   loginAction,
   requestPasswordResetAction,
   resetPasswordAction,
@@ -176,6 +177,29 @@ export function ResetPasswordForm({ token }: { token: string }) {
       </Field>
       <SubmitButton className="w-full" pendingLabel="Updating…">
         Set new password
+      </SubmitButton>
+    </form>
+  );
+}
+
+/** The one button a signed-in person presses to join the lab a link named. */
+export function JoinLabForm({
+  joinCode,
+  inviteToken,
+  label,
+}: {
+  joinCode?: string;
+  inviteToken?: string;
+  label: string;
+}) {
+  const [state, action] = useFormState(joinLabAction, noState);
+  return (
+    <form action={action} className="space-y-3">
+      {joinCode ? <input type="hidden" name="joinCode" value={joinCode} /> : null}
+      {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
+      <FormError>{state.error}</FormError>
+      <SubmitButton className="w-full" pendingLabel="Joining…">
+        {label}
       </SubmitButton>
     </form>
   );

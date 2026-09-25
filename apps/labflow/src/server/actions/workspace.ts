@@ -1,6 +1,5 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { randomBytes } from 'node:crypto';
@@ -9,7 +8,7 @@ import { workspaceMembers, workspaces } from '@/db/schema';
 import { slugify } from '@/lib/normalise';
 import { TRIAL_DAYS } from '@/lib/plans';
 import { startTrial } from '../queries';
-import { WORKSPACE_COOKIE, listMyWorkspaces } from '../auth';
+import { listMyWorkspaces, selectWorkspace } from '../auth';
 import { requireSession } from '../authz';
 import type { ActionState } from './types';
 
@@ -23,13 +22,7 @@ export async function switchWorkspaceAction(formData: FormData) {
   const mine = await listMyWorkspaces();
   if (!mine.some((w) => w.id === target)) return;
 
-  cookies().set(WORKSPACE_COOKIE, target, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 365,
-  });
+  selectWorkspace(target);
   revalidatePath('/', 'layout');
   redirect('/dashboard');
 }
@@ -59,13 +52,7 @@ export async function createWorkspaceAction(
   // so this one starts on the free plan. Never a locked door either way.
   await startTrial(workspaceId, TRIAL_DAYS, session.userEmail);
 
-  cookies().set(WORKSPACE_COOKIE, workspaceId, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 365,
-  });
+  selectWorkspace(workspaceId);
   revalidatePath('/', 'layout');
   redirect('/dashboard');
 }

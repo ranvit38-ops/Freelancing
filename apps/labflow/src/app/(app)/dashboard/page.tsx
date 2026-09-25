@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
  * is happening this week, what is the lab talking about, and where is the
  * work. Plus one obvious way to record something new.
  */
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: { joined?: string } }) {
   const session = await requireSession();
   const today = todayIso();
   const weekEnd = new Date(Date.parse(`${today}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
@@ -65,6 +65,15 @@ export default async function HomePage() {
           </div>
         }
       />
+
+      {searchParams.joined === '1' ? (
+        <p
+          role="status"
+          className="mb-5 rounded-xl border border-ok/25 bg-ok/10 px-5 py-3 text-sm font-medium text-ok"
+        >
+          You&rsquo;re in {session.workspaceName}. Everything the lab shares will show up here.
+        </p>
+      ) : null}
 
       {isNew ? (
         <GettingStarted

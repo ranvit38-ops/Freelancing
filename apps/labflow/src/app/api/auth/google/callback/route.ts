@@ -9,7 +9,7 @@ import { statesMatch } from '@/lib/oauth';
 import { normaliseEmail, slugify } from '@/lib/normalise';
 import { randomToken } from '@/lib/oauth';
 import { TRIAL_DAYS } from '@/lib/plans';
-import { createSession } from '@/server/auth';
+import { createSession, selectWorkspace } from '@/server/auth';
 import { absoluteUrl } from '@/server/mailer';
 import { joinByCode, joinWouldBeRefused } from '@/server/join';
 import {
@@ -127,10 +127,14 @@ export async function GET(request: Request) {
     }
   }
 
+  // The lab the link named is where they land, even if they had one already.
+  let landIn: string | null = null;
   if (invite) {
     await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
+    landIn = invite.workspaceId;
   } else if (joinTarget) {
-    await joinByCode(joinCode!, userId);
+    const outcome = await joinByCode(joinCode!, userId);
+    if (outcome.status === 'joined' || outcome.status === 'already') landIn = outcome.workspaceId;
   }
 
   // The deployment owner is comped rather than trialled. Checked on every
@@ -160,5 +164,12 @@ export async function GET(request: Request) {
   }
 
   await createSession(userId);
+  if (landIn) {
+    selectWorkspace(landIn);
+    return NextResponse.redirect(absoluteUrl('/dashboard?joined=1'));
+  }
+  // A link that brought them here but could not add them (the lab filled up
+  // while they were signing in): back to it, where the reason is spelled out.
+  if (joinTarget) return NextResponse.redirect(absoluteUrl(`/join?code=${encodeURIComponent(joinCode!)}`));
   return NextResponse.redirect(absoluteUrl('/dashboard'));
 }

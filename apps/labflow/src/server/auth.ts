@@ -42,6 +42,25 @@ export async function createSession(userId: string) {
   });
 }
 
+/**
+ * Makes one lab the one the browser is looking at.
+ *
+ * Joining a second lab must also land you in it. Without this, someone who
+ * already had a lab of their own joins, is taken to the dashboard, sees their
+ * old lab, and reasonably concludes the link did nothing. Only callable where
+ * cookies can be written: server actions and route handlers, not page renders.
+ * getSession still re-checks membership, so this grants nothing by itself.
+ */
+export function selectWorkspace(workspaceId: string) {
+  cookies().set(WORKSPACE_COOKIE, workspaceId, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+  });
+}
+
 export async function destroySession() {
   const jar = cookies();
   const token = jar.get(env().SESSION_COOKIE_NAME)?.value;
