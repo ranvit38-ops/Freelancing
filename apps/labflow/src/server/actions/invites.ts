@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { normaliseEmail } from '@/lib/normalise';
 import { PLANS } from '@/lib/plans';
 import { isValidEmail } from '@/lib/validation';
-import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
+import { MailNotConfiguredError, absoluteUrl, mailConfigured, publicBaseUrl, sendEmail } from '../mailer';
 import { linkForViewer } from '../origin';
 import { requireSession } from '../authz';
 import { workspacePlan } from '../paywall';
@@ -78,7 +78,7 @@ export async function inviteMemberAction(
 
   // Going into an email to someone else, so it must be the configured
   // address and never one read off this request.
-  if (!process.env.NEXT_PUBLIC_APP_URL) {
+  if (!publicBaseUrl()) {
     return {
       error:
         'The invitation is saved, but it cannot be emailed until NEXT_PUBLIC_APP_URL is set on the server. Use the join link below instead.',

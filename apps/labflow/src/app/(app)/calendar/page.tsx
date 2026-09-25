@@ -1,11 +1,13 @@
 import Link from 'next/link';
+import { CalendarSubscribe } from '@/components/calendar-subscribe';
 import { EventForm } from '@/components/event-form';
 import { Card, CardHeader, PageHeader, cx } from '@/components/ui';
 import { displayTime, monthGrid, monthKey, monthName, parseMonth, shiftMonth } from '@/lib/calendar';
 import { todayIso } from '@/lib/tasks';
 import { deleteEventAction } from '@/server/actions/calendar';
 import { requireSession } from '@/server/authz';
-import { listCalendar } from '@/server/queries';
+import { getCalendarToken, listCalendar } from '@/server/queries';
+import { linkForViewer } from '@/server/origin';
 
 export const metadata = { title: 'Calendar' };
 export const dynamic = 'force-dynamic';
@@ -32,7 +34,11 @@ export default async function CalendarPage({
   const today = todayIso();
   const month = parseMonth(searchParams.m, today);
   const days = monthGrid(month);
-  const { events, deadlines } = await listCalendar(session, days[0]!, days.at(-1)!);
+  const [{ events, deadlines }, calendarToken] = await Promise.all([
+    listCalendar(session, days[0]!, days.at(-1)!),
+    getCalendarToken(session),
+  ]);
+  const feedUrl = calendarToken ? linkForViewer(`/api/calendar/${calendarToken}.ics`) : null;
 
   const byDay = new Map<string, Item[]>();
   const add = (day: string, item: Item) => byDay.set(day, [...(byDay.get(day) ?? []), item]);
@@ -170,6 +176,7 @@ export default async function CalendarPage({
         <div className="space-y-5">
           <EventForm key={selected} defaultDate={selected} />
           <DayDetail day={selected} items={byDay.get(selected) ?? []} />
+          <CalendarSubscribe feedUrl={feedUrl} />
         </div>
       </div>
     </>

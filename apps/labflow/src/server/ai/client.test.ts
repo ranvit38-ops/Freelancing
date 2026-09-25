@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { AiNotConfiguredError, AiRequestError, callModel, extractJson } from './client';
+import { AiNotConfiguredError, AiRequestError, acceptsEffort, callModel, extractJson } from './client';
 
 // callModel reads the model name through the validated env, which checks every
 // variable at once. The database is irrelevant here; this just satisfies it.
@@ -78,5 +78,37 @@ describe('extractJson', () => {
 
   it('throws on malformed JSON instead of returning a partial object', () => {
     expect(() => extractJson('{"a": }')).toThrow(AiRequestError);
+  });
+});
+
+describe('how long LabBot is allowed to think', () => {
+  function capture() {
+    const box: { sent: Record<string, unknown> } = { sent: {} };
+    const fake = (async (_url: unknown, init: unknown) => {
+      box.sent = JSON.parse((init as { body: string }).body);
+      return { ok: true, json: async () => ({ content: [{ type: 'text', text: 'fine' }] }) };
+    }) as unknown as typeof fetch;
+    return { box, fake };
+  }
+
+  it('asks for the effort the caller chose', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const { box, fake } = capture();
+    await callModel({ system: 's', prompt: 'p', effort: 'low' }, fake);
+    expect(box.sent.output_config).toEqual({ effort: 'low' });
+  });
+
+  it('leaves effort off for models that reject it', () => {
+    expect(acceptsEffort('claude-haiku-4-5')).toBe(false);
+    expect(acceptsEffort('claude-opus-5')).toBe(true);
+    expect(acceptsEffort('claude-sonnet-5')).toBe(true);
+  });
+
+  it('turns a stalled request into an error people can read', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const stalled = (async () => {
+      throw Object.assign(new Error('timed out'), { name: 'TimeoutError' });
+    }) as unknown as typeof fetch;
+    await expect(callModel({ system: 's', prompt: 'p' }, stalled)).rejects.toThrow(/longer than a minute/);
   });
 });

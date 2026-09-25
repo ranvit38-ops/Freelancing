@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { AutoSubmitSelect } from './auto-submit-select';
+import { TaskCheck } from './task-check';
 import { cx } from './ui';
-import { assignTaskAction, setTaskStatusAction } from '@/server/actions/tasks';
+import { assignTaskAction } from '@/server/actions/tasks';
 import { EVERYONE, dueLabel, type DueTone } from '@/lib/tasks';
 
 type Member = { id: string; name: string | null; email: string };
@@ -18,11 +19,6 @@ export type TaskSummary = {
   projectName: string | null;
 };
 
-const NEXT: Record<string, { status: string; label: string } | undefined> = {
-  open: { status: 'doing', label: 'Start' },
-  doing: { status: 'done', label: 'Done ✓' },
-};
-
 const DUE_CLASS: Record<DueTone, string> = {
   overdue: 'bg-danger/10 text-danger',
   soon: 'bg-warn/10 text-warn',
@@ -31,8 +27,7 @@ const DUE_CLASS: Record<DueTone, string> = {
 };
 
 /**
- * One task: what it is, when it is due, who has it, and the one button that
- * moves it along.
+ * One task: a tick box to finish it, what it is, when it is due, and who has it.
  *
  * Plain form posts throughout, so the board works on slow conference wifi;
  * the only script is the select that saves as soon as a name is picked.
@@ -48,13 +43,13 @@ export function TaskRow({
   currentUserId: string;
   today: string;
 }) {
-  const next = NEXT[task.status];
   const due = dueLabel(task.dueOn, today);
   const unclaimed = !task.assignedTo && !task.forEveryone;
 
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
-      <div className="min-w-0 flex-1 basis-56">
+      <TaskCheck taskId={task.id} done={task.status === 'done'} title={task.title} />
+      <div className="min-w-0 flex-1 basis-48">
         <Link href={`/tasks/${task.id}`} className="block truncate text-sm font-medium hover:underline">
           {task.status === 'doing' ? (
             <span aria-label="In progress" className="mr-1.5 inline-block h-2 w-2 rounded-full bg-warn align-middle" />
@@ -96,23 +91,6 @@ export function TaskRow({
           ))}
         </AutoSubmitSelect>
       </form>
-
-      {next ? (
-        <form action={setTaskStatusAction} className="shrink-0">
-          <input type="hidden" name="taskId" value={task.id} />
-          <input type="hidden" name="status" value={next.status} />
-          <button
-            className={cx(
-              'h-8 rounded-lg px-3 text-xs font-medium transition-colors',
-              next.status === 'done'
-                ? 'border border-ok/30 bg-ok/10 text-ok hover:bg-ok/15'
-                : 'border border-line hover:bg-raised',
-            )}
-          >
-            {next.label}
-          </button>
-        </form>
-      ) : null}
     </li>
   );
 }

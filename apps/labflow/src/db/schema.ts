@@ -141,6 +141,7 @@ export const workspaceMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     role: workspaceRole('role').notNull().default('member'),
+    calendarToken: text('calendar_token'),
     createdAt: createdAt(),
   },
   (t) => ({
@@ -561,6 +562,8 @@ export const discussions = pgTable(
     body: text('body').notNull(),
     /** An attachment shared in the conversation. Null for a plain message. */
     fileId: uuid('file_id').references(() => files.id, { onDelete: 'set null' }),
+    /** Set on a direct message: the participants' ids, sorted, joined by '.'. */
+    dmKey: text('dm_key'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -778,3 +781,34 @@ export const pilotFeedback = pgTable(
 );
 
 export type PilotFeedback = typeof pilotFeedback.$inferSelect;
+
+/** Who else may open a private file, besides the person who uploaded it. */
+export const fileShares = pgTable(
+  'file_shares',
+  {
+    fileId: uuid('file_id')
+      .notNull()
+      .references(() => files.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.fileId, t.userId] }) }),
+);
+
+/** When each person last read each conversation, for unread markers. */
+export const chatReads = pgTable(
+  'chat_reads',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    channel: text('channel').notNull(),
+    lastReadAt: timestamp('last_read_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.workspaceId, t.channel] }) }),
+);

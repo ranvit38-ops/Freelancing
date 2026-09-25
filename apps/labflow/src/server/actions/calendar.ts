@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { randomBytes } from 'node:crypto';
 import { requireSession } from '../authz';
 import { blockedReason } from '../paywall';
 import * as q from '../queries';
@@ -48,4 +49,15 @@ export async function deleteEventAction(formData: FormData): Promise<void> {
   await q.deleteEvent(session, String(formData.get('eventId') ?? ''));
   revalidatePath('/calendar');
   revalidatePath('/dashboard');
+}
+
+/**
+ * Makes (or replaces) this person's private calendar address. Replacing it is
+ * how a leaked link is shut off: every calendar holding the old one stops
+ * receiving updates.
+ */
+export async function createCalendarLinkAction(): Promise<void> {
+  const session = await requireSession();
+  await q.setCalendarToken(session, randomBytes(24).toString('base64url'));
+  revalidatePath('/calendar');
 }

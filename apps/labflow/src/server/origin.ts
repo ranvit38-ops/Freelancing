@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { absoluteUrl } from './mailer';
+import { absoluteUrl, publicBaseUrl } from './mailer';
 
 /**
  * A link to show the person who is looking at the page.
@@ -18,7 +18,7 @@ import { absoluteUrl } from './mailer';
  * a payment provider — must keep using absoluteUrl() directly.
  */
 export function linkForViewer(path: string): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return absoluteUrl(path);
+  if (publicBaseUrl()) return absoluteUrl(path);
 
   const h = headers();
   const host = h.get('x-forwarded-host') ?? h.get('host');

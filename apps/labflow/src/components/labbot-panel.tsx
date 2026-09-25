@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useFormState, useFormStatus } from 'react-dom';
 import { Badge, Select, Textarea, cx } from './ui';
 import { SubmitButton } from './submit-button';
 import { askProjectAction, type AnswerState } from '@/server/actions/ai';
@@ -159,9 +159,10 @@ export function LabBotPanel({
             required
             placeholder="What should we try next? Why did EXP-004 differ from EXP-003?"
           />
-          <SubmitButton size="sm" pendingLabel="Thinking…" disabled={!configured}>
+          <SubmitButton size="sm" pendingLabel="Reading your records…" disabled={!configured}>
             Ask
           </SubmitButton>
+          <AskProgress />
         </form>
         )}
 
@@ -263,5 +264,30 @@ export function LabBotPanel({
         </div>
       </aside>
     </>
+  );
+}
+
+/**
+ * A moving counter while LabBot works. A static "Thinking…" that sits for
+ * ten seconds looks exactly like one that has hung, and people gave up on it.
+ */
+function AskProgress() {
+  const { pending } = useFormStatus();
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!pending) {
+      setSeconds(0);
+      return;
+    }
+    const started = Date.now();
+    const id = window.setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(id);
+  }, [pending]);
+  if (!pending) return null;
+  return (
+    <p role="status" className="text-xs text-muted">
+      Working… {seconds}s
+      {seconds >= 15 ? ' · reading every record in this project, nearly there' : ''}
+    </p>
   );
 }

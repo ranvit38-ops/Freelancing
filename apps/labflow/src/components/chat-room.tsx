@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscussionMessage } from '@/server/queries';
 import { formatBytes } from '@/lib/display';
 
-type Channel = { key: string; name: string; projectId: string | null };
+type Channel = { key: string; name: string; projectId: string | null; dm?: boolean };
 
 /** How often an open channel asks for new messages, while the tab is visible. */
 const POLL_MS = 2000;
@@ -304,6 +304,8 @@ export function ChatRoom({
       try {
         const body = new FormData();
         body.set('file', file);
+        // Dropped into a DM, the file is for the people in it and nobody else.
+        if (channel.dm) body.set('dmKey', channel.key.replace(/^dm:/, ''));
         const response = await fetch('/api/team/files', { method: 'POST', body });
         const payload = (await response.json().catch(() => ({}))) as {
           fileId?: string;
@@ -368,18 +370,22 @@ export function ChatRoom({
       {dragging ? (
         <div className="pointer-events-none absolute inset-2 z-20 grid place-items-center rounded-lg border-2 border-dashed border-accent bg-accent/10 text-center">
           <div>
-            <p className="text-base font-semibold text-accent">Drop to share in #{channel.name}</p>
+            <p className="text-base font-semibold text-accent">
+              {channel.dm ? `Drop to send to ${channel.name}` : `Drop to share in #${channel.name}`}
+            </p>
             <p className="mt-1 text-sm text-muted">Everyone in the channel will be able to open it.</p>
           </div>
         </div>
       ) : null}
       <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold"># {channel.name}</h2>
+          <h2 className="text-sm font-semibold">{channel.dm ? channel.name : `# ${channel.name}`}</h2>
           <p className="truncate text-xs text-muted">
-            {channel.projectId
-              ? 'Everything about this project, in one place.'
-              : 'The whole lab. Meetings, questions, who has the good pipettes.'}
+            {channel.dm
+              ? 'Only the people in this conversation can see it.'
+              : channel.projectId
+                ? 'Everything about this project, in one place.'
+                : 'The whole lab. Meetings, questions, who has the good pipettes.'}
           </p>
         </div>
         <span
@@ -417,7 +423,9 @@ export function ChatRoom({
       >
         {count === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <p className="text-sm font-medium">This is the start of #{channel.name}</p>
+            <p className="text-sm font-medium">
+              {channel.dm ? `This is the start of your conversation with ${channel.name}` : `This is the start of #${channel.name}`}
+            </p>
             <p className="mt-1 max-w-sm text-sm text-muted">
               Say hello, share a result, or ask the question you have been meaning to ask.
             </p>
@@ -556,7 +564,7 @@ export function ChatRoom({
             id="chat-box"
             ref={box}
             rows={1}
-            placeholder={`Message #${channel.name}`}
+            placeholder={channel.dm ? `Message ${channel.name}` : `Message #${channel.name}`}
             onPaste={(e) => {
               // A pasted screenshot is shared, as in Slack. Pasted text is left alone.
               const pasted = Array.from(e.clipboardData.files);

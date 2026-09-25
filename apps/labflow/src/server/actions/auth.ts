@@ -15,7 +15,7 @@ import { isDisposableEmail } from '@/lib/trial-eligibility';
 import { seedExampleProject } from '../example-project';
 import { acceptInvite, findInviteByToken, findWorkspaceByJoinCode, startTrial } from '../queries';
 import { createSession, destroySession, getSession, selectWorkspace } from '../auth';
-import { MailNotConfiguredError, absoluteUrl, mailConfigured, sendEmail } from '../mailer';
+import { MailNotConfiguredError, absoluteUrl, mailConfigured, publicBaseUrl, sendEmail } from '../mailer';
 import { headers } from 'next/headers';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { fieldErrorsFrom, formObject, type ActionState } from './types';
@@ -144,7 +144,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     }
   }
   await createSession(userId);
-  redirect(joined ? '/dashboard?joined=1' : '/dashboard');
+  redirect(joined ? '/start?joined=1' : '/dashboard');
 }
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -204,7 +204,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   }
 
   await createSession(user.id);
-  redirect(joined ? '/dashboard?joined=1' : '/dashboard');
+  redirect(joined ? '/start?joined=1' : '/dashboard');
 }
 
 /**
@@ -235,7 +235,7 @@ export async function joinLabAction(_prev: ActionState, formData: FormData): Pro
     if (outcome.status === 'joined' || outcome.status === 'already') selectWorkspace(outcome.workspaceId);
   }
   revalidatePath('/', 'layout');
-  redirect('/dashboard?joined=1');
+  redirect('/start?joined=1');
 }
 
 /** "Not you?" on the join page: sign out, then come straight back to the link. */
@@ -290,7 +290,7 @@ export async function requestPasswordResetAction(
   // The link is emailed, so it must be the configured address. Without one,
   // say so rather than throw: a crash here would read as "reset is broken"
   // to someone already locked out.
-  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_APP_URL) {
+  if (process.env.NODE_ENV === 'production' && !publicBaseUrl()) {
     console.error('Password reset requested but NEXT_PUBLIC_APP_URL is not set, so no link can be sent.');
     return {
       error:

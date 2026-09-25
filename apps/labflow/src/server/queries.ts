@@ -33,8 +33,11 @@ import {
   pilotFeedback,
   tasks,
   events,
+  fileShares,
+  chatReads,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
+import { dmParticipants } from '@/lib/dm';
 import { InUseError, NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
 
 /*
@@ -625,8 +628,86 @@ export async function addProtocolVersion(
 function fileVisibleTo(s: SessionContext) {
   return and(
     eq(files.workspaceId, s.workspaceId),
-    or(eq(files.private, false), eq(files.uploadedById, s.userId)),
+    or(
+      eq(files.private, false),
+      eq(files.uploadedById, s.userId),
+      sql`exists (select 1 from ${fileShares} where ${fileShares.fileId} = ${files.id} and ${fileShares.userId} = ${s.userId})`,
+    ),
   );
+}
+
+/** Which of these people are in this lab. Anyone else is dropped, never trusted. */
+export async function labMembersAmong(s: SessionContext, userIds: string[]): Promise<string[]> {
+  const ids = [...new Set(userIds)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select({ id: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, s.workspaceId), inArray(workspaceMembers.userId, ids)));
+  return rows.map((r) => r.id);
+}
+
+/**
+ * Who may see a file: the whole lab, only the uploader, or the uploader plus
+ * chosen people. Only the uploader can change it.
+ */
+export async function setFileSharing(
+  s: SessionContext,
+  fileId: string,
+  sharing: { everyone: true } | { everyone: false; userIds: string[] },
+): Promise<string[]> {
+  assertId(fileId, 'File');
+  const owned = await db
+    .select({ id: files.id })
+    .from(files)
+    .where(and(eq(files.id, fileId), eq(files.workspaceId, s.workspaceId), eq(files.uploadedById, s.userId)))
+    .limit(1);
+  if (!owned[0]) throw new NotFoundInWorkspaceError('File');
+
+  const people = sharing.everyone ? [] : (await labMembersAmong(s, sharing.userIds)).filter((id) => id !== s.userId);
+  await db.transaction(async (tx) => {
+    await tx.update(files).set({ private: !sharing.everyone }).where(eq(files.id, fileId));
+    await tx.delete(fileShares).where(eq(fileShares.fileId, fileId));
+    if (people.length > 0) {
+      await tx.insert(fileShares).values(people.map((userId) => ({ fileId, userId })));
+    }
+  });
+  return people;
+}
+
+/** For each of these files, the people it was shared with. */
+export async function fileShareNames(
+  s: SessionContext,
+  fileIds: string[],
+): Promise<Map<string, { id: string; name: string }[]>> {
+  const out = new Map<string, { id: string; name: string }[]>();
+  if (fileIds.length === 0) return out;
+  const rows = await db
+    .select({ fileId: fileShares.fileId, userId: fileShares.userId, name: users.name })
+    .from(fileShares)
+    .innerJoin(files, eq(files.id, fileShares.fileId))
+    .innerJoin(users, eq(users.id, fileShares.userId))
+    .where(and(eq(files.workspaceId, s.workspaceId), inArray(fileShares.fileId, fileIds)));
+  for (const r of rows) out.set(r.fileId, [...(out.get(r.fileId) ?? []), { id: r.userId, name: r.name ?? 'Someone' }]);
+  return out;
+}
+
+/** Whether every one of these people may open this file. */
+async function fileOpenToAll(fileId: string, userIds: string[]): Promise<boolean> {
+  const rows = await db
+    .select({ private: files.private, uploadedById: files.uploadedById })
+    .from(files)
+    .where(eq(files.id, fileId))
+    .limit(1);
+  const file = rows[0];
+  if (!file) return false;
+  if (!file.private) return true;
+  const shared = await db
+    .select({ userId: fileShares.userId })
+    .from(fileShares)
+    .where(eq(fileShares.fileId, fileId));
+  const allowed = new Set([file.uploadedById, ...shared.map((r) => r.userId)]);
+  return userIds.every((id) => allowed.has(id));
 }
 
 export async function recordFile(
@@ -644,6 +725,56 @@ export async function recordFile(
     .values({ ...input, workspaceId: s.workspaceId, uploadedById: s.userId })
     .returning({ id: files.id });
   return assertFound(rows[0], 'File').id;
+}
+
+/* ── direct messages ────────────────────────────────────────────────────── */
+
+/**
+ * The direct conversations this person is in, newest first, each with
+ * whether something arrived since they last looked.
+ */
+export async function listDmThreads(s: SessionContext) {
+  const rows = await db
+    .select({
+      dmKey: discussions.dmKey,
+      lastAt: sql<Date>`max(${discussions.createdAt})`,
+      lastFromOthersAt: sql<Date | null>`max(case when ${discussions.authorId} <> ${s.userId} then ${discussions.createdAt} end)`,
+    })
+    .from(discussions)
+    .where(
+      and(
+        eq(discussions.workspaceId, s.workspaceId),
+        sql`${discussions.dmKey} is not null`,
+        sql`position(${s.userId} in ${discussions.dmKey}) > 0`,
+      ),
+    )
+    .groupBy(discussions.dmKey)
+    .orderBy(sql`max(${discussions.createdAt}) desc`);
+
+  const reads = await db
+    .select({ channel: chatReads.channel, lastReadAt: chatReads.lastReadAt })
+    .from(chatReads)
+    .where(and(eq(chatReads.userId, s.userId), eq(chatReads.workspaceId, s.workspaceId)));
+  const readAt = new Map(reads.map((r) => [r.channel, new Date(r.lastReadAt).getTime()]));
+
+  return rows
+    .filter((r) => r.dmKey && dmParticipants(r.dmKey)?.includes(s.userId))
+    .map((r) => {
+      const key = r.dmKey!;
+      const last = r.lastFromOthersAt ? new Date(r.lastFromOthersAt).getTime() : 0;
+      return { dmKey: key, lastAt: new Date(r.lastAt), unread: last > (readAt.get(`dm:${key}`) ?? 0) };
+    });
+}
+
+/** Marks a conversation read up to now. */
+export async function markChannelRead(s: SessionContext, channel: string): Promise<void> {
+  await db
+    .insert(chatReads)
+    .values({ userId: s.userId, workspaceId: s.workspaceId, channel, lastReadAt: new Date() })
+    .onConflictDoUpdate({
+      target: [chatReads.userId, chatReads.workspaceId, chatReads.channel],
+      set: { lastReadAt: new Date() },
+    });
 }
 
 export async function attachFileToExperiment(
@@ -1402,10 +1533,14 @@ export type DiscussionMessage = {
  */
 export async function listDiscussion(
   s: SessionContext,
-  scope: { experimentId?: string; projectId?: string; taskId?: string; workspace?: boolean },
+  scope: { experimentId?: string; projectId?: string; taskId?: string; workspace?: boolean; dmKey?: string },
 ): Promise<DiscussionMessage[]> {
+  // A direct message is readable only by the people in it.
+  if (scope.dmKey && !dmParticipants(scope.dmKey)?.includes(s.userId)) return [];
   // An empty string is not a uuid; Postgres would reject the whole query.
-  const target = scope.experimentId
+  const target = scope.dmKey
+    ? eq(discussions.dmKey, scope.dmKey)
+    : scope.experimentId
     ? eq(discussions.experimentId, scope.experimentId)
     : scope.projectId
       ? eq(discussions.projectId, scope.projectId)
@@ -1419,6 +1554,9 @@ export async function listDiscussion(
               isNull(discussions.projectId),
               isNull(discussions.experimentId),
               isNull(discussions.taskId),
+              // Direct messages are attached to nothing too; they are not
+              // the lab's to read.
+              isNull(discussions.dmKey),
             )
           : null;
   if (!target) return [];
@@ -1461,14 +1599,27 @@ export async function postMessage(
     projectId?: string;
     taskId?: string;
     workspace?: boolean;
+    dmKey?: string;
     parentId: string | null;
     body: string;
     fileId?: string | null;
   },
 ) {
+  let dmPeople: string[] | null = null;
+  if (input.dmKey) {
+    dmPeople = dmParticipants(input.dmKey);
+    // Only someone in the conversation may write to it, and only with people
+    // who are in this lab.
+    if (!dmPeople?.includes(s.userId)) throw new NotFoundInWorkspaceError('Conversation');
+    if ((await labMembersAmong(s, dmPeople)).length !== dmPeople.length) {
+      throw new NotFoundInWorkspaceError('Conversation');
+    }
+  }
   // Confirms the target is in the caller's workspace before writing. The
   // workspace channel needs no such check: the session already names it.
-  if (input.experimentId) await getExperiment(s, input.experimentId);
+  if (dmPeople) {
+    // Checked above.
+  } else if (input.experimentId) await getExperiment(s, input.experimentId);
   else if (input.projectId) await getProject(s, input.projectId);
   else if (input.taskId) await getTask(s, input.taskId);
   else if (!input.workspace) throw new NotFoundInWorkspaceError('Discussion target');
@@ -1478,7 +1629,10 @@ export async function postMessage(
   // they cannot open.
   if (input.fileId) {
     const file = await getFileForDownload(s, input.fileId);
-    if (file.private) throw new NotFoundInWorkspaceError('File');
+    // A private file may go into a DM whose people can all open it; anywhere
+    // else, everyone reading would see a link they cannot open.
+    const openToReaders = dmPeople ? await fileOpenToAll(input.fileId, dmPeople) : !file.private;
+    if (!openToReaders) throw new NotFoundInWorkspaceError('File');
   }
 
   // A reply must answer a message in this lab. Unchecked, a stray id is a
@@ -1500,6 +1654,7 @@ export async function postMessage(
       experimentId: input.experimentId ?? null,
       projectId: input.projectId ?? null,
       taskId: input.taskId ?? null,
+      dmKey: input.dmKey ?? null,
       parentId: input.parentId,
       authorId: s.userId,
       body: input.body,
@@ -1915,6 +2070,51 @@ export async function setJoinCode(s: SessionContext, code: string | null): Promi
     .update(workspaces)
     .set({ joinCode: code, updatedAt: new Date() })
     .where(eq(workspaces.id, s.workspaceId));
+}
+
+/* ── calendar feed ────────────────────────────────────────────────────── */
+
+/** This person's private calendar address for this lab, if they made one. */
+export async function getCalendarToken(s: SessionContext): Promise<string | null> {
+  const rows = await db
+    .select({ token: workspaceMembers.calendarToken })
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, s.workspaceId), eq(workspaceMembers.userId, s.userId)))
+    .limit(1);
+  return rows[0]?.token ?? null;
+}
+
+/** Makes a new address, which also switches off the old one. */
+export async function setCalendarToken(s: SessionContext, token: string): Promise<void> {
+  await db
+    .update(workspaceMembers)
+    .set({ calendarToken: token })
+    .where(and(eq(workspaceMembers.workspaceId, s.workspaceId), eq(workspaceMembers.userId, s.userId)));
+}
+
+/**
+ * Everything a calendar app needs, found by the address alone: it has no
+ * session, only the token in the URL. Two months back and a year ahead is
+ * what the calendar apps show without anyone scrolling.
+ */
+export async function calendarFeed(token: string, today: string) {
+  if (token.length < 20) return null;
+  const rows = await db
+    .select({
+      workspaceId: workspaceMembers.workspaceId,
+      userId: workspaceMembers.userId,
+      workspaceName: workspaces.name,
+    })
+    .from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+    .where(eq(workspaceMembers.calendarToken, token))
+    .limit(1);
+  const member = rows[0];
+  if (!member) return null;
+  const day = (offset: number) => new Date(Date.parse(`${today}T00:00:00Z`) + offset * 86_400_000).toISOString().slice(0, 10);
+  const scoped = { workspaceId: member.workspaceId, userId: member.userId } as SessionContext;
+  const { events: eventRows, deadlines } = await listCalendar(scoped, day(-60), day(365));
+  return { workspaceName: member.workspaceName, userId: member.userId, events: eventRows, deadlines };
 }
 
 /** Resolves a pasted link, for someone who has no session yet. */

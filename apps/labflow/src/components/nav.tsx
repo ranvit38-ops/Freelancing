@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cx } from './ui';
 
-export type NavItem = { href: string; label: string };
+export type NavItem = { href: string; label: string; badge?: number };
 
 /**
  * Highlights the section the user is in. `/experiments/abc` lights up
@@ -25,11 +25,19 @@ export function NavList({ items, className }: { items: NavItem[]; className?: st
               href={item.href}
               aria-current={active ? 'page' : undefined}
               className={cx(
-                'block rounded-lg px-3 py-1.5 text-sm transition-colors',
+                'flex items-center justify-between rounded-lg px-3 py-1.5 text-sm transition-colors',
                 active ? 'bg-raised font-medium text-fg' : 'text-muted hover:bg-raised hover:text-fg',
               )}
             >
               {item.label}
+              {item.badge ? (
+                <span
+                  aria-label={`${item.badge} unread`}
+                  className="min-w-5 rounded-full bg-accent px-1.5 text-center text-[11px] font-semibold leading-5 text-accent-fg"
+                >
+                  {item.badge}
+                </span>
+              ) : null}
             </Link>
           </li>
         );

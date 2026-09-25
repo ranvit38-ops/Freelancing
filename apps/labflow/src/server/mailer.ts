@@ -58,8 +58,19 @@ export async function sendEmail(
  * a dead page believing the payment failed. Refusing outright is the only
  * honest option, and it fails before the charge rather than after it.
  */
+/**
+ * The deployment's public address, from configuration only, never from a
+ * request. NEXT_PUBLIC_APP_URL when set; otherwise the address the host
+ * itself publishes (Render sets RENDER_EXTERNAL_URL on every service), so a
+ * deployment works without anyone having to type its own URL in.
+ */
+export function publicBaseUrl(): string | null {
+  const base = process.env.NEXT_PUBLIC_APP_URL || process.env.RENDER_EXTERNAL_URL;
+  return base ? base.replace(/\/$/, '') : null;
+}
+
 export function absoluteUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL;
+  const base = publicBaseUrl();
   if (!base) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
@@ -68,5 +79,5 @@ export function absoluteUrl(path: string): string {
     }
     return `http://localhost:3001${path}`;
   }
-  return `${base.replace(/\/$/, '')}${path}`;
+  return `${base}${path}`;
 }

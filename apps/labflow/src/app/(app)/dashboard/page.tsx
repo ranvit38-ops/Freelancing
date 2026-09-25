@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ButtonLink, Card, CardHeader, EmptyState, PageHeader, cx } from '@/components/ui';
 import { ExperimentList } from '@/components/records';
+import { TaskCheck } from '@/components/task-check';
 import { displayTime } from '@/lib/calendar';
 import { greetingName, pluralise, projectStatusLabel } from '@/lib/display';
 import { byDeadline, dueLabel, todayIso } from '@/lib/tasks';
@@ -17,7 +18,7 @@ export const dynamic = 'force-dynamic';
  * is happening this week, what is the lab talking about, and where is the
  * work. Plus one obvious way to record something new.
  */
-export default async function HomePage({ searchParams }: { searchParams: { joined?: string } }) {
+export default async function HomePage() {
   const session = await requireSession();
   const today = todayIso();
   const weekEnd = new Date(Date.parse(`${today}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
@@ -66,21 +67,12 @@ export default async function HomePage({ searchParams }: { searchParams: { joine
         }
       />
 
-      {searchParams.joined === '1' ? (
-        <p
-          role="status"
-          className="mb-5 rounded-xl border border-ok/25 bg-ok/10 px-5 py-3 text-sm font-medium text-ok"
-        >
-          You&rsquo;re in {session.workspaceName}. Everything the lab shares will show up here.
-        </p>
-      ) : null}
-
       {isNew ? (
         <GettingStarted
           steps={[
             { done: usage.experiments > 0, href: '/experiments/new', title: 'Record an experiment', text: 'Drop a spreadsheet from your instrument. Labvia fills in the rest.' },
             { done: tasks.length > 0, href: '/tasks', title: 'Hand out a task', text: 'Give someone a piece of work and a deadline.' },
-            { done: false, href: '/team', title: 'Bring in your lab', text: 'Share one join link in your group chat.' },
+            { done: false, href: '/team', title: 'Bring in your lab', text: 'Share one join link. New people land on Start here, with a reading path through your work.' },
           ]}
         />
       ) : null}
@@ -98,15 +90,9 @@ export default async function HomePage({ searchParams }: { searchParams: { joine
               {mine.slice(0, 5).map((t) => {
                 const due = dueLabel(t.dueOn, today);
                 return (
-                  <li key={t.id}>
-                    <Link href={`/tasks/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-raised">
-                      <span
-                        aria-hidden
-                        className={cx(
-                          'h-2.5 w-2.5 shrink-0 rounded-full',
-                          t.status === 'doing' ? 'bg-warn' : 'border-2 border-line',
-                        )}
-                      />
+                  <li key={t.id} className="flex items-center gap-3 pl-5 hover:bg-raised">
+                    <TaskCheck taskId={t.id} done={false} title={t.title} />
+                    <Link href={`/tasks/${t.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-5">
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{t.title}</span>
                         <span className="block truncate text-xs text-muted">

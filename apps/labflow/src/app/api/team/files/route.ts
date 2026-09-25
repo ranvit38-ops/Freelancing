@@ -4,6 +4,8 @@ import { getSession } from '@/server/auth';
 import { blockedReason } from '@/server/paywall';
 import * as q from '@/server/queries';
 import { isAllowedUpload, maxBytesFor, putFile } from '@/server/storage';
+import { audienceFrom, shareFile, type Audience } from '@/server/sharing';
+import { dmParticipants } from '@/lib/dm';
 
 export const runtime = 'nodejs';
 
@@ -44,10 +46,18 @@ export async function POST(request: Request) {
     );
   }
 
-  // "Only me" from the Files page. Anything shared in a conversation is
-  // lab-wide by definition, and the message would otherwise link to a file
-  // nobody else can open.
-  const isPrivate = form.get('private') === '1';
+  // Who it is for. From the Files page: everyone, only me, or chosen people,
+  // and those people are told. From a chat: the conversation it is dropped
+  // into decides, and the chat message itself is the announcement, so no
+  // second one is posted here.
+  const dm = String(form.get('dmKey') ?? '');
+  const dmPeople = dm ? dmParticipants(dm) : null;
+  if (dm && !dmPeople?.includes(session.userId)) {
+    return NextResponse.json({ error: 'That conversation does not exist.' }, { status: 400 });
+  }
+  const audience: Audience = dmPeople
+    ? { kind: 'people', userIds: dmPeople }
+    : audienceFrom(form);
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const storageKey = await putFile(session.workspaceId, file.name, bytes);
@@ -56,11 +66,13 @@ export async function POST(request: Request) {
     contentType: file.type || 'application/octet-stream',
     byteSize: bytes.byteLength,
     storageKey,
-    private: isPrivate,
+    private: audience.kind !== 'everyone',
   });
+  const announce = form.get('announce') === '1' && !dmPeople;
+  const shared = await shareFile(session, { id: fileId, filename: file.name }, audience, { announce });
 
   revalidatePath('/team');
   revalidatePath('/files');
   revalidatePath('/chat');
-  return NextResponse.json({ fileId, filename: file.name });
+  return NextResponse.json({ fileId, filename: file.name, sharedWith: shared.sharedWith.length, dmKey: shared.dmKey });
 }

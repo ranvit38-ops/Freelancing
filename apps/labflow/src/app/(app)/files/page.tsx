@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { ConfirmSubmit } from '@/components/file-upload';
 import { FileDrop } from '@/components/file-drop';
+import { FileShare } from '@/components/file-share';
 import { Badge, Card, CardHeader, EmptyState, PageHeader, cx } from '@/components/ui';
 import { experimentCode, formatBytes, formatDate, pluralise } from '@/lib/display';
 import { deleteFileAction } from '@/server/actions/records';
 import { requireSession } from '@/server/authz';
-import { listFiles } from '@/server/queries';
+import { fileShareNames, listFiles, listWorkspaceMembers } from '@/server/queries';
 
 export const metadata = { title: 'Files' };
 export const dynamic = 'force-dynamic';
@@ -26,10 +27,20 @@ export default async function FilesPage({
   searchParams: { q?: string; view?: string };
 }) {
   const session = await requireSession();
-  const mine = searchParams.view === 'mine';
-  const all = await listFiles(session);
+  const view = searchParams.view === 'mine' ? 'mine' : searchParams.view === 'shared' ? 'shared' : 'lab';
+  const mine = view === 'mine';
+  const [all, members] = await Promise.all([listFiles(session), listWorkspaceMembers(session)]);
+  const shares = await fileShareNames(session, [...new Set(all.filter((f) => f.private).map((f) => f.id))]);
+  const others = members.filter((m) => m.id !== session.userId);
+  const sharedIds = new Map([...shares].map(([fileId, people]) => [fileId, people.map((p) => p.id)]));
 
-  const scoped = mine ? all.filter((f) => f.uploadedById === session.userId) : all.filter((f) => !f.private);
+  const scoped =
+    view === 'mine'
+      ? all.filter((f) => f.uploadedById === session.userId)
+      : view === 'shared'
+        ? all.filter((f) => f.private && f.uploadedById !== session.userId)
+        : all.filter((f) => !f.private);
+  const sharedWithMeCount = new Set(all.filter((f) => f.private && f.uploadedById !== session.userId).map((f) => f.id)).size;
   const query = (searchParams.q ?? '').trim().toLowerCase();
   const files = query
     ? scoped.filter((f) =>
@@ -56,15 +67,18 @@ export default async function FilesPage({
         <div className="space-y-4 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex rounded-xl bg-raised p-1" role="tablist" aria-label="Whose files">
-              <Link href="/files" role="tab" aria-selected={!mine} className={tab(!mine)}>
+              <Link href="/files" role="tab" aria-selected={view === 'lab'} className={tab(view === 'lab')}>
                 Lab files
+              </Link>
+              <Link href="/files?view=shared" role="tab" aria-selected={view === 'shared'} className={tab(view === 'shared')}>
+                Shared with me{sharedWithMeCount ? ` · ${sharedWithMeCount}` : ''}
               </Link>
               <Link href="/files?view=mine" role="tab" aria-selected={mine} className={tab(mine)}>
                 My files
               </Link>
             </div>
             <form className="flex gap-2">
-              {mine ? <input type="hidden" name="view" value="mine" /> : null}
+              {view !== 'lab' ? <input type="hidden" name="view" value={view} /> : null}
               <label htmlFor="q" className="sr-only">
                 Filter files
               </label>
@@ -81,12 +95,20 @@ export default async function FilesPage({
 
           <Card>
             <CardHeader
-              title={mine ? 'Uploaded by you' : 'Shared with the lab'}
+              title={mine ? 'Uploaded by you' : view === 'shared' ? 'Shared with you' : 'Shared with the lab'}
               description={pluralise(files.length, 'file')}
             />
             {files.length === 0 ? (
               <EmptyState
-                title={query ? `Nothing matches “${searchParams.q}”` : mine ? 'You have not uploaded anything yet' : 'No files yet'}
+                title={
+                  query
+                    ? `Nothing matches “${searchParams.q}”`
+                    : mine
+                      ? 'You have not uploaded anything yet'
+                      : view === 'shared'
+                        ? 'Nobody has shared a file with just you yet'
+                        : 'No files yet'
+                }
                 description={query ? undefined : 'Drop files on the right to upload them.'}
               />
             ) : (
@@ -100,7 +122,18 @@ export default async function FilesPage({
                       >
                         {f.filename}
                       </a>
-                      {f.private ? <Badge>Only you</Badge> : null}
+                      {f.private && f.uploadedById === session.userId ? (
+                        <Badge>{shares.get(f.id)?.length ? `Shared with ${shares.get(f.id)!.map((p) => p.name).join(', ')}` : 'Only you'}</Badge>
+                      ) : null}
+                      {f.private && f.uploadedById !== session.userId ? <Badge>Shared with you</Badge> : null}
+                      {f.uploadedById === session.userId && !f.sourceUrl ? (
+                        <FileShare
+                          fileId={f.id}
+                          members={others}
+                          current={!f.private ? 'everyone' : sharedIds.get(f.id)?.length ? 'people' : 'me'}
+                          sharedWith={sharedIds.get(f.id) ?? []}
+                        />
+                      ) : null}
                       {READABLE.test(f.filename) && !f.experimentId ? (
                         <Link
                           href={`/experiments/new?file=${f.id}`}
@@ -148,9 +181,9 @@ export default async function FilesPage({
         </div>
 
         <Card>
-          <CardHeader title="Upload" description="Shared with the whole lab unless you tick Only me." />
+          <CardHeader title="Upload" description="Choose who it is for. They are told when it arrives." />
           <div className="px-5 py-4">
-            <FileDrop />
+            <FileDrop members={others} />
           </div>
         </Card>
       </div>

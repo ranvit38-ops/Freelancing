@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Button } from '@/components/ui';
+import { Button, ButtonLink } from '@/components/ui';
 import { logoutAction } from '@/server/actions/auth';
 import { requireSession } from '@/server/authz';
 
@@ -23,6 +23,11 @@ export default async function BillingLayout({ children }: { children: React.Reac
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden text-muted sm:inline">{session.workspaceName}</span>
+            {/* The logo was the only way back, and nobody reads a logo as a
+                button: people logged out to escape this page. */}
+            <ButtonLink href="/dashboard" size="sm">
+              ← Back to your lab
+            </ButtonLink>
             <form action={logoutAction}>
               <Button type="submit" tone="ghost" size="sm">
                 Log out
@@ -31,7 +36,14 @@ export default async function BillingLayout({ children }: { children: React.Reac
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-10">{children}</main>
+      <main className="mx-auto max-w-5xl px-6 py-10">
+        {children}
+        <p className="mt-10 text-center">
+          <Link href="/dashboard" className="text-sm font-medium text-accent underline-offset-2 hover:underline">
+            ← Back to your lab
+          </Link>
+        </p>
+      </main>
     </div>
   );
 }

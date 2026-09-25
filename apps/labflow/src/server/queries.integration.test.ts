@@ -6,6 +6,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import type { SessionContext } from './auth';
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 const suite = hasDb ? describe : describe.skip;
@@ -492,5 +493,109 @@ suite('private files', () => {
     await expect(
       ctx.q.postMessage(ctx.sessionA, { workspace: true, parentId: null, body: 'see this', fileId: privateId }),
     ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+  });
+});
+
+/**
+ * Sharing with chosen people, and direct messages. Three people in one lab
+ * (Ada, Cole, Dee) and one outsider (Ben, in Lab B): what Ada shares with
+ * Cole must reach Cole and nobody else, and a DM is readable by its two
+ * people only, never by the third colleague and never in #lab.
+ */
+suite('sharing with chosen people, and direct messages', () => {
+  let ctx: Ctx;
+  let cole: SessionContext;
+  let dee: SessionContext;
+  let fileId: string;
+
+  beforeAll(async () => {
+    ctx = await setup();
+    const { randomUUID } = await import('node:crypto');
+    const make = async (name: string) => {
+      const [user] = await ctx.db
+        .insert(ctx.schema.users)
+        .values({ email: `${name.toLowerCase()}-${randomUUID().slice(0, 8)}@test.local`, name, passwordHash: 'x' })
+        .returning({ id: ctx.schema.users.id, email: ctx.schema.users.email });
+      await ctx.db.insert(ctx.schema.workspaceMembers).values({ workspaceId: ctx.wsA.id, userId: user!.id, role: 'member' });
+      return { ...ctx.sessionA, userId: user!.id, userName: name, userEmail: user!.email, role: 'member' as const };
+    };
+    cole = await make('Cole');
+    dee = await make('Dee');
+    fileId = await ctx.q.recordFile(ctx.sessionA, {
+      filename: 'for-cole.txt',
+      contentType: 'text/plain',
+      byteSize: 1,
+      storageKey: `k-${randomUUID()}`,
+      private: true,
+    });
+  });
+
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.schema.workspaces).where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db
+      .delete(ctx.schema.users)
+      .where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId, cole.userId, dee.userId]));
+  });
+
+  it('shares a file with exactly the chosen people, and ignores outsiders', async () => {
+    const shared = await ctx.q.setFileSharing(ctx.sessionA, fileId, {
+      everyone: false,
+      userIds: [cole.userId, ctx.sessionB.userId],
+    });
+    expect(shared).toEqual([cole.userId]);
+    expect((await ctx.q.getFileForDownload(cole, fileId)).filename).toBe('for-cole.txt');
+    await expect(ctx.q.getFileForDownload(dee, fileId)).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+    await expect(ctx.q.getFileForDownload(ctx.sessionB, fileId)).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+  });
+
+  it('lets only the uploader change who a file is for', async () => {
+    await expect(ctx.q.setFileSharing(cole, fileId, { everyone: true })).rejects.toBeInstanceOf(
+      ctx.NotFoundInWorkspaceError,
+    );
+  });
+
+  it('keeps a DM between its two people', async () => {
+    const { dmKey } = await import('@/lib/dm');
+    const key = dmKey([ctx.sessionA.userId, cole.userId]);
+    await ctx.q.postMessage(ctx.sessionA, { dmKey: key, parentId: null, body: 'here you go', fileId });
+
+    expect((await ctx.q.listDiscussion(cole, { dmKey: key })).map((m) => m.body)).toEqual(['here you go']);
+    expect(await ctx.q.listDiscussion(dee, { dmKey: key })).toEqual([]);
+    expect((await ctx.q.listDiscussion(dee, { workspace: true })).map((m) => m.body)).not.toContain('here you go');
+    await expect(ctx.q.postMessage(dee, { dmKey: key, parentId: null, body: 'let me in' })).rejects.toBeInstanceOf(
+      ctx.NotFoundInWorkspaceError,
+    );
+  });
+
+  it('refuses a DM with someone outside the lab', async () => {
+    const { dmKey } = await import('@/lib/dm');
+    await expect(
+      ctx.q.postMessage(ctx.sessionA, { dmKey: dmKey([ctx.sessionA.userId, ctx.sessionB.userId]), parentId: null, body: 'hi' }),
+    ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+  });
+
+  it('refuses to put a file in a DM with someone who cannot open it', async () => {
+    const { dmKey } = await import('@/lib/dm');
+    await expect(
+      ctx.q.postMessage(ctx.sessionA, { dmKey: dmKey([ctx.sessionA.userId, dee.userId]), parentId: null, body: 'x', fileId }),
+    ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+  });
+
+  it('marks a DM unread for the recipient until they open it', async () => {
+    const [thread] = await ctx.q.listDmThreads(cole);
+    expect(thread?.unread).toBe(true);
+    await ctx.q.markChannelRead(cole, `dm:${thread!.dmKey}`);
+    expect((await ctx.q.listDmThreads(cole))[0]?.unread).toBe(false);
+    // The sender's own message is never unread to them.
+    expect((await ctx.q.listDmThreads(ctx.sessionA))[0]?.unread).toBe(false);
+    expect(await ctx.q.listDmThreads(dee)).toEqual([]);
+  });
+
+  it('gives each person a private calendar address for their lab', async () => {
+    await ctx.q.setCalendarToken(cole, 'a'.repeat(32));
+    const feed = await ctx.q.calendarFeed('a'.repeat(32), '2026-09-25');
+    expect(feed?.workspaceName).toBe('Lab A');
+    expect(await ctx.q.calendarFeed('b'.repeat(32), '2026-09-25')).toBeNull();
   });
 });

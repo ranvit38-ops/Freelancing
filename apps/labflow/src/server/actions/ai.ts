@@ -11,6 +11,7 @@ import {
   type ProjectAnswer,
 } from '../ai/analysis';
 import type { Evidence } from '../ai/context';
+import { catchUp } from '../ai/catch-up';
 import { searchPubMed, type Article } from '@/lib/pubmed';
 import { blockedReason, hasFeature } from '../paywall';
 
@@ -114,5 +115,19 @@ export async function askProjectAction(
     };
   } catch (error) {
     return { question, literatureNote, ...describe(error) };
+  }
+}
+
+export type CatchUpState = { error?: string; notConfigured?: true; briefing?: string };
+
+/** "Catch me up": a plain-language briefing on the lab for someone new. */
+export async function catchUpAction(_prev: CatchUpState, _formData: FormData): Promise<CatchUpState> {
+  const session = await requireSession();
+  const blocked = await blockedReason(session, 'ai');
+  if (blocked) return { error: blocked };
+  try {
+    return { briefing: await catchUp(session) };
+  } catch (error) {
+    return describe(error);
   }
 }

@@ -4,6 +4,7 @@ import { getSession, type SessionContext } from '@/server/auth';
 import { NotFoundInWorkspaceError } from '@/server/not-found';
 import { blockedReason, hasFeature } from '@/server/paywall';
 import * as q from '@/server/queries';
+import { dmParticipants } from '@/lib/dm';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,10 +25,11 @@ export const dynamic = 'force-dynamic';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
-type Channel = { projectId?: string; workspace?: boolean };
+type Channel = { projectId?: string; workspace?: boolean; dmKey?: string };
 
 function channelFrom(value: string | null): Channel | null {
   if (!value || value === 'lab') return { workspace: true };
+  if (value.startsWith('dm:')) return dmParticipants(value.slice(3)) ? { dmKey: value.slice(3) } : null;
   return UUID.test(value) ? { projectId: value } : null;
 }
 
@@ -48,6 +50,8 @@ export async function GET(request: Request) {
   const channel = channelFrom(new URL(request.url).searchParams.get('c'));
   if (!channel) return NextResponse.json({ error: 'That channel does not exist.' }, { status: 404, headers: NO_STORE });
   const messages = await q.listDiscussion(session, channel);
+  // Reading a direct message is what clears its unread marker.
+  if (channel.dmKey) await q.markChannelRead(session, `dm:${channel.dmKey}`);
   return NextResponse.json({ messages }, { headers: NO_STORE });
 }
 
@@ -84,7 +88,9 @@ export async function POST(request: Request) {
         ? 'That file is private or was deleted, so it cannot be shared here.'
         : error.message.startsWith('Message')
           ? 'The message you replied to was deleted.'
-          : 'This channel no longer exists. Its project may have been deleted.';
+          : error.message.startsWith('Conversation')
+            ? 'You can only message people who are in this lab.'
+            : 'This channel no longer exists. Its project may have been deleted.';
       return NextResponse.json({ error: what }, { status: 404, headers: NO_STORE });
     }
     throw error;

@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { PLANS, type PlanId } from '@/lib/plans';
+import { publicBaseUrl } from './mailer';
 
 /**
  * Stripe, via Checkout and the Customer Portal.
@@ -55,7 +56,7 @@ export function billingProblem(): string | null {
   }
   // A checkout with no public address sends the customer back to localhost
   // after paying. Refuse rather than take the money and strand them.
-  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_APP_URL) {
+  if (process.env.NODE_ENV === 'production' && !publicBaseUrl()) {
     return 'NEXT_PUBLIC_APP_URL is not set, so Stripe would send customers back to localhost after paying.';
   }
   return null;

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui';
 import { logoutAction } from '@/server/actions/auth';
 import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
-import { listProjects } from '@/server/queries';
+import { listDmThreads, listProjects } from '@/server/queries';
 import { isOwnerEmail } from '@/server/google';
 import { ephemeralUploads, ephemeralUploadsWarning, pilotBanner, pilotMode } from '@/lib/pilot';
 import { LabBotPanel } from '@/components/labbot-panel';
@@ -20,6 +20,7 @@ import { workspacePlan } from '@/server/paywall';
  */
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Home' },
+  { href: '/start', label: 'Start here' },
   { href: '/tasks', label: 'Tasks' },
   { href: '/chat', label: 'Chat' },
   { href: '/calendar', label: 'Calendar' },
@@ -59,7 +60,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const secondary = isOwnerEmail(session.userEmail)
     ? [...footer, { href: '/owner', label: 'Owner' }]
     : footer;
-  const items = navItems;
+  // Unread direct messages, including files shared with just you, show on
+  // Chat: a share nobody notices is a share nobody opens.
+  const unreadDms = (await listDmThreads(session)).filter((t) => t.unread).length;
+  const items = navItems.map((item) => (item.href === '/chat' && unreadDms ? { ...item, badge: unreadDms } : item));
 
   // Only worth showing once a user actually belongs to more than one lab.
   const workspacePicker =

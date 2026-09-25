@@ -166,7 +166,7 @@ export async function GET(request: Request) {
   await createSession(userId);
   if (landIn) {
     selectWorkspace(landIn);
-    return NextResponse.redirect(absoluteUrl('/dashboard?joined=1'));
+    return NextResponse.redirect(absoluteUrl('/start?joined=1'));
   }
   // A link that brought them here but could not add them (the lab filled up
   // while they were signing in): back to it, where the reason is spelled out.
