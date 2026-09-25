@@ -83,10 +83,30 @@ export function ChatRoom({
   /* ── reading ── */
 
   const failures = useRef(0);
-  const loading = useRef(false);
-  const load = useCallback(async () => {
-    if (loading.current) return;
-    loading.current = true;
+  // The read in flight, if any. A timer tick skips when one is running; a
+  // send waits for it and reads again, because a read that started before
+  // the message was saved cannot contain it, and removing the grey copy on
+  // the strength of that read would make the message blink out.
+  const inflight = useRef<Promise<void> | null>(null);
+  const load = useCallback(
+    async (fresh = false): Promise<void> => {
+      if (inflight.current) {
+        if (!fresh) return;
+        await inflight.current;
+      }
+      const read = readOnce();
+      inflight.current = read;
+      try {
+        await read;
+      } finally {
+        if (inflight.current === read) inflight.current = null;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- readOnce only closes over channel.key
+    [channel.key],
+  );
+
+  async function readOnce(): Promise<void> {
     try {
       const response = await fetch(`/api/chat?c=${encodeURIComponent(channel.key)}`, { cache: 'no-store' });
       if (response.status === 401) {
@@ -106,10 +126,8 @@ export function ChatRoom({
       // One miss is a blip; the banner is for a connection that is really gone.
       failures.current += 1;
       if (failures.current >= 2) setOffline(true);
-    } finally {
-      loading.current = false;
     }
-  }, [channel.key]);
+  }
 
   useEffect(() => {
     const tick = () => {
@@ -173,7 +191,7 @@ export function ChatRoom({
         }
         queue.current.shift();
         // Fetch before removing the grey copy, so the message never blinks out.
-        await load();
+        await load(true);
         updateOutgoing((all) => all.filter((o) => o.tempId !== next.tempId));
       }
     } finally {
