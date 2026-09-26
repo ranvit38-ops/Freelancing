@@ -1,0 +1,387 @@
+'use server';
+
+import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { randomBytes, createHash } from 'node:crypto';
+import { and, eq, gt, isNull } from 'drizzle-orm';
+import { db } from '@/db';
+import { passwordResetTokens, users, workspaceMembers, workspaces } from '@/db/schema';
+import { hashPassword, verifyPassword } from '@/lib/password';
+import { normaliseEmail, slugify } from '@/lib/normalise';
+import { isValidEmail, loginSchema, signupSchema } from '@/lib/validation';
+import { joinByCode, joinRefusalMessage } from '../join';
+import { TRIAL_DAYS } from '@/lib/plans';
+import { isDisposableEmail } from '@/lib/trial-eligibility';
+import { seedExampleProject } from '../example-project';
+import { acceptInvite, findInviteByToken, findWorkspaceByJoinCode, startTrial } from '../queries';
+import { createSession, destroySession, getSession, selectWorkspace } from '../auth';
+import { joinedLabEmail, sendConfirmation, welcomeEmail } from '../account-emails';
+import { MailNotConfiguredError, absoluteUrl, mailConfigured, publicBaseUrl, sendEmail } from '../mailer';
+import { headers } from 'next/headers';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
+import { fieldErrorsFrom, formObject, type ActionState } from './types';
+
+/**
+ * Credential endpoints are throttled. Without this, login is an unbounded
+ * password oracle, and because scrypt is deliberately slow, that is a
+ * denial-of-service surface as well as a brute-force one.
+ *
+ * Keyed on the account first, IP second. A university sits behind one NAT
+ * address, so an IP-only limit would let ten wrong guesses lock out the whole
+ * campus; the per-IP cap is therefore loose and only catches spraying across
+ * many accounts.
+ */
+function throttle(
+  bucket: string,
+  { perAccount, perIp, account }: { perAccount: number; perIp: number; account?: string },
+): ActionState | null {
+  const ip = clientIp(headers());
+  const checks = [
+    account ? rateLimit(`${bucket}:acct:${account}`, { limit: perAccount, windowMs: 60_000 }) : null,
+    rateLimit(`${bucket}:ip:${ip}`, { limit: perIp, windowMs: 60_000 }),
+  ].filter(Boolean);
+
+  const blocked = checks.find((c) => !c!.ok);
+  if (!blocked) return null;
+  return { error: `Too many attempts. Try again in ${blocked!.retryAfterSec} seconds.` };
+}
+
+/** A new lab for an account that already existed: tell them where it is. */
+function confirmJoined(email: string, name: string, labName: string) {
+  sendConfirmation(email, '/start', (link) => joinedLabEmail({ name, labName, link }));
+}
+
+/** Computed once; its only job is to make an unknown-email login cost the same. */
+const decoyHash = hashPassword('labflow-decoy-password-never-matches');
+
+export async function signupAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const limited = throttle('signup', { perAccount: 5, perIp: 20 });
+  if (limited) return limited;
+
+  const parsed = signupSchema.safeParse(formObject(formData));
+  if (parsed.success && isDisposableEmail(parsed.data.email)) {
+    // Throwaway inboxes exist to farm trials. Say so plainly rather than
+    // failing in a way that looks like a bug.
+    return {
+      fieldErrors: {
+        email: 'Use a permanent address. Temporary inboxes cannot receive an invitation or a password reset.',
+      },
+    };
+  }
+  if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
+
+  const email = normaliseEmail(parsed.data.email);
+  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  if (existing.length > 0) {
+    return { fieldErrors: { email: 'An account with this email already exists' } };
+  }
+
+  // An invite link may have carried them here; joining that workspace is then
+  // the whole point, and creating a second empty one would be wrong.
+  const inviteToken = String(formData.get('inviteToken') ?? '');
+  const invite = inviteToken
+    ? await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'))
+    : null;
+
+  // A shared join link does the same job as an invitation: it names the lab
+  // this account belongs in, so no empty second one gets created. Checked
+  // before the account exists, because refusing a full lab afterwards would
+  // leave someone signed in with nowhere to be.
+  const joinCode = String(formData.get('joinCode') ?? '');
+  const joinTarget = !invite && joinCode ? await findWorkspaceByJoinCode(joinCode) : null;
+  if (joinCode && !invite && !joinTarget) {
+    return { error: 'That join link is not valid. Ask the lab for a new one.' };
+  }
+
+  // Only someone starting a lab names one. The invited get the lab they were
+  // invited to, and the form does not ask them for a name it would discard.
+  if (!invite && !joinTarget && !parsed.data.workspaceName) {
+    return { fieldErrors: { workspaceName: 'Name your lab or research group' } };
+  }
+
+  const passwordHash = await hashPassword(parsed.data.password);
+  let workspaceIdCreated = '';
+  const userId = await db.transaction(async (tx) => {
+    const [user] = await tx
+      .insert(users)
+      .values({ email, name: parsed.data.name, passwordHash })
+      .returning({ id: users.id });
+    if (!user) throw new Error('Could not create the account');
+    if (invite || joinTarget) return user.id;
+
+    // Slug collisions are rare; a short suffix is cheaper than a retry loop.
+    const workspaceName = parsed.data.workspaceName!;
+    const slug = `${slugify(workspaceName)}-${randomBytes(3).toString('hex')}`;
+    const [workspace] = await tx
+      .insert(workspaces)
+      .values({ name: workspaceName, slug, institution: parsed.data.institution })
+      .returning({ id: workspaces.id });
+    if (!workspace) throw new Error('Could not create the workspace');
+
+    await tx
+      .insert(workspaceMembers)
+      .values({ workspaceId: workspace.id, userId: user.id, role: 'owner' });
+    workspaceIdCreated = workspace.id;
+    return user.id;
+  });
+
+  let joined = false;
+  if (invite) {
+    await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
+    selectWorkspace(invite.workspaceId);
+    joined = true;
+  } else if (joinTarget) {
+    const outcome = await joinByCode(joinCode, userId);
+    const refusal = joinRefusalMessage(outcome);
+    // The account exists by now, so a refusal has to leave them somewhere. The
+    // login page with the reason beats a dead end on a form they just passed.
+    if (refusal) return { error: refusal };
+    selectWorkspace(joinTarget.id);
+    joined = true;
+  } else {
+    await startTrial(workspaceIdCreated, TRIAL_DAYS, parsed.data.email);
+    // A worked example, so the first screen shows what the product is rather
+    // than what it would look like if you had already used it for a month.
+    // Failing here must not cost someone their account.
+    try {
+      await seedExampleProject(workspaceIdCreated, userId);
+    } catch {
+      // An empty workspace is a worse first run, not a broken one.
+    }
+  }
+  const labName = invite?.workspaceName ?? joinTarget?.name ?? parsed.data.workspaceName ?? 'your lab';
+  sendConfirmation(email, joined ? '/start' : '/dashboard', (link) =>
+    welcomeEmail({ name: parsed.data.name, labName, joined, link }),
+  );
+  await createSession(userId);
+  redirect(joined ? '/start?joined=1' : '/dashboard');
+}
+
+export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const attempted = normaliseEmail(String(formData.get('email') ?? ''));
+  const limited = throttle('login', { perAccount: 10, perIp: 60, account: attempted });
+  if (limited) return limited;
+
+  const parsed = loginSchema.safeParse(formObject(formData));
+  if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
+
+  const email = normaliseEmail(parsed.data.email);
+  const rows = await db
+    .select({ id: users.id, name: users.name, passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  // Verify against a decoy hash when the account is unknown, so response time
+  // does not reveal which addresses are registered.
+  const user = rows[0];
+  const ok = await verifyPassword(parsed.data.password, user?.passwordHash ?? (await decoyHash));
+  if (!user || !ok) return { error: 'Email or password is incorrect' };
+
+  const membership = await db
+    .select({ workspaceId: workspaceMembers.workspaceId })
+    .from(workspaceMembers)
+    .where(eq(workspaceMembers.userId, user.id))
+    .limit(1);
+  if (membership.length === 0 && !formData.get('inviteToken') && !formData.get('joinCode')) {
+    return { error: 'This account is not a member of any workspace. Ask a lab owner to invite you.' };
+  }
+
+  // Whichever lab the link named is the one they came to see, so that is where
+  // they land, even if they already had a lab of their own.
+  let joined = false;
+  const inviteToken = String(formData.get('inviteToken') ?? '');
+  if (inviteToken) {
+    const invite = await findInviteByToken(
+      createHash('sha256').update(inviteToken).digest('hex'),
+    );
+    if (invite) {
+      await acceptInvite(invite.id, invite.workspaceId, user.id, invite.role);
+      selectWorkspace(invite.workspaceId);
+      joined = true;
+      confirmJoined(email, user.name, invite.workspaceName);
+    }
+  }
+
+  const joinCode = String(formData.get('joinCode') ?? '');
+  if (joinCode) {
+    const outcome = await joinByCode(joinCode, user.id);
+    const refusal = joinRefusalMessage(outcome);
+    if (refusal) return { error: refusal };
+    if (outcome.status === 'joined' || outcome.status === 'already') {
+      selectWorkspace(outcome.workspaceId);
+      joined = true;
+    }
+    if (outcome.status === 'joined') confirmJoined(email, user.name, outcome.workspaceName);
+  }
+
+  await createSession(user.id);
+  redirect(joined ? '/start?joined=1' : '/dashboard');
+}
+
+/**
+ * The Join button on the join page, for someone already signed in.
+ *
+ * A button rather than joining the moment the page renders: a page render
+ * cannot switch which lab you are looking at, and a lab you did not see
+ * yourself join is a lab you think you are not in. It also shows who you are
+ * signed in as before anything happens, which matters on a shared computer.
+ */
+export async function joinLabAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  const joinCode = String(formData.get('joinCode') ?? '');
+  const inviteToken = String(formData.get('inviteToken') ?? '');
+  if (!session) {
+    redirect(joinCode ? `/join?code=${encodeURIComponent(joinCode)}` : `/join?token=${encodeURIComponent(inviteToken)}`);
+  }
+
+  if (inviteToken) {
+    const invite = await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'));
+    if (!invite) return { error: 'That invitation has already been used or has expired.' };
+    await acceptInvite(invite.id, invite.workspaceId, session.userId, invite.role);
+    selectWorkspace(invite.workspaceId);
+    confirmJoined(session.userEmail, session.userName, invite.workspaceName);
+  } else {
+    const outcome = await joinByCode(joinCode, session.userId);
+    const refusal = joinRefusalMessage(outcome);
+    if (refusal) return { error: refusal };
+    if (outcome.status === 'joined' || outcome.status === 'already') selectWorkspace(outcome.workspaceId);
+    if (outcome.status === 'joined') confirmJoined(session.userEmail, session.userName, outcome.workspaceName);
+  }
+  revalidatePath('/', 'layout');
+  redirect('/start?joined=1');
+}
+
+/** "Not you?" on the join page: sign out, then come straight back to the link. */
+export async function switchAccountForJoinAction(formData: FormData) {
+  await destroySession();
+  const joinCode = String(formData.get('joinCode') ?? '');
+  const inviteToken = String(formData.get('inviteToken') ?? '');
+  redirect(
+    joinCode
+      ? `/join?code=${encodeURIComponent(joinCode)}&have=1`
+      : `/join?token=${encodeURIComponent(inviteToken)}`,
+  );
+}
+
+export async function logoutAction() {
+  await destroySession();
+  redirect('/');
+}
+
+/**
+ * Always reports the same thing whether or not the address exists, so the form
+ * cannot be used to enumerate accounts.
+ *
+ * When no email provider is configured the link is written to the server log
+ * instead, and the caller is told plainly that delivery is unavailable.
+ */
+export async function requestPasswordResetAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const email = normaliseEmail(String(formData.get('email') ?? ''));
+  const limited = throttle('reset', { perAccount: 5, perIp: 30, account: email });
+  if (limited) return limited;
+
+  const confirmation = {
+    ok: true as const,
+    message: 'If an account exists for that address, a reset link is on its way.',
+  };
+  if (!isValidEmail(email)) return { fieldErrors: { email: 'Enter a valid email address' } };
+
+  const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  const user = rows[0];
+  if (!user) return confirmation;
+
+  const token = randomBytes(32).toString('base64url');
+  await db.insert(passwordResetTokens).values({
+    userId: user.id,
+    tokenHash: createHash('sha256').update(token).digest('hex'),
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  });
+
+  // The link is emailed, so it must be the configured address. Without one,
+  // say so rather than throw: a crash here would read as "reset is broken"
+  // to someone already locked out.
+  if (process.env.NODE_ENV === 'production' && !publicBaseUrl()) {
+    console.error('Password reset requested but NEXT_PUBLIC_APP_URL is not set, so no link can be sent.');
+    return {
+      error:
+        'Password reset is not available on this deployment yet. Ask whoever runs your lab to contact the site owner.',
+    };
+  }
+  const link = absoluteUrl(`/reset-password?token=${token}`);
+  if (!mailConfigured()) {
+    console.info(`[labflow] email not configured, reset link for ${email}: ${link}`);
+    return {
+      ok: true,
+      message:
+        'Email delivery is not configured on this deployment, so no message was sent. The reset link was written to the server log.',
+    };
+  }
+
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Reset your Labvia password',
+      text: [
+        'Someone asked to reset the password for your Labvia account.',
+        '',
+        `Open this link to choose a new one (it expires in one hour):`,
+        link,
+        '',
+        'If this was not you, you can ignore this message, because nothing has changed.',
+      ].join('\n'),
+    });
+  } catch (error) {
+    if (error instanceof MailNotConfiguredError) {
+      console.info(`[labflow] reset link for ${email}: ${link}`);
+      return { ok: true, message: error.message };
+    }
+    // Never leak whether the address exists, even when sending fails.
+    console.error('[labflow] password reset email failed', error);
+    return confirmation;
+  }
+
+  return confirmation;
+}
+
+export async function resetPasswordAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const limited = throttle('reset-confirm', { perAccount: 10, perIp: 40 });
+  if (limited) return limited;
+
+  const token = String(formData.get('token') ?? '');
+  const password = String(formData.get('password') ?? '');
+  if (password.length < 10) return { fieldErrors: { password: 'Use at least 10 characters' } };
+
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const rows = await db
+    .select({ id: passwordResetTokens.id, userId: passwordResetTokens.userId })
+    .from(passwordResetTokens)
+    .where(
+      and(
+        eq(passwordResetTokens.tokenHash, tokenHash),
+        gt(passwordResetTokens.expiresAt, new Date()),
+        isNull(passwordResetTokens.usedAt),
+      ),
+    )
+    .limit(1);
+
+  const reset = rows[0];
+  if (!reset) return { error: 'This reset link is invalid or has expired. Request a new one.' };
+
+  await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
+    .where(eq(users.id, reset.userId));
+  await db
+    .update(passwordResetTokens)
+    .set({ usedAt: new Date() })
+    .where(eq(passwordResetTokens.id, reset.id));
+
+  return { ok: true, message: 'Password updated. You can log in now.' };
+}
