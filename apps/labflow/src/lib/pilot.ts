@@ -122,7 +122,19 @@ export function feedbackEmail(
  * uploads directory is not on a real disk.
  */
 export function ephemeralUploads(): boolean {
-  return process.env.LABFLOW_EPHEMERAL_UPLOADS === '1';
+  return process.env.LABFLOW_EPHEMERAL_UPLOADS === '1' && fileStorage() === 'disk';
+}
+
+/**
+ * Where uploaded bytes live. A host without a disk keeps them in the database
+ * unless told otherwise, because a file that is still there next week is worth
+ * more than one that downloads slightly faster. LABFLOW_FILE_STORAGE overrides
+ * either way.
+ */
+export function fileStorage(): 'database' | 'disk' {
+  const chosen = process.env.LABFLOW_FILE_STORAGE;
+  if (chosen === 'database' || chosen === 'disk') return chosen;
+  return process.env.LABFLOW_EPHEMERAL_UPLOADS === '1' ? 'database' : 'disk';
 }
 
 export function ephemeralUploadsWarning(): string {

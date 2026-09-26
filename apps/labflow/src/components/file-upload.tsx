@@ -43,7 +43,7 @@ function upload(
  * connection does not stall behind six simultaneous requests and each failure
  * names its own file.
  */
-export function FileUpload({ experimentId }: { experimentId: string }) {
+export function FileUpload({ experimentId, videoMb = 250 }: { experimentId: string; videoMb?: number }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -159,7 +159,7 @@ export function FileUpload({ experimentId }: { experimentId: string }) {
           {busy ? `Uploading ${progress.name}` : 'Drop files here, or click to choose'}
         </span>
         <span className="text-xs text-muted">
-          Data, papers, images, slides and video. 25&nbsp;MB per file, 250&nbsp;MB for video. CSV
+          Data, papers, images, slides and video. {videoMb > 25 ? <>25&nbsp;MB per file, {videoMb}&nbsp;MB for video.</> : <>Up to 25&nbsp;MB per file.</>} CSV
           and Excel files are parsed into a dataset you can chart.
         </span>
         <input

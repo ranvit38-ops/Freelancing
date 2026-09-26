@@ -3,7 +3,7 @@ import { XlsxError } from '@/lib/xlsx';
 import type { SessionContext } from './auth';
 import * as q from './queries';
 import { buildDraft, type ExperimentDraft } from '@/lib/experiment-draft';
-import { extensionOf, getFile, isAllowedUpload, maxBytesFor, putFile } from './storage';
+import { FileGoneError, StorageFullError, extensionOf, getFile, isAllowedUpload, maxBytesFor, putFile } from './storage';
 
 /**
  * Storing one upload against an experiment, and reading it as a dataset when
@@ -50,7 +50,13 @@ export async function storeExperimentFile(
   checkUpload(file);
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const storageKey = await putFile(session.workspaceId, file.name, bytes);
+  let storageKey: string;
+  try {
+    storageKey = await putFile(session.workspaceId, file.name, bytes);
+  } catch (error) {
+    if (error instanceof StorageFullError) throw new UploadRejected(error.message, 507);
+    throw error;
+  }
   const fileId = await q.recordFile(session, {
     filename: file.name,
     contentType: file.type || 'application/octet-stream',
@@ -110,6 +116,16 @@ async function readTable(filename: string, bytes: Buffer) {
   return null;
 }
 
+/** As readTable, for stored bytes that may have been lost: then there is simply no table. */
+async function readStoredTable(filename: string, storageKey: string) {
+  try {
+    return await readTable(filename, await getFile(storageKey));
+  } catch (error) {
+    if (error instanceof FileGoneError) return null;
+    throw error;
+  }
+}
+
 /**
  * A filled-in experiment from a file already in the lab's Files.
  *
@@ -122,7 +138,7 @@ export async function draftFromStoredFile(
   fileId: string,
 ): Promise<{ draft: ExperimentDraft; file: { id: string; name: string } }> {
   const file = await q.getFileForDownload(session, fileId);
-  const table = file.storageKey ? await readTable(file.filename, await getFile(file.storageKey)) : null;
+  const table = file.storageKey ? await readStoredTable(file.filename, file.storageKey) : null;
   return {
     draft: buildDraft([{ filename: file.filename, table }]),
     file: { id: file.id, name: file.filename },
@@ -141,7 +157,7 @@ export async function attachStoredFile(
   const file = await q.getFileForDownload(session, fileId);
   await q.attachFileToExperiment(session, experimentId, file.id);
   if (!file.storageKey) return;
-  const table = await readTable(file.filename, await getFile(file.storageKey));
+  const table = await readStoredTable(file.filename, file.storageKey);
   if (table) {
     await q.createDataset(session, experimentId, {
       name: file.filename,

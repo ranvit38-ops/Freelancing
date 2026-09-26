@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { getSession } from '@/server/auth';
 import { blockedReason } from '@/server/paywall';
 import * as q from '@/server/queries';
-import { isAllowedUpload, maxBytesFor, putFile } from '@/server/storage';
+import { StorageFullError, isAllowedUpload, maxBytesFor, putFile } from '@/server/storage';
 import { audienceFrom, shareFile, type Audience } from '@/server/sharing';
 import { dmParticipants } from '@/lib/dm';
 
@@ -60,7 +60,13 @@ export async function POST(request: Request) {
     : audienceFrom(form);
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const storageKey = await putFile(session.workspaceId, file.name, bytes);
+  let storageKey: string;
+  try {
+    storageKey = await putFile(session.workspaceId, file.name, bytes);
+  } catch (error) {
+    if (error instanceof StorageFullError) return NextResponse.json({ error: error.message }, { status: 507 });
+    throw error;
+  }
   const fileId = await q.recordFile(session, {
     filename: file.name,
     contentType: file.type || 'application/octet-stream',

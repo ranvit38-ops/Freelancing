@@ -6,6 +6,8 @@ import { Badge, Card, CardHeader, EmptyState, PageHeader, cx } from '@/component
 import { experimentCode, formatBytes, formatDate, pluralise } from '@/lib/display';
 import { deleteFileAction } from '@/server/actions/records';
 import { requireSession } from '@/server/authz';
+import { fileStorage } from '@/lib/pilot';
+import { databaseStorageUse } from '@/server/storage';
 import { fileShareNames, listFiles, listWorkspaceMembers } from '@/server/queries';
 
 export const metadata = { title: 'Files' };
@@ -29,7 +31,11 @@ export default async function FilesPage({
   const session = await requireSession();
   const view = searchParams.view === 'mine' ? 'mine' : searchParams.view === 'shared' ? 'shared' : 'lab';
   const mine = view === 'mine';
-  const [all, members] = await Promise.all([listFiles(session), listWorkspaceMembers(session)]);
+  const [all, members, storage] = await Promise.all([
+    listFiles(session),
+    listWorkspaceMembers(session),
+    fileStorage() === 'database' ? databaseStorageUse() : null,
+  ]);
   const shares = await fileShareNames(session, [...new Set(all.filter((f) => f.private).map((f) => f.id))]);
   const others = members.filter((m) => m.id !== session.userId);
   const sharedIds = new Map([...shares].map(([fileId, people]) => [fileId, people.map((p) => p.id)]));
@@ -62,6 +68,16 @@ export default async function FilesPage({
         title="Files"
         description="Everything the lab has uploaded, and your own files. Drop a spreadsheet in and Labvia can turn it into an experiment."
       />
+      {storage ? (
+        <p
+          className={cx(
+            '-mt-3 mb-5 text-xs',
+            storage.usedBytes > storage.limitBytes * 0.8 ? 'text-warn' : 'text-subtle',
+          )}
+        >
+          Storage: {formatBytes(storage.usedBytes)} of {formatBytes(storage.limitBytes)} used on this server.
+        </p>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
         <div className="space-y-4 lg:col-span-2">

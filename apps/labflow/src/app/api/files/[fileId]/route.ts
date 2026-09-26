@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/server/auth';
 import { NotFoundInWorkspaceError } from '@/server/authz';
 import { getFileForDownload } from '@/server/queries';
-import { getFile } from '@/server/storage';
+import { FileGoneError, getFile } from '@/server/storage';
 import { headerSafeFilename } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -69,6 +69,13 @@ export async function GET(_request: Request, { params }: { params: { fileId: str
   } catch (error) {
     if (error instanceof NotFoundInWorkspaceError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    // Opened from a link in the browser, so a readable page beats raw JSON.
+    if (error instanceof FileGoneError) {
+      return new NextResponse(error.message, {
+        status: 410,
+        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+      });
     }
     throw error;
   }

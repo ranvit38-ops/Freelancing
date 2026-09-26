@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   PILOT_PLAN,
+  ephemeralUploads,
+  fileStorage,
   feedbackEmail,
   isWouldPay,
   parseMonthlyValue,
@@ -108,5 +110,33 @@ describe('feedbackEmail', () => {
     // A blank figure must never render as zero: "nothing" and "did not say"
     // are the two answers most worth telling apart.
     expect(text).not.toContain('$0');
+  });
+});
+
+describe('fileStorage', () => {
+  const saved = { e: process.env.LABFLOW_EPHEMERAL_UPLOADS, f: process.env.LABFLOW_FILE_STORAGE };
+  const restore = () => {
+    for (const [k, v] of [['LABFLOW_EPHEMERAL_UPLOADS', saved.e], ['LABFLOW_FILE_STORAGE', saved.f]] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  };
+
+  it('keeps files in the database on a host whose disk does not survive, and says nothing is lost', () => {
+    delete process.env.LABFLOW_FILE_STORAGE;
+    process.env.LABFLOW_EPHEMERAL_UPLOADS = '1';
+    expect(fileStorage()).toBe('database');
+    expect(ephemeralUploads()).toBe(false);
+    restore();
+  });
+
+  it('uses the disk by default, and warns when that disk is ephemeral and forced', () => {
+    delete process.env.LABFLOW_EPHEMERAL_UPLOADS;
+    delete process.env.LABFLOW_FILE_STORAGE;
+    expect(fileStorage()).toBe('disk');
+    process.env.LABFLOW_EPHEMERAL_UPLOADS = '1';
+    process.env.LABFLOW_FILE_STORAGE = 'disk';
+    expect(ephemeralUploads()).toBe(true);
+    restore();
   });
 });
