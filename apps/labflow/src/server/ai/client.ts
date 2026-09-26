@@ -35,13 +35,13 @@ export function acceptsEffort(model: string): boolean {
 }
 
 export async function callModel(
-  input: { system: string; prompt: string; maxTokens?: number; effort?: Effort },
+  input: { system: string; prompt: string; maxTokens?: number; effort?: Effort; model?: string },
   fetchImpl: ModelTransport = fetch,
 ): Promise<{ text: string; model: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new AiNotConfiguredError();
 
-  const model = env().LABFLOW_AI_MODEL;
+  const model = input.model ?? env().LABFLOW_AI_MODEL;
   const base = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
   let response: Response;
   try {

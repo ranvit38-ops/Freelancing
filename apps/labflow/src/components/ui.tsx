@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { forwardRef } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
 /*
@@ -141,9 +142,12 @@ export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input {...props} className={cx(fieldBase, 'h-9 py-0', className)} />;
 }
 
-export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
-  return <textarea {...props} className={cx(fieldBase, 'min-h-[88px] leading-6', className)} />;
-}
+export const Textarea = forwardRef<HTMLTextAreaElement, ComponentProps<'textarea'>>(function Textarea(
+  { className, ...props },
+  ref,
+) {
+  return <textarea ref={ref} {...props} className={cx(fieldBase, 'min-h-[88px] leading-6', className)} />;
+});
 
 export function Select({ className, ...props }: ComponentProps<'select'>) {
   return <select {...props} className={cx(fieldBase, 'h-9 py-0 pr-8', className)} />;

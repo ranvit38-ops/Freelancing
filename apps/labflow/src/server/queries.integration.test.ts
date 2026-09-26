@@ -568,6 +568,22 @@ suite('sharing with chosen people, and direct messages', () => {
     );
   });
 
+
+  it('shows LabBot only the DMs and files the asker could open themselves', async () => {
+    const { buildLabContext } = await import('./ai/labbot');
+    // The DM above (Ada to Cole, with the private file) and a lab message.
+    await ctx.q.postMessage(dee, { workspace: true, parentId: null, body: 'lab-wide note about the centrifuge' });
+
+    const forCole = (await buildLabContext(cole, 'centrifuge here you go')).text;
+    expect(forCole).toContain('here you go');
+    expect(forCole).toContain('for-cole.txt');
+    expect(forCole).toContain('lab-wide note about the centrifuge');
+
+    const forDee = (await buildLabContext(dee, 'centrifuge here you go')).text;
+    expect(forDee).toContain('lab-wide note about the centrifuge');
+    expect(forDee).not.toContain('here you go');
+    expect(forDee).not.toContain('for-cole.txt');
+  });
   it('refuses a DM with someone outside the lab', async () => {
     const { dmKey } = await import('@/lib/dm');
     await expect(

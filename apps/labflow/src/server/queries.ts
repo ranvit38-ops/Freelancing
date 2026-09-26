@@ -1411,6 +1411,7 @@ export async function listFiles(s: SessionContext) {
       datasetId: datasets.id,
       private: files.private,
       uploadedById: files.uploadedById,
+      storageKey: files.storageKey,
     })
     .from(files)
     .leftJoin(users, eq(users.id, files.uploadedById))
@@ -1590,6 +1591,41 @@ export async function listDiscussion(
     else roots.push(message);
   }
   return roots;
+}
+
+/**
+ * Every chat message this person may read, newest first, for LabBot: the lab
+ * channel, project, experiment and task threads, and only the direct messages
+ * they are part of. Someone else's DMs never reach the model on their behalf.
+ */
+export async function messagesVisibleTo(s: SessionContext, limit = 400) {
+  const taskAlias = alias(tasks, 'message_task');
+  return db
+    .select({
+      id: discussions.id,
+      body: discussions.body,
+      createdAt: discussions.createdAt,
+      authorName: users.name,
+      projectName: projects.name,
+      experimentNumber: experiments.number,
+      taskTitle: taskAlias.title,
+      dmKey: discussions.dmKey,
+      fileName: files.filename,
+    })
+    .from(discussions)
+    .leftJoin(users, eq(users.id, discussions.authorId))
+    .leftJoin(projects, eq(projects.id, discussions.projectId))
+    .leftJoin(experiments, eq(experiments.id, discussions.experimentId))
+    .leftJoin(taskAlias, eq(taskAlias.id, discussions.taskId))
+    .leftJoin(files, eq(files.id, discussions.fileId))
+    .where(
+      and(
+        eq(discussions.workspaceId, s.workspaceId),
+        or(isNull(discussions.dmKey), sql`position(${s.userId} in ${discussions.dmKey}) > 0`),
+      ),
+    )
+    .orderBy(desc(discussions.createdAt))
+    .limit(limit);
 }
 
 export async function postMessage(

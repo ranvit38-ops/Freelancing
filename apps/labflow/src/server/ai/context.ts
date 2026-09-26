@@ -19,7 +19,7 @@ export type Evidence = { type: string; id: string; label: string };
 /** Hard ceiling on how many related records go into one prompt. */
 const MAX_RELATED = 4;
 
-function renderRecord(record: q.ExperimentRecord, options: { full: boolean }): string {
+export function renderRecord(record: q.ExperimentRecord, options: { full: boolean }): string {
   const { experiment: e, conditions, samples, result, notes } = record;
   const lines = [
     `${experimentCode(e.number)}: ${e.title}`,

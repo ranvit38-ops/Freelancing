@@ -4,7 +4,7 @@ import { Button } from '@/components/ui';
 import { logoutAction } from '@/server/actions/auth';
 import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
-import { listDmThreads, listProjects } from '@/server/queries';
+import { listDmThreads } from '@/server/queries';
 import { isOwnerEmail } from '@/server/google';
 import { ephemeralUploads, ephemeralUploadsWarning, pilotBanner, pilotMode } from '@/lib/pilot';
 import { LabBotPanel } from '@/components/labbot-panel';
@@ -52,7 +52,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const myWorkspaces = await listMyWorkspaces();
   // LabBot needs somewhere to answer about; with no projects the panel hides
   // itself rather than offering an empty picker.
-  const projectsForBot = (await listProjects(session)).map((p) => ({ id: p.id, name: p.name }));
 
   // The owner link is added for the owner alone. Everyone else never sees the
   // route exists, and the page itself refuses them regardless of the nav.
@@ -197,7 +196,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {children}
         </div>
       </main>
-      <LabBotPanel projects={projectsForBot} configured={Boolean(process.env.ANTHROPIC_API_KEY)} />
+      <LabBotPanel configured={Boolean(process.env.ANTHROPIC_API_KEY)} />
     </div>
   );
 }

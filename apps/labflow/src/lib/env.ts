@@ -27,6 +27,7 @@ const schema = z.object({
   EMAIL_FROM: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().optional(),
   LABFLOW_AI_MODEL: z.string().default('claude-opus-5'),
+  LABFLOW_LABBOT_MODEL: z.string().default('claude-haiku-4-5'),
   LABFLOW_EPHEMERAL_UPLOADS: z.string().optional(),
 });
 

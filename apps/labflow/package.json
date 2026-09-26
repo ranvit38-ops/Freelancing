@@ -2,7 +2,7 @@
   "name": "labflow",
   "version": "0.1.0",
   "private": true,
-  "description": "Labvia \u2014 turn experiments into a living research record.",
+  "description": "Labvia — turn experiments into a living research record.",
   "scripts": {
     "dev": "next dev -p 3001 -H 0.0.0.0",
     "pilot": "LABFLOW_PILOT_MODE=1 next dev -p 3001 -H 0.0.0.0",
@@ -20,6 +20,7 @@
     "e2e:responsive": "node e2e/responsive.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "drizzle-orm": "0.33.0",
     "jszip": "^3.10.1",
     "next": "14.2.35",
@@ -28,7 +29,7 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "stripe": "^16.2.0",
-    "zod": "3.23.8"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "20.14.10",

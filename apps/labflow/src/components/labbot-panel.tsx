@@ -1,55 +1,66 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
-import { Badge, Select, Textarea, cx } from './ui';
-import { SubmitButton } from './submit-button';
-import { askProjectAction, type AnswerState } from '@/server/actions/ai';
-
-type ProjectOption = { id: string; name: string };
-
-/**
- * A 'use server' module may export only async functions, so the empty state
- * lives here rather than beside the action. Two builds have already failed on
- * that rule.
- */
-const emptyAnswerState: AnswerState = {};
+import { useEffect, useRef, useState } from 'react';
+import { ChatMarkdown } from './chat-markdown';
+import { Button, Textarea, cx } from './ui';
 
 const OPEN_KEY = 'labvia-labbot-open';
-const PROJECT_KEY = 'labvia-labbot-project';
+
+type Turn = { question: string; answer: string; error?: string; done: boolean };
 
 /**
- * LabBot, reachable from every page.
+ * LabBot, reachable from every page, as a chat.
  *
- * A question about the work usually arrives while looking at the work, not
- * while sitting on an assistant page. The panel is a sibling of the page
- * rather than an overlay, so the record stays readable beside the answer, and
- * its open state survives navigation.
+ * It reads the whole lab the asker can see (experiments, files, chat, tasks,
+ * calendar) and the answer streams in word by word. Earlier turns go with each
+ * question, so "and the second run?" works. The conversation lives in this
+ * panel, which sits in the layout, so it survives moving between pages.
  */
 export function LabBotPanel({
-  projects,
   configured,
 }: {
-  projects: ProjectOption[];
   /** False when the server has no model key, so the panel says so before anyone types. */
   configured: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [projectId, setProjectId] = useState('');
-  const [state, action] = useFormState(askProjectAction, emptyAnswerState);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [waited, setWaited] = useState(0);
+  const abort = useRef<AbortController | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     try {
       setOpen(window.localStorage.getItem(OPEN_KEY) === '1');
-      const saved = window.localStorage.getItem(PROJECT_KEY);
-      if (saved && projects.some((p) => p.id === saved)) setProjectId(saved);
-      else setProjectId(projects[0]?.id ?? '');
     } catch {
-      setProjectId(projects[0]?.id ?? '');
+      // Private browsing refuses storage. The panel still works.
     }
-  }, [projects]);
+  }, []);
+
+  useEffect(() => {
+    if (open) box.current?.focus();
+  }, [open]);
+
+  // Keep the newest words in view as they arrive.
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [turns]);
+
+  // A counter until the first word, so a slow start never looks like a hang.
+  const waiting = busy && turns.at(-1)?.answer === '';
+  useEffect(() => {
+    if (!waiting) {
+      setWaited(0);
+      return;
+    }
+    const started = Date.now();
+    const id = window.setInterval(() => setWaited(Math.floor((Date.now() - started) / 1000)), 250);
+    return () => window.clearInterval(id);
+  }, [waiting]);
 
   function toggle() {
     const next = !open;
@@ -57,16 +68,58 @@ export function LabBotPanel({
     try {
       window.localStorage.setItem(OPEN_KEY, next ? '1' : '0');
     } catch {
-      // Private browsing refuses to store. The panel still opens.
+      // As above.
     }
   }
 
-  function choose(id: string) {
-    setProjectId(id);
+  function update(index: number, change: Partial<Turn>) {
+    setTurns((all) => all.map((t, i) => (i === index ? { ...t, ...change } : t)));
+  }
+
+  async function ask(event?: React.FormEvent) {
+    event?.preventDefault();
+    const question = draft.trim();
+    if (!question || busy || !configured) return;
+    const history = turns.filter((t) => t.done && !t.error).map(({ question, answer }) => ({ question, answer }));
+    const index = turns.length;
+    setTurns((all) => [...all, { question, answer: '', done: false }]);
+    setDraft('');
+    setBusy(true);
+    const controller = new AbortController();
+    abort.current = controller;
+
     try {
-      window.localStorage.setItem(PROJECT_KEY, id);
-    } catch {
-      // As above.
+      const response = await fetch('/api/labbot', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ question, history }),
+        signal: controller.signal,
+      });
+      if (!response.ok || !response.body) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        update(index, { error: body?.error ?? 'LabBot could not answer. Try again.', done: true });
+        return;
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let answer = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        answer += decoder.decode(value, { stream: true });
+        update(index, { answer });
+      }
+      update(index, { answer, done: true });
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        update(index, { done: true });
+      } else {
+        update(index, { error: 'The connection dropped before LabBot finished. Try again.', done: true });
+      }
+    } finally {
+      setBusy(false);
+      abort.current = null;
+      box.current?.focus();
     }
   }
 
@@ -76,8 +129,6 @@ export function LabBotPanel({
 
   return (
     <>
-      {/* Bottom right on every page and every screen size. It was a thin
-          sideways tab on wide screens only, and people did not find it. */}
       <button
         type="button"
         onClick={toggle}
@@ -94,200 +145,127 @@ export function LabBotPanel({
       </button>
 
       {/* Display is controlled by classes, not the hidden attribute: a
-          Tailwind display utility beats the attribute's user-agent style, so
-          `hidden` alone would leave the panel permanently open on wide
-          screens. */}
+          Tailwind display utility beats the attribute's user-agent style. */}
       <aside
         id="labbot-panel"
         aria-hidden={!open}
         className={cx(
-          'fixed inset-0 z-40 flex-col bg-surface sm:inset-auto sm:right-0 sm:top-0 sm:h-dvh sm:w-[26rem] sm:border-l sm:border-line sm:shadow-xl',
+          'fixed inset-0 z-40 flex-col bg-surface sm:inset-auto sm:right-0 sm:top-0 sm:h-dvh sm:w-[28rem] sm:border-l sm:border-line sm:shadow-xl',
           open ? 'flex' : 'hidden',
         )}
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-3">
           <div>
             <h2 className="text-sm font-semibold tracking-tight">LabBot</h2>
-            <p className="text-xs text-muted">Answers from your records, with the evidence.</p>
+            <p className="text-xs text-muted">Knows your lab&rsquo;s experiments, files, chat, tasks and calendar.</p>
           </div>
-          <button
-            type="button"
-            onClick={toggle}
-            className="rounded-lg px-2 py-1 text-sm text-muted hover:bg-raised hover:text-fg"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-1">
+            {turns.length > 0 && !busy ? (
+              <button
+                type="button"
+                onClick={() => setTurns([])}
+                className="rounded-lg px-2 py-1 text-sm text-muted hover:bg-raised hover:text-fg"
+              >
+                New chat
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={toggle}
+              className="rounded-lg px-2 py-1 text-sm text-muted hover:bg-raised hover:text-fg"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
         {!configured ? (
           <p className="border-b border-line bg-warn/5 px-5 py-3 text-sm text-warn">
-            LabBot is not switched on for this site yet. It needs an AI key added on the
-            server. Everything else works without it.
+            LabBot is not switched on for this site yet. It needs an AI key added on the server.
+            Everything else works without it.
           </p>
         ) : null}
 
-        {projects.length === 0 ? (
-          <p className="px-5 py-4 text-sm text-muted">
-            LabBot answers from a project&rsquo;s own records. Create a project first, then ask
-            it anything about the work.
-          </p>
-        ) : (
-        <form action={action} className="space-y-3 border-b border-line px-5 py-4">
-          <input type="hidden" name="projectId" value={projectId} />
-          <label className="sr-only" htmlFor="labbot-project">
-            Project
-          </label>
-          <Select
-            id="labbot-project"
-            value={projectId}
-            onChange={(e) => choose(e.target.value)}
-            className="h-9 text-sm"
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </Select>
+        <div ref={scroller} id="labbot-messages" className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
+          {turns.length === 0 ? (
+            <div className="space-y-3 text-sm text-muted">
+              <p>Ask anything about your lab. For example:</p>
+              <ul className="space-y-1.5">
+                {[
+                  'What did we find in the last run?',
+                  'What does the gel protocol say about loading volume?',
+                  'What is due this week, and who has it?',
+                  'What did Ana say in chat about the column?',
+                ].map((example) => (
+                  <li key={example}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraft(example);
+                        box.current?.focus();
+                      }}
+                      className="text-left underline decoration-line underline-offset-2 hover:text-fg"
+                    >
+                      {example}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            turns.map((turn, i) => (
+              <div key={i} className="space-y-3">
+                <div className="ml-10 whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2 text-sm">
+                  {turn.question}
+                </div>
+                {turn.answer ? <ChatMarkdown text={turn.answer} /> : null}
+                {!turn.done && !turn.answer ? (
+                  <p role="status" className="text-sm text-muted">
+                    Reading your lab… {waited > 0 ? `${waited}s` : ''}
+                  </p>
+                ) : null}
+                {turn.error ? <p className="text-sm text-danger">{turn.error}</p> : null}
+              </div>
+            ))
+          )}
+        </div>
+
+        <form onSubmit={ask} className="border-t border-line px-4 py-3">
           <label className="sr-only" htmlFor="labbot-question">
             Question
           </label>
-          <Textarea
-            id="labbot-question"
-            name="question"
-            rows={3}
-            required
-            placeholder="What should we try next? Why did EXP-004 differ from EXP-003?"
-          />
-          <SubmitButton size="sm" pendingLabel="Reading your records…" disabled={!configured}>
-            Ask
-          </SubmitButton>
-          <AskProgress />
+          <div className="flex items-end gap-2">
+            <Textarea
+              ref={box}
+              id="labbot-question"
+              rows={2}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  void ask();
+                }
+              }}
+              placeholder={turns.length > 0 ? 'Ask a follow-up…' : 'Ask LabBot anything about your lab…'}
+              className="!min-h-[2.75rem] flex-1 resize-none text-sm"
+              disabled={!configured}
+            />
+            {busy ? (
+              <Button type="button" size="sm" tone="secondary" onClick={() => abort.current?.abort()}>
+                Stop
+              </Button>
+            ) : (
+              <Button type="submit" size="sm" disabled={!configured || draft.trim().length === 0}>
+                Send
+              </Button>
+            )}
+          </div>
+          <p className="mt-1.5 text-[11px] text-subtle">
+            Enter to send, Shift+Enter for a new line. Only uses what you can see yourself.
+          </p>
         </form>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {state.error ? <p className="text-sm text-danger">{state.error}</p> : null}
-          {state.literatureNote ? (
-            <p className="mb-3 text-xs text-warn">{state.literatureNote}</p>
-          ) : null}
-
-          {state.answer ? (
-            <div className="space-y-4">
-              <p className="text-sm leading-6">{state.answer.answer}</p>
-
-              {state.answer.suggestions?.length ? (
-                <section>
-                  <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-subtle">
-                    What to do next
-                  </h3>
-                  <ul className="space-y-1.5">
-                    {state.answer.suggestions.map((step: string) => (
-                      <li key={step} className="text-sm leading-6 text-muted">
-                        {step}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-
-              {state.answer.whoToAsk?.length ? (
-                <section>
-                  <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-subtle">
-                    Who to ask
-                  </h3>
-                  <ul className="space-y-1.5">
-                    {state.answer.whoToAsk.map((who: string) => (
-                      <li key={who} className="text-sm leading-6 text-muted">
-                        {who}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-
-              {state.evidence?.length ? (
-                <section>
-                  <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-subtle">
-                    Based on
-                  </h3>
-                  <ul className="space-y-1">
-                    {state.evidence.map((e) => (
-                      <li key={`${e.type}-${e.id}`} className="text-sm">
-                        {e.type === 'experiment' ? (
-                          <Link
-                            href={`/experiments/${e.id}`}
-                            className="underline underline-offset-2 hover:text-fg"
-                          >
-                            {e.label}
-                          </Link>
-                        ) : (
-                          <span className="text-muted">{e.label}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-
-              {state.literature?.length ? (
-                <section>
-                  <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-subtle">
-                    From PubMed
-                  </h3>
-                  <ul className="space-y-2">
-                    {state.literature.map((a) => (
-                      <li key={a.pmid} className="text-sm leading-6">
-                        <a
-                          href={a.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline underline-offset-2"
-                        >
-                          {a.title}
-                        </a>
-                        <span className="ml-2 align-middle">
-                          <Badge>PMID {a.pmid}</Badge>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-            </div>
-          ) : !state.error ? (
-            <p className="text-sm text-muted">
-              Ask about anything in this project. Every answer names the records it came from, so you
-              can open them and check.
-            </p>
-          ) : null}
-        </div>
       </aside>
     </>
-  );
-}
-
-/**
- * A moving counter while LabBot works. A static "Thinking…" that sits for
- * ten seconds looks exactly like one that has hung, and people gave up on it.
- */
-function AskProgress() {
-  const { pending } = useFormStatus();
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    if (!pending) {
-      setSeconds(0);
-      return;
-    }
-    const started = Date.now();
-    const id = window.setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
-    return () => window.clearInterval(id);
-  }, [pending]);
-  if (!pending) return null;
-  return (
-    <p role="status" className="text-xs text-muted">
-      Working… {seconds}s
-      {seconds >= 15 ? ' · reading every record in this project, nearly there' : ''}
-    </p>
   );
 }
