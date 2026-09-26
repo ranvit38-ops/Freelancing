@@ -1,3 +1,4 @@
+import { EmailCheck } from '@/components/email-check';
 import { InviteForm } from '@/components/invite-form';
 import { logoutAction } from '@/server/actions/auth';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -8,6 +9,7 @@ import { formatDate } from '@/lib/display';
 import { requireSession } from '@/server/authz';
 import { revokeInviteAction } from '@/server/actions/invites';
 import { listInvites, listWorkspaceMembers } from '@/server/queries';
+import { mailSetupProblem, senderAddress, usingResendTestSender } from '@/server/mailer';
 
 export const metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -114,6 +116,13 @@ export default async function SettingsPage() {
         <InviteForm canInvite={canInvite} />
 
         <CreateWorkspaceForm />
+
+        <EmailCheck
+          problem={mailSetupProblem()}
+          testSender={usingResendTestSender()}
+          from={senderAddress(process.env.EMAIL_FROM ?? '')}
+          you={session.userEmail}
+        />
 
         <Card className="p-5 lg:col-span-2">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">LabBot</h2>

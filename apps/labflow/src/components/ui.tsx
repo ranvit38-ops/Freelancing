@@ -187,7 +187,7 @@ export function FormError({ children }: { children?: ReactNode }) {
   return (
     <p
       role="alert"
-      className="rounded-lg border border-danger/25 bg-danger/5 px-3 py-2 text-sm text-danger"
+      className="break-words rounded-lg border border-danger/25 bg-danger/5 px-3 py-2 text-sm text-danger"
     >
       {children}
     </p>

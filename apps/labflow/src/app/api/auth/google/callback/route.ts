@@ -11,6 +11,7 @@ import { randomToken } from '@/lib/oauth';
 import { TRIAL_DAYS } from '@/lib/plans';
 import { createSession, selectWorkspace } from '@/server/auth';
 import { absoluteUrl } from '@/server/mailer';
+import { joinedLabEmail, sendConfirmation, welcomeEmail } from '@/server/account-emails';
 import { joinByCode, joinWouldBeRefused } from '@/server/join';
 import {
   GoogleAuthError,
@@ -89,6 +90,8 @@ export async function GET(request: Request) {
   }
 
   let userId = existing[0]?.id;
+  const isNewAccount = !userId;
+  let ownLabName = '';
   if (!userId) {
     // No password is set: this account signs in with Google until it sets one
     // through the reset flow. The column is not nullable, so it holds a value
@@ -105,6 +108,7 @@ export async function GET(request: Request) {
       if (invite || joinTarget) return { userId: user.id, workspaceId: '' };
 
       const workspaceName = `${profile.name.split(' ')[0]}'s Lab`;
+      ownLabName = workspaceName;
       const [workspace] = await tx
         .insert(workspaces)
         .values({ name: workspaceName, slug: `${slugify(workspaceName)}-${randomToken(3)}` })
@@ -129,12 +133,26 @@ export async function GET(request: Request) {
 
   // The lab the link named is where they land, even if they had one already.
   let landIn: string | null = null;
+  let joinedLab: string | null = null;
   if (invite) {
     await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
     landIn = invite.workspaceId;
+    joinedLab = invite.workspaceName;
   } else if (joinTarget) {
     const outcome = await joinByCode(joinCode!, userId);
     if (outcome.status === 'joined' || outcome.status === 'already') landIn = outcome.workspaceId;
+    if (outcome.status === 'joined') joinedLab = outcome.workspaceName;
+  }
+
+  // Not awaited: signing in must not wait on, or fail because of, email.
+  if (isNewAccount) {
+    const joined = Boolean(joinedLab);
+    sendConfirmation(email, joined ? '/start' : '/dashboard', (link) =>
+      welcomeEmail({ name: profile.name, labName: joinedLab ?? (ownLabName || 'your lab'), joined, link }),
+    );
+  } else if (joinedLab) {
+    const lab = joinedLab;
+    sendConfirmation(email, '/start', (link) => joinedLabEmail({ name: profile.name, labName: lab, link }));
   }
 
   // The deployment owner is comped rather than trialled. Checked on every

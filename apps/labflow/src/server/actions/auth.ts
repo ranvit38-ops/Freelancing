@@ -15,6 +15,7 @@ import { isDisposableEmail } from '@/lib/trial-eligibility';
 import { seedExampleProject } from '../example-project';
 import { acceptInvite, findInviteByToken, findWorkspaceByJoinCode, startTrial } from '../queries';
 import { createSession, destroySession, getSession, selectWorkspace } from '../auth';
+import { joinedLabEmail, sendConfirmation, welcomeEmail } from '../account-emails';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, publicBaseUrl, sendEmail } from '../mailer';
 import { headers } from 'next/headers';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
@@ -43,6 +44,11 @@ function throttle(
   const blocked = checks.find((c) => !c!.ok);
   if (!blocked) return null;
   return { error: `Too many attempts. Try again in ${blocked!.retryAfterSec} seconds.` };
+}
+
+/** A new lab for an account that already existed: tell them where it is. */
+function confirmJoined(email: string, name: string, labName: string) {
+  sendConfirmation(email, '/start', (link) => joinedLabEmail({ name, labName, link }));
 }
 
 /** Computed once; its only job is to make an unknown-email login cost the same. */
@@ -143,6 +149,10 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
       // An empty workspace is a worse first run, not a broken one.
     }
   }
+  const labName = invite?.workspaceName ?? joinTarget?.name ?? parsed.data.workspaceName ?? 'your lab';
+  sendConfirmation(email, joined ? '/start' : '/dashboard', (link) =>
+    welcomeEmail({ name: parsed.data.name, labName, joined, link }),
+  );
   await createSession(userId);
   redirect(joined ? '/start?joined=1' : '/dashboard');
 }
@@ -157,7 +167,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
 
   const email = normaliseEmail(parsed.data.email);
   const rows = await db
-    .select({ id: users.id, passwordHash: users.passwordHash })
+    .select({ id: users.id, name: users.name, passwordHash: users.passwordHash })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
@@ -189,6 +199,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
       await acceptInvite(invite.id, invite.workspaceId, user.id, invite.role);
       selectWorkspace(invite.workspaceId);
       joined = true;
+      confirmJoined(email, user.name, invite.workspaceName);
     }
   }
 
@@ -201,6 +212,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
       selectWorkspace(outcome.workspaceId);
       joined = true;
     }
+    if (outcome.status === 'joined') confirmJoined(email, user.name, outcome.workspaceName);
   }
 
   await createSession(user.id);
@@ -228,11 +240,13 @@ export async function joinLabAction(_prev: ActionState, formData: FormData): Pro
     if (!invite) return { error: 'That invitation has already been used or has expired.' };
     await acceptInvite(invite.id, invite.workspaceId, session.userId, invite.role);
     selectWorkspace(invite.workspaceId);
+    confirmJoined(session.userEmail, session.userName, invite.workspaceName);
   } else {
     const outcome = await joinByCode(joinCode, session.userId);
     const refusal = joinRefusalMessage(outcome);
     if (refusal) return { error: refusal };
     if (outcome.status === 'joined' || outcome.status === 'already') selectWorkspace(outcome.workspaceId);
+    if (outcome.status === 'joined') confirmJoined(session.userEmail, session.userName, outcome.workspaceName);
   }
   revalidatePath('/', 'layout');
   redirect('/start?joined=1');
