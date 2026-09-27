@@ -1,10 +1,10 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { rateLimit } from '@/lib/rate-limit';
 import { getSession } from '@/server/auth';
 import { blockedReason } from '@/server/paywall';
 import { recordAiGeneration } from '@/server/queries';
+import { streamAnswer } from '@/server/ai/stream';
 import { LABBOT_RULES, buildLabContext, labbotMessages, type Turn } from '@/server/ai/labbot';
 
 export const runtime = 'nodejs';
@@ -56,62 +56,14 @@ export async function POST(request: Request) {
   // previous question helps decide which records are relevant.
   const context = await buildLabContext(session, `${question} ${history.at(-1)?.question ?? ''}`);
   const model = env().LABFLOW_LABBOT_MODEL;
-  const client = new Anthropic({ apiKey, timeout: 60_000, maxRetries: 1 });
-
-  const stream = client.messages.stream({
+  return streamAnswer({
     model,
-    max_tokens: 4096,
     system: LABBOT_RULES,
     messages: labbotMessages(context, question, history),
-  });
-
-  // Wait for the first words before answering the browser, so a refused key
-  // or an empty account is a clear error rather than a blank answer.
-  const events = stream[Symbol.asyncIterator]();
-  let first = '';
-  try {
-    for (;;) {
-      const next = await events.next();
-      if (next.done) break;
-      const event = next.value;
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        first = event.delta.text;
-        break;
-      }
-    }
-  } catch (error) {
-    return NextResponse.json({ error: explain(error) }, { status: 502 });
-  }
-
-  const encoder = new TextEncoder();
-  let answer = first;
-  const readable = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      if (first) controller.enqueue(encoder.encode(first));
-      try {
-        for (;;) {
-          const next = await events.next();
-          if (next.done) break;
-          const event = next.value;
-          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-            answer += event.delta.text;
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
-        }
-        const final = await stream.finalMessage();
-        if (final.stop_reason === 'refusal') {
-          controller.enqueue(encoder.encode('\n\nLabBot declined to answer this one.'));
-        } else if (final.stop_reason === 'max_tokens') {
-          controller.enqueue(encoder.encode('\n\n(Cut short. Ask for the rest.)'));
-        }
-      } catch (error) {
-        controller.enqueue(encoder.encode(`\n\nLabBot stopped: ${explain(error)}`));
-      } finally {
-        controller.close();
-      }
-      // Kept like every other AI answer, with what it was given, so an answer
-      // can be traced back to its records later.
-      await recordAiGeneration(session, {
+    // Kept like every other AI answer, with what it was given, so an answer
+    // can be traced back to its records later.
+    onDone: (answer) =>
+      recordAiGeneration(session, {
         projectId: null,
         experimentId: null,
         kind: 'project_answer',
@@ -119,31 +71,6 @@ export async function POST(request: Request) {
         output: { answer },
         evidence: context.sources.slice(0, 30).map((label) => ({ type: 'source', id: label, label })),
         model,
-      }).catch(() => {});
-    },
-    cancel() {
-      stream.abort();
-    },
+      }),
   });
-
-  return new Response(readable, {
-    headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no' },
-  });
-}
-
-function explain(error: unknown): string {
-  if (error instanceof Anthropic.AuthenticationError) {
-    return 'The AI key on the server was rejected. Create a new key at console.anthropic.com and replace ANTHROPIC_API_KEY.';
-  }
-  if (error instanceof Anthropic.PermissionDeniedError) return 'The AI key on the server is not allowed to use this model.';
-  if (error instanceof Anthropic.RateLimitError) return 'Too many questions at once for the AI account. Wait a moment and ask again.';
-  if (error instanceof Anthropic.BadRequestError) {
-    return /credit balance/i.test(error.message)
-      ? 'The AI account is out of credit. Add credit at console.anthropic.com → Billing.'
-      : `The AI service refused the request: ${error.message}`;
-  }
-  if (error instanceof Anthropic.APIConnectionTimeoutError) return 'The AI service took too long to answer. Try again.';
-  if (error instanceof Anthropic.APIConnectionError) return 'The AI service could not be reached. Try again in a moment.';
-  if (error instanceof Anthropic.APIError) return `The AI service had a problem (${error.status ?? 'no status'}). Try again.`;
-  return 'Something went wrong while answering. Try again.';
 }

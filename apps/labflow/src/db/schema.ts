@@ -356,6 +356,10 @@ export const files = pgTable(
     uploadedById: uuid('uploaded_by_id').references(() => users.id, { onDelete: 'set null' }),
     /** Visible only to its uploader. See migration 0014. */
     private: boolean('private').notNull().default(false),
+    /** Written and edited inside Labvia rather than uploaded. See migration 0018. */
+    isDocument: boolean('is_document').notNull().default(false),
+    updatedAt: timestamp('updated_at', { withTimezone: true }),
+    updatedById: uuid('updated_by_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },
   (t) => ({ wsIdx: index('files_workspace_id_idx').on(t.workspaceId) }),

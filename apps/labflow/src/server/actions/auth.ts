@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { randomBytes, createHash } from 'node:crypto';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
 import { db } from '@/db';
 import { passwordResetTokens, users, workspaceMembers, workspaces } from '@/db/schema';
 import { hashPassword, verifyPassword } from '@/lib/password';
@@ -15,6 +15,7 @@ import { isDisposableEmail } from '@/lib/trial-eligibility';
 import { seedExampleProject } from '../example-project';
 import { acceptInvite, findInviteByToken, findWorkspaceByJoinCode, startTrial } from '../queries';
 import { createSession, destroySession, getSession, selectWorkspace } from '../auth';
+import { removeWorkspaceFiles } from '../storage';
 import { joinedLabEmail, sendConfirmation, welcomeEmail } from '../account-emails';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, publicBaseUrl, sendEmail } from '../mailer';
 import { headers } from 'next/headers';
@@ -384,4 +385,50 @@ export async function resetPasswordAction(
     .where(eq(passwordResetTokens.id, reset.id));
 
   return { ok: true, message: 'Password updated. You can log in now.' };
+}
+
+/**
+ * Deletes the signed-in account.
+ *
+ * Labs where this is the only person go with it, records and files included.
+ * Labs with other people stay: what this person recorded belongs to the lab
+ * and remains there, unattributed. A lab never loses its last owner this way;
+ * if this person is it, they are asked to hand over first.
+ */
+export async function deleteAccountAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) redirect('/login');
+  if (normaliseEmail(String(formData.get('confirm') ?? '')) !== normaliseEmail(session.userEmail)) {
+    return { error: `Type your email address (${session.userEmail}) to confirm.` };
+  }
+
+  const mine = await db
+    .select({ workspaceId: workspaceMembers.workspaceId, role: workspaceMembers.role, name: workspaces.name })
+    .from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+    .where(eq(workspaceMembers.userId, session.userId));
+
+  const soleMember: string[] = [];
+  const needsHandover: string[] = [];
+  for (const lab of mine) {
+    const others = await db
+      .select({ role: workspaceMembers.role })
+      .from(workspaceMembers)
+      .where(and(eq(workspaceMembers.workspaceId, lab.workspaceId), ne(workspaceMembers.userId, session.userId)));
+    if (others.length === 0) soleMember.push(lab.workspaceId);
+    else if (lab.role === 'owner' && !others.some((o) => o.role === 'owner')) needsHandover.push(lab.name);
+  }
+  if (needsHandover.length > 0) {
+    return {
+      error: `You are the only owner of ${needsHandover.join(', ')}. Make someone else an owner there first (Settings → People), then delete your account.`,
+    };
+  }
+
+  await db.transaction(async (tx) => {
+    if (soleMember.length > 0) await tx.delete(workspaces).where(inArray(workspaces.id, soleMember));
+    await tx.delete(users).where(eq(users.id, session.userId));
+  });
+  for (const id of soleMember) await removeWorkspaceFiles(id).catch(() => {});
+  await destroySession();
+  redirect('/?account=deleted');
 }

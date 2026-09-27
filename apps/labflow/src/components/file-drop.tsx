@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { AudiencePicker, useAudience, type Member } from './audience-picker';
+import { DriveImport } from './drive-import';
 
 /**
  * Upload straight to the lab's files, from the Files page.
@@ -11,7 +12,14 @@ import { AudiencePicker, useAudience, type Member } from './audience-picker';
  * experiment or a chat message. Sometimes a file is just a file — the
  * safety sheet, the grant, the slides from group meeting.
  */
-export function FileDrop({ members }: { members: Member[] }) {
+export function FileDrop({
+  members,
+  drive,
+}: {
+  members: Member[];
+  /** Google Drive import settings; null when it is not switched on. */
+  drive?: { clientId: string | null; apiKey: string | null; appId: string | null };
+}) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
@@ -110,6 +118,7 @@ export function FileDrop({ members }: { members: Member[] }) {
         chosen={audience.chosen}
         onChoose={audience.setChosen}
       />
+      {drive ? <DriveImport {...drive} audience={audience} /> : null}
       {notice ? (
         <p role="status" className="rounded-lg bg-ok/10 px-3 py-2 text-sm text-ok">
           {notice}

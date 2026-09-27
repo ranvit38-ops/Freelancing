@@ -52,7 +52,7 @@ const features = [
   },
 ];
 
-export default async function LandingPage() {
+export default async function LandingPage({ searchParams }: { searchParams?: { account?: string } }) {
   const session = await getSession();
   const primaryHref = session ? '/dashboard' : '/signup';
   const primaryLabel = session ? 'Open your lab' : 'Start a lab';
@@ -94,6 +94,11 @@ export default async function LandingPage() {
       </header>
 
       <main>
+        {searchParams?.account === 'deleted' ? (
+          <p role="status" className="mx-auto mt-4 max-w-3xl rounded-lg border border-line bg-raised px-4 py-2 text-center text-sm text-muted">
+            Your account has been deleted. Thank you for trying Labvia.
+          </p>
+        ) : null}
         {/* Hero */}
         <section className="mx-auto max-w-6xl px-6 pb-16 pt-20 sm:pt-28">
           <div className="max-w-3xl animate-fade-up">

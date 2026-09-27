@@ -615,3 +615,115 @@ suite('sharing with chosen people, and direct messages', () => {
     expect(await ctx.q.calendarFeed('b'.repeat(32), '2026-09-25')).toBeNull();
   });
 });
+
+suite('who is in the lab, and deleting it', () => {
+  let ctx: Ctx;
+  let cy: SessionContext;
+  let dot: SessionContext;
+
+  beforeAll(async () => {
+    ctx = await setup();
+    const make = async (name: string, role: 'admin' | 'member') => {
+      const [user] = await ctx.db
+        .insert(ctx.schema.users)
+        .values({ email: `${name.toLowerCase()}-${randomUUID().slice(0, 8)}@test.local`, name, passwordHash: 'x' })
+        .returning({ id: ctx.schema.users.id, email: ctx.schema.users.email });
+      await ctx.db.insert(ctx.schema.workspaceMembers).values({ workspaceId: ctx.wsA.id, userId: user!.id, role });
+      return { ...ctx.sessionA, userId: user!.id, userName: name, userEmail: user!.email, role };
+    };
+    cy = await make('Cy', 'admin');
+    dot = await make('Dot', 'member');
+  });
+
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.schema.workspaces).where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db
+      .delete(ctx.schema.users)
+      .where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId, cy.userId, dot.userId]));
+  });
+
+  it('never lets a lab lose its last owner', async () => {
+    await expect(ctx.q.setMemberRole(ctx.sessionA, ctx.sessionA.userId, 'admin')).rejects.toBeInstanceOf(
+      ctx.q.MembershipRefusedError,
+    );
+    await expect(ctx.q.leaveWorkspace(ctx.sessionA)).rejects.toBeInstanceOf(ctx.q.MembershipRefusedError);
+  });
+
+  it('lets only an owner change roles, and an admin remove members but not owners', async () => {
+    await expect(ctx.q.setMemberRole(cy, dot.userId, 'admin')).rejects.toBeInstanceOf(ctx.q.MembershipRefusedError);
+    await expect(ctx.q.removeMember(cy, ctx.sessionA.userId)).rejects.toBeInstanceOf(ctx.q.MembershipRefusedError);
+    await ctx.q.setMemberRole(ctx.sessionA, cy.userId, 'owner');
+    // Two owners now: the first may step down.
+    await ctx.q.setMemberRole(ctx.sessionA, ctx.sessionA.userId, 'admin');
+    await ctx.q.setMemberRole({ ...cy, role: 'owner' }, ctx.sessionA.userId, 'owner');
+    await ctx.q.removeMember(cy, dot.userId);
+    const left = (await ctx.q.listWorkspaceMembers(ctx.sessionA)).map((m) => m.id);
+    expect(left).not.toContain(dot.userId);
+  });
+
+  it('refuses a membership change aimed at another lab', async () => {
+    await expect(ctx.q.removeMember(ctx.sessionA, ctx.sessionB.userId)).rejects.toBeInstanceOf(ctx.q.MembershipRefusedError);
+  });
+
+  it('deletes a lab with its records and stored files, only when its name is typed', async () => {
+    const { putFile, getFile, removeWorkspaceFiles, FileGoneError } = await import('./storage');
+    const projectId = await ctx.q.createProject(ctx.sessionB, {
+      name: 'To be deleted',
+      description: null,
+      researchQuestion: null,
+      status: 'active',
+      tags: [],
+    });
+    const key = await putFile(ctx.wsB.id, 'notes.txt', Buffer.from('bye'));
+    await expect(ctx.q.deleteWorkspace(ctx.sessionB, 'Lab b')).rejects.toBeInstanceOf(ctx.q.MembershipRefusedError);
+    await ctx.q.deleteWorkspace(ctx.sessionB, 'Lab B');
+    await removeWorkspaceFiles(ctx.wsB.id);
+    const { eq } = await import('drizzle-orm');
+    expect(await ctx.db.select().from(ctx.schema.projects).where(eq(ctx.schema.projects.id, projectId))).toEqual([]);
+    await expect(getFile(key)).rejects.toBeInstanceOf(FileGoneError);
+  });
+});
+
+suite('importing from Google Drive', () => {
+  let ctx: Ctx;
+  beforeAll(async () => {
+    ctx = await setup();
+  });
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.schema.workspaces).where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db.delete(ctx.schema.users).where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId]));
+  });
+
+  it('copies picked files in, exporting Google formats, and explains what it could not take', async () => {
+    const { importDriveFiles } = await import('./drive-import');
+    const requested: string[] = [];
+    const fake = (async (url: string, init: RequestInit) => {
+      requested.push(`${url} ${(init.headers as Record<string, string>).authorization}`);
+      if (url.includes('/nope1234567')) return new Response('no', { status: 403 });
+      return new Response(Buffer.from('bytes-of-the-file'), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const results = await importDriveFiles(
+      ctx.sessionA,
+      'token-abc',
+      [
+        { id: 'sheet123456', name: 'Plate run 4', mimeType: 'application/vnd.google-apps.spreadsheet' },
+        { id: 'nope1234567', name: 'secret.pdf', mimeType: 'application/pdf' },
+        { id: 'folder12345', name: 'Everything', mimeType: 'application/vnd.google-apps.folder' },
+      ],
+      { kind: 'everyone' },
+      fake,
+    );
+
+    expect(results[0]).toMatchObject({ name: 'Plate run 4.xlsx' });
+    expect(results[0]!.fileId).toBeTruthy();
+    expect(results[1]!.error).toMatch(/did not let Labvia read/);
+    expect(results[2]!.error).toMatch(/Folders/);
+    expect(requested[0]).toContain('/export?mimeType=application%2Fvnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    expect(requested[0]).toContain('Bearer token-abc');
+    const listed = await ctx.q.listFiles(ctx.sessionA);
+    expect(listed.map((f) => f.filename)).toContain('Plate run 4.xlsx');
+  });
+});

@@ -1,4 +1,4 @@
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { env } from '@/lib/env';
@@ -119,6 +119,16 @@ export async function removeFile(storageKey: string): Promise<void> {
   } catch {
     // Already gone, or never written. Nothing to do.
   }
+}
+
+/**
+ * Deletes every stored file of a workspace, after the workspace itself is
+ * gone. Keys are always `<workspaceId>/<uuid>.<ext>`, so the prefix is exact.
+ */
+export async function removeWorkspaceFiles(workspaceId: string): Promise<void> {
+  if (!/^[0-9a-f-]{36}$/.test(workspaceId)) throw new Error('Invalid workspace id');
+  await pool.query("delete from file_blobs where storage_key like $1", [`${workspaceId}/%`]);
+  await rm(join(root(), workspaceId), { recursive: true, force: true });
 }
 
 /** Uploads above this are rejected rather than silently truncated. */

@@ -8,11 +8,12 @@ import type { ComponentProps } from 'react';
 export function SubmitButton({
   children,
   pendingLabel,
+  disabled,
   ...props
 }: ComponentProps<typeof Button> & { pendingLabel?: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" aria-busy={pending} disabled={pending} {...props}>
+    <Button type="submit" aria-busy={pending} disabled={pending || disabled} {...props}>
       {pending ? (pendingLabel ?? 'Working…') : children}
     </Button>
   );

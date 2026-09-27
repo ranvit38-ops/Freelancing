@@ -116,7 +116,13 @@ function resendBase(): string {
  * attempt that did go through is not delivered twice.
  */
 export async function sendEmail(
-  message: { to: string; subject: string; text: string; replyTo?: string },
+  message: {
+    to: string;
+    subject: string;
+    text: string;
+    replyTo?: string;
+    attachments?: { filename: string; content: Buffer }[];
+  },
   fetchImpl: typeof fetch = fetch,
   { retryDelayMs = 1500 }: { retryDelayMs?: number } = {},
 ): Promise<{ id: string | null }> {
@@ -134,6 +140,9 @@ export async function sendEmail(
     // nowhere. This puts the researcher in the reply field instead: hitting
     // reply in a normal mail client reaches the person who wrote it.
     ...(message.replyTo ? { reply_to: [message.replyTo] } : {}),
+    ...(message.attachments?.length
+      ? { attachments: message.attachments.map((a) => ({ filename: a.filename, content: a.content.toString('base64') })) }
+      : {}),
   });
 
   const attempt = async (): Promise<{ id: string | null } | MailSendError> => {

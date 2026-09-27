@@ -141,9 +141,11 @@ Stated plainly rather than stubbed with buttons that do nothing:
   only uncovered line.
 - **Full-text search.** Search is `ILIKE` across the record, fast and honest at
   lab scale. A `tsvector` column is the upgrade when a lab has thousands of runs.
-- **Drive/OneDrive file sync.** Links are stored, files are not copied, see
-  above. OAuth sync is a deliberate non-goal until a lab asks for it.
-- **Real-time chat.** Discussion reloads on post; no websockets.
+- **Two-way Drive sync.** Files can be imported from Google Drive (copied in,
+  picked with the `drive.file` scope) and Drive links can be pasted, but later
+  edits in Drive do not flow back. OneDrive import is not built.
+- **Websocket chat.** Chat polls every two seconds, which is live enough for
+  a lab; websockets are the upgrade if that ever is not.
 - **Instrument and ELN integrations.** Absent until there is a real client and
   real API docs.
 

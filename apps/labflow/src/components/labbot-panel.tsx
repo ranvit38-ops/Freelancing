@@ -19,9 +19,12 @@ type Turn = { question: string; answer: string; error?: string; done: boolean };
  */
 export function LabBotPanel({
   configured,
+  people,
 }: {
   /** False when the server has no model key, so the panel says so before anyone types. */
   configured: boolean;
+  /** Lab members, for emailing an answer. */
+  people: { id: string; name: string; you: boolean }[];
 }) {
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -219,6 +222,9 @@ export function LabBotPanel({
                   {turn.question}
                 </div>
                 {turn.answer ? <ChatMarkdown text={turn.answer} /> : null}
+                {turn.done && turn.answer && !turn.error ? (
+                  <AnswerActions question={turn.question} answer={turn.answer} people={people} />
+                ) : null}
                 {!turn.done && !turn.answer ? (
                   <p role="status" className="text-sm text-muted">
                     Reading your lab… {waited > 0 ? `${waited}s` : ''}
@@ -267,5 +273,105 @@ export function LabBotPanel({
         </form>
       </aside>
     </>
+  );
+}
+
+/**
+ * What to do with an answer worth keeping: make it a document (private to
+ * you at first, since it may draw on your own direct messages), or email it.
+ */
+function AnswerActions({
+  question,
+  answer,
+  people,
+}: {
+  question: string;
+  answer: string;
+  people: { id: string; name: string; you: boolean }[];
+}) {
+  const [saved, setSaved] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'save' | 'email' | null>(null);
+  const [emailing, setEmailing] = useState(false);
+  const [to, setTo] = useState<string[]>([]);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function saveDoc() {
+    setBusy('save');
+    setNote(null);
+    const title = question.replace(/\s+/g, ' ').trim().slice(0, 80) || 'LabBot answer';
+    const response = await fetch('/api/docs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title, body: answer, private: true }),
+    }).catch(() => null);
+    const data = (await response?.json().catch(() => null)) as { href?: string; error?: string } | null;
+    if (response?.ok && data?.href) setSaved(data.href);
+    else setNote({ ok: false, text: data?.error ?? 'Could not save. Try again.' });
+    setBusy(null);
+  }
+
+  async function send() {
+    if (to.length === 0) return;
+    setBusy('email');
+    setNote(null);
+    const response = await fetch('/api/labbot/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ to, question, answer }),
+    }).catch(() => null);
+    const data = (await response?.json().catch(() => null)) as { sentTo?: string[]; error?: string } | null;
+    if (response?.ok && data?.sentTo) {
+      setNote({ ok: true, text: `Emailed to ${data.sentTo.join(', ')}.` });
+      setEmailing(false);
+      setTo([]);
+    } else setNote({ ok: false, text: data?.error ?? 'Could not send. Try again.' });
+    setBusy(null);
+  }
+
+  return (
+    <div className="space-y-2 text-xs">
+      <div className="flex flex-wrap gap-2">
+        {saved ? (
+          <a href={saved} className="rounded-lg border border-ok/30 bg-ok/5 px-2.5 py-1 font-medium text-ok">
+            Saved. Open document
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void saveDoc()}
+            disabled={busy !== null}
+            className="rounded-lg border border-line px-2.5 py-1 font-medium text-muted hover:bg-raised hover:text-fg"
+          >
+            {busy === 'save' ? 'Saving…' : 'Save as document'}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setEmailing((v) => !v)}
+          className="rounded-lg border border-line px-2.5 py-1 font-medium text-muted hover:bg-raised hover:text-fg"
+        >
+          Email
+        </button>
+      </div>
+      {emailing ? (
+        <div className="space-y-1.5 rounded-lg border border-line p-2.5">
+          {people.map((p) => (
+            <label key={p.id} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={to.includes(p.id)}
+                onChange={(e) => setTo((all) => (e.target.checked ? [...all, p.id] : all.filter((x) => x !== p.id)))}
+              />
+              {p.name}
+              {p.you ? <span className="text-subtle">(you)</span> : null}
+            </label>
+          ))}
+          <Button type="button" size="sm" tone="secondary" disabled={busy !== null || to.length === 0} onClick={() => void send()}>
+            {busy === 'email' ? 'Sending…' : 'Send email'}
+          </Button>
+        </div>
+      ) : null}
+      {note ? <p className={note.ok ? 'text-ok' : 'text-danger'}>{note.text}</p> : null}
+    </div>
   );
 }

@@ -1,4 +1,6 @@
 import { EmailCheck } from '@/components/email-check';
+import { DangerZone, MemberControls } from '@/components/membership-controls';
+import { listMyWorkspaces } from '@/server/auth';
 import { InviteForm } from '@/components/invite-form';
 import { logoutAction } from '@/server/actions/auth';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -16,9 +18,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const session = await requireSession();
-  const [members, invites] = await Promise.all([
+  const [members, invites, myWorkspaces] = await Promise.all([
     listWorkspaceMembers(session),
     listInvites(session),
+    listMyWorkspaces(),
   ]);
   const canInvite = session.role !== 'member';
 
@@ -85,6 +88,15 @@ export default async function SettingsPage() {
                 </span>
                 <Badge>{m.role}</Badge>
                 <span className="hidden text-xs text-subtle sm:block">{formatDate(m.joinedAt)}</span>
+                {m.id !== session.userId && (session.role === 'owner' || (session.role === 'admin' && m.role === 'member')) ? (
+                  <MemberControls
+                    userId={m.id}
+                    role={m.role}
+                    name={m.name ?? m.email}
+                    canChangeRole={session.role === 'owner'}
+                    canRemove
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
@@ -146,6 +158,12 @@ export default async function SettingsPage() {
             are sent, and each response is stored with the evidence it was given.
           </p>
         </Card>
+        <DangerZone
+          isOwner={session.role === 'owner'}
+          labName={session.workspaceName}
+          email={session.userEmail}
+          hasOtherLabs={myWorkspaces.length > 1}
+        />
       </div>
     </>
   );

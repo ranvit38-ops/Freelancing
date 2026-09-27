@@ -4,7 +4,7 @@ import { Button } from '@/components/ui';
 import { logoutAction } from '@/server/actions/auth';
 import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
-import { listDmThreads } from '@/server/queries';
+import { listDmThreads, listWorkspaceMembers } from '@/server/queries';
 import { isOwnerEmail } from '@/server/google';
 import { ephemeralUploads, ephemeralUploadsWarning, pilotBanner, pilotMode } from '@/lib/pilot';
 import { LabBotPanel } from '@/components/labbot-panel';
@@ -49,9 +49,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await requireSession();
   // Read access is never blocked, only writes. The banner says what applies.
   const { plan, writable, state } = await workspacePlan(session);
-  const myWorkspaces = await listMyWorkspaces();
-  // LabBot needs somewhere to answer about; with no projects the panel hides
-  // itself rather than offering an empty picker.
+  const [myWorkspaces, dmThreads, members] = await Promise.all([
+    listMyWorkspaces(),
+    listDmThreads(session),
+    listWorkspaceMembers(session),
+  ]);
 
   // The owner link is added for the owner alone. Everyone else never sees the
   // route exists, and the page itself refuses them regardless of the nav.
@@ -61,7 +63,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : footer;
   // Unread direct messages, including files shared with just you, show on
   // Chat: a share nobody notices is a share nobody opens.
-  const unreadDms = (await listDmThreads(session)).filter((t) => t.unread).length;
+  const unreadDms = dmThreads.filter((t) => t.unread).length;
   const items = navItems.map((item) => (item.href === '/chat' && unreadDms ? { ...item, badge: unreadDms } : item));
 
   // Only worth showing once a user actually belongs to more than one lab.
@@ -196,7 +198,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {children}
         </div>
       </main>
-      <LabBotPanel configured={Boolean(process.env.ANTHROPIC_API_KEY)} />
+      <LabBotPanel
+        configured={Boolean(process.env.ANTHROPIC_API_KEY)}
+        people={members.map((m) => ({ id: m.id, name: m.name ?? m.email, you: m.id === session.userId }))}
+      />
     </div>
   );
 }

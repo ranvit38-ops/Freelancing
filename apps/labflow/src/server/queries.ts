@@ -718,11 +718,17 @@ export async function recordFile(
     byteSize: number;
     storageKey: string;
     private?: boolean;
+    isDocument?: boolean;
   },
 ) {
   const rows = await db
     .insert(files)
-    .values({ ...input, workspaceId: s.workspaceId, uploadedById: s.userId })
+    .values({
+      ...input,
+      workspaceId: s.workspaceId,
+      uploadedById: s.userId,
+      ...(input.isDocument ? { updatedAt: new Date(), updatedById: s.userId } : {}),
+    })
     .returning({ id: files.id });
   return assertFound(rows[0], 'File').id;
 }
@@ -795,6 +801,81 @@ export async function getFileForDownload(s: SessionContext, fileId: string) {
     .where(and(eq(files.id, fileId), fileVisibleTo(s)))
     .limit(1);
   return assertFound(rows[0], 'File');
+}
+
+/* ── documents ──────────────────────────────────────────────────────────── */
+
+/** Someone saved the document after this copy was opened. */
+export class DocumentConflictError extends Error {
+  constructor(readonly byName: string | null) {
+    super(
+      `${byName ?? 'Someone'} saved this document while you were editing it. Copy your changes, reload to see theirs, then add yours back.`,
+    );
+    this.name = 'DocumentConflictError';
+  }
+}
+
+/** A document this person can open, with who last changed it. */
+export async function getDocument(s: SessionContext, fileId: string) {
+  assertId(fileId, 'Document');
+  const editor = alias(users, 'document_editor');
+  const rows = await db
+    .select({
+      id: files.id,
+      filename: files.filename,
+      storageKey: files.storageKey,
+      byteSize: files.byteSize,
+      private: files.private,
+      uploadedById: files.uploadedById,
+      createdAt: files.createdAt,
+      updatedAt: files.updatedAt,
+      updatedByName: editor.name,
+    })
+    .from(files)
+    .leftJoin(editor, eq(editor.id, files.updatedById))
+    .where(and(eq(files.id, fileId), eq(files.isDocument, true), fileVisibleTo(s)))
+    .limit(1);
+  return assertFound(rows[0], 'Document');
+}
+
+/**
+ * Points a document at a newly stored version, if nobody saved in between.
+ *
+ * `baseUpdatedAt` is the version the editor opened. When the stored one is
+ * newer, saving would silently throw away a colleague's work, so it is refused
+ * and they are named instead. Returns the storage key of the version replaced,
+ * for the caller to delete.
+ */
+export async function saveDocumentVersion(
+  s: SessionContext,
+  fileId: string,
+  input: { filename: string; storageKey: string; byteSize: number; baseUpdatedAt: string | null },
+): Promise<{ replacedKey: string | null; updatedAt: Date }> {
+  const current = await getDocument(s, fileId);
+  const stamp = (d: Date | null) => (d ? d.toISOString() : null);
+  if (stamp(current.updatedAt) !== input.baseUpdatedAt) {
+    throw new DocumentConflictError(current.updatedByName);
+  }
+  const now = new Date();
+  const rows = await db
+    .update(files)
+    .set({
+      filename: input.filename,
+      storageKey: input.storageKey,
+      byteSize: input.byteSize,
+      updatedAt: now,
+      updatedById: s.userId,
+    })
+    .where(
+      and(
+        eq(files.id, fileId),
+        eq(files.workspaceId, s.workspaceId),
+        current.updatedAt ? eq(files.updatedAt, current.updatedAt) : isNull(files.updatedAt),
+      ),
+    )
+    .returning({ id: files.id });
+  if (rows.length === 0) throw new DocumentConflictError(null);
+  return { replacedKey: current.storageKey, updatedAt: now };
 }
 
 /* ── datasets ───────────────────────────────────────────────────────────── */
@@ -873,6 +954,93 @@ export async function listWorkspaceMembers(s: SessionContext) {
     .innerJoin(users, eq(users.id, workspaceMembers.userId))
     .where(eq(workspaceMembers.workspaceId, s.workspaceId))
     .orderBy(workspaceMembers.createdAt);
+}
+
+/** A change to who is in the lab that would leave it without an owner, or is not yours to make. */
+export class MembershipRefusedError extends Error {}
+
+type Role = 'owner' | 'admin' | 'member';
+
+async function ownerCount(workspaceId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.role, 'owner')));
+  return Number(row?.n ?? 0);
+}
+
+async function memberRole(workspaceId: string, userId: string): Promise<Role | null> {
+  assertId(userId, 'Person');
+  const [row] = await db
+    .select({ role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)))
+    .limit(1);
+  return (row?.role as Role | undefined) ?? null;
+}
+
+/**
+ * Changes someone's role. Only an owner may, and a lab always keeps at least
+ * one owner: the last one cannot be demoted, by themselves or anyone else.
+ */
+export async function setMemberRole(s: SessionContext, userId: string, role: Role): Promise<void> {
+  if (s.role !== 'owner') throw new MembershipRefusedError('Only an owner can change what people can do.');
+  const current = await memberRole(s.workspaceId, userId);
+  if (!current) throw new MembershipRefusedError('That person is not in this lab.');
+  if (current === 'owner' && role !== 'owner' && (await ownerCount(s.workspaceId)) <= 1) {
+    throw new MembershipRefusedError('A lab needs at least one owner. Make someone else an owner first.');
+  }
+  await db
+    .update(workspaceMembers)
+    .set({ role })
+    .where(and(eq(workspaceMembers.workspaceId, s.workspaceId), eq(workspaceMembers.userId, userId)));
+}
+
+/**
+ * Takes someone out of the lab. Owners may remove anyone but another owner's
+ * last seat; admins may remove members. What they recorded stays: the lab's
+ * records belong to the lab.
+ */
+export async function removeMember(s: SessionContext, userId: string): Promise<void> {
+  if (userId === s.userId) throw new MembershipRefusedError('Use "Leave this lab" to remove yourself.');
+  const target = await memberRole(s.workspaceId, userId);
+  if (!target) throw new MembershipRefusedError('That person is not in this lab.');
+  const allowed = s.role === 'owner' || (s.role === 'admin' && target === 'member');
+  if (!allowed) throw new MembershipRefusedError('You cannot remove this person.');
+  await db
+    .delete(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, s.workspaceId), eq(workspaceMembers.userId, userId)));
+}
+
+/** Leaves the current lab, unless that would leave it with nobody in charge. */
+export async function leaveWorkspace(s: SessionContext): Promise<void> {
+  if (s.role === 'owner' && (await ownerCount(s.workspaceId)) <= 1) {
+    const [row] = await db
+      .select({ n: count() })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.workspaceId, s.workspaceId));
+    if (Number(row?.n ?? 0) > 1) {
+      throw new MembershipRefusedError('You are the only owner. Make someone else an owner first, or delete the lab.');
+    }
+    throw new MembershipRefusedError('You are the only person in this lab. Delete it instead of leaving.');
+  }
+  await db
+    .delete(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, s.workspaceId), eq(workspaceMembers.userId, s.userId)));
+}
+
+/**
+ * Deletes the whole lab and everything in it. Owner only. Every table hangs
+ * off the workspace with ON DELETE CASCADE, so one delete removes the records;
+ * the caller removes the stored file bytes, which live outside the database's
+ * foreign keys.
+ */
+export async function deleteWorkspace(s: SessionContext, confirmName: string): Promise<void> {
+  if (s.role !== 'owner') throw new MembershipRefusedError('Only an owner can delete the lab.');
+  if (confirmName.trim() !== s.workspaceName.trim()) {
+    throw new MembershipRefusedError(`Type the lab's name exactly (${s.workspaceName}) to confirm.`);
+  }
+  await db.delete(workspaces).where(eq(workspaces.id, s.workspaceId));
 }
 
 /* ── search ─────────────────────────────────────────────────────────────── */
@@ -1412,6 +1580,8 @@ export async function listFiles(s: SessionContext) {
       private: files.private,
       uploadedById: files.uploadedById,
       storageKey: files.storageKey,
+      isDocument: files.isDocument,
+      updatedAt: files.updatedAt,
     })
     .from(files)
     .leftJoin(users, eq(users.id, files.uploadedById))

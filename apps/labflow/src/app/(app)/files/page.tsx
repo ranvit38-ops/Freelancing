@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ConfirmSubmit } from '@/components/file-upload';
 import { FileDrop } from '@/components/file-drop';
 import { FileShare } from '@/components/file-share';
+import { NewDocumentButton } from '@/components/new-document';
+import { driveAppId } from '@/lib/drive';
 import { Badge, Card, CardHeader, EmptyState, PageHeader, cx } from '@/components/ui';
 import { experimentCode, formatBytes, formatDate, pluralise } from '@/lib/display';
 import { deleteFileAction } from '@/server/actions/records';
@@ -66,7 +68,7 @@ export default async function FilesPage({
     <>
       <PageHeader
         title="Files"
-        description="Everything the lab has uploaded, and your own files. Drop a spreadsheet in and Labvia can turn it into an experiment."
+        description="Everything the lab has uploaded or written, and your own files. Write documents here, or drop a spreadsheet in and Labvia can turn it into an experiment."
       />
       {storage ? (
         <p
@@ -93,6 +95,7 @@ export default async function FilesPage({
                 My files
               </Link>
             </div>
+            <NewDocumentButton />
             <form className="flex gap-2">
               {view !== 'lab' ? <input type="hidden" name="view" value={view} /> : null}
               <label htmlFor="q" className="sr-only">
@@ -132,12 +135,22 @@ export default async function FilesPage({
                 {files.map((f) => (
                   <li key={`${f.id}:${f.experimentId ?? 'none'}`} className="px-5 py-3.5">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <a
-                        href={f.sourceUrl ?? `/api/files/${f.id}`}
-                        className="min-w-0 flex-1 truncate text-sm font-medium underline-offset-2 hover:underline"
-                      >
-                        {f.filename}
-                      </a>
+                      {f.isDocument ? (
+                        <Link
+                          href={`/docs/${f.id}`}
+                          className="min-w-0 flex-1 truncate text-sm font-medium underline-offset-2 hover:underline"
+                        >
+                          {f.filename.replace(/\.md$/i, '')}
+                        </Link>
+                      ) : (
+                        <a
+                          href={f.sourceUrl ?? `/api/files/${f.id}`}
+                          className="min-w-0 flex-1 truncate text-sm font-medium underline-offset-2 hover:underline"
+                        >
+                          {f.filename}
+                        </a>
+                      )}
+                      {f.isDocument ? <Badge tone="accent">Document</Badge> : null}
                       {f.private && f.uploadedById === session.userId ? (
                         <Badge>{shares.get(f.id)?.length ? `Shared with ${shares.get(f.id)!.map((p) => p.name).join(', ')}` : 'Only you'}</Badge>
                       ) : null}
@@ -150,7 +163,7 @@ export default async function FilesPage({
                           sharedWith={sharedIds.get(f.id) ?? []}
                         />
                       ) : null}
-                      {READABLE.test(f.filename) && !f.experimentId ? (
+                      {READABLE.test(f.filename) && !f.experimentId && !f.isDocument ? (
                         <Link
                           href={`/experiments/new?file=${f.id}`}
                           className="shrink-0 rounded-lg border border-accent/30 bg-accent/5 px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent/10"
@@ -175,8 +188,10 @@ export default async function FilesPage({
                       ) : null}
                     </div>
                     <p className="mt-1 text-xs text-muted">
-                      {formatBytes(f.byteSize)} · {formatDate(f.createdAt)}
-                      {f.uploaderName ? ` · ${f.uploaderName}` : ''}
+                      {f.isDocument
+                        ? `Edited ${formatDate(f.updatedAt ?? f.createdAt)}`
+                        : `${formatBytes(f.byteSize)} · ${formatDate(f.createdAt)}`}
+                      {f.uploaderName ? ` · ${f.isDocument ? 'started by ' : ''}${f.uploaderName}` : ''}
                       {f.experimentId ? (
                         <>
                           {' · '}
@@ -199,7 +214,14 @@ export default async function FilesPage({
         <Card>
           <CardHeader title="Upload" description="Choose who it is for. They are told when it arrives." />
           <div className="px-5 py-4">
-            <FileDrop members={others} />
+            <FileDrop
+              members={others}
+              drive={{
+                clientId: process.env.GOOGLE_API_KEY ? (process.env.GOOGLE_CLIENT_ID ?? null) : null,
+                apiKey: process.env.GOOGLE_API_KEY ?? null,
+                appId: driveAppId(process.env.GOOGLE_CLIENT_ID),
+              }}
+            />
           </div>
         </Card>
       </div>

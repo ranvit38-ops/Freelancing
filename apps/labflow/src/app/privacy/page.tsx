@@ -40,7 +40,7 @@ const sections = [
     body: [
       'Deleting a project, experiment, sample, file, note or research update removes it and everything derived from it immediately. A sample still recorded against an experiment is refused rather than silently unlinked, so remove it from that run first.',
       'Ending a paid plan never deletes anything. The workspace becomes read-only: every record, file and dataset stays exactly where it is and stays readable. We will not hold your research hostage over a lapsed invoice.',
-      'To delete an entire workspace, or to get a copy of everything in it, write to the address below.',
+      'An owner can delete an entire lab, and anyone can delete their own account, from Settings. Both take effect immediately, stored files included. To get a copy of everything in a lab, write to the address below.',
     ],
   },
   {
