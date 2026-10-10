@@ -23,7 +23,7 @@ const sections = [
     title: 'What leaves our servers',
     body: [
       'When you ask LabBot a question, a focused slice of your records is sent to Anthropic to generate the answer: the experiments relevant to your question, descriptive statistics of attached data, and any papers you saved. Raw uploaded files are never sent. If no model key is configured, LabBot says so rather than answering.',
-      'When you search literature, your search terms go to the NIH PubMed E-utilities API. Nothing about your workspace is included.',
+      'When you search literature, your search terms go to the NIH PubMed E-utilities API. Nothing about your lab is included.',
       'When you pay, card details go directly to Stripe from your browser.',
       'When we send an email, the address and message go to our email provider.',
       'Nothing else leaves. Your records are not sold, shared with other customers, or used to train any model.',
@@ -39,7 +39,7 @@ const sections = [
     title: 'Deleting things',
     body: [
       'Deleting a project, experiment, sample, file, note or research update removes it and everything derived from it immediately. A sample still recorded against an experiment is refused rather than silently unlinked, so remove it from that run first.',
-      'Ending a paid plan never deletes anything. The workspace becomes read-only: every record, file and dataset stays exactly where it is and stays readable. We will not hold your research hostage over a lapsed invoice.',
+      'Ending a paid plan never deletes anything. The lab becomes read-only: every record, file and dataset stays exactly where it is and stays readable. We will not hold your research hostage over a lapsed invoice.',
       'An owner can delete an entire lab, and anyone can delete their own account, from Settings. Both take effect immediately, stored files included. To get a copy of everything in a lab, write to the address below.',
     ],
   },

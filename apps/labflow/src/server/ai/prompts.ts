@@ -41,6 +41,6 @@ export const ANSWER_PROMPT_SCHEMA = `{
   "literature": ["Points from the supplied papers, each starting with its PMID. Empty array if no literature was supplied or none was relevant."],
   "usedPmids": ["38000001"],
   "suggestions": ["Concrete next steps the researcher could take. Where a supplied paper motivates one, name its PMID. Never assert that a step will work."],
-  "whoToAsk": ["A name from the PEOPLE list, and the specific thing they would know, for example 'Rin Tanaka ran EXP-004, the vial material check'. Only names that appear in that list. Empty array if nobody in the workspace has relevant history."],
+  "whoToAsk": ["A name from the PEOPLE list, and the specific thing they would know, for example 'Rin Tanaka ran EXP-004, the vial material check'. Only names that appear in that list. Empty array if nobody in the lab has relevant history."],
   "whereToLook": ["Where in Labvia the researcher should go next, as a short label. Choose only from: Timeline, Compare, Research memory, Literature, Needs attention, Files, Samples, Protocols, Discussion, Research updates."]
 }`;

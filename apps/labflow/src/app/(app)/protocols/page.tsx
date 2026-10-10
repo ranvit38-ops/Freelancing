@@ -32,7 +32,7 @@ export default async function ProtocolsPage() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{p.name}</span>
                     <span className="mt-0.5 block truncate text-xs text-muted">
-                      {p.description ?? p.projectName ?? 'Shared across the workspace'}
+                      {p.description ?? p.projectName ?? 'Shared across the lab'}
                     </span>
                   </span>
                   <Badge tone="accent">v{p.latestVersion ?? 1}</Badge>

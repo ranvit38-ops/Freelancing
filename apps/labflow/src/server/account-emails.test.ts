@@ -12,7 +12,7 @@ describe('confirmation emails', () => {
   it('confirms a new lab for someone who started one', () => {
     const email = welcomeEmail({ name: 'Ada', labName: 'Ada Lab', joined: false, link: 'https://x/dashboard' });
     expect(email.subject).toBe('Your Labvia account is ready');
-    expect(email.text).toContain('a workspace for Ada Lab');
+    expect(email.text).toContain('a lab called Ada Lab');
   });
 
   it('copes with a blank name', () => {

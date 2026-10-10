@@ -247,7 +247,7 @@ export function subscriptionNotice(
 ): string | null {
   if (!sub || sub.status === 'none') return null; // free: the plan banner says it
   if (sub.status === 'canceled') {
-    return 'This workspace is read-only because its plan has ended. Everything already recorded stays readable, and nothing has been deleted.';
+    return 'This lab is read-only because its plan has ended. Everything already recorded stays readable, and nothing has been deleted.';
   }
   if (sub.status === 'past_due') {
     return 'The last payment failed. Update the card to avoid losing access.';

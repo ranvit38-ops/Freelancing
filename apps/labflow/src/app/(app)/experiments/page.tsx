@@ -25,7 +25,7 @@ export default async function ExperimentsPage({
     <>
       <PageHeader
         title="Experiments"
-        description={`${pluralise(experiments.length, 'experiment')} across this workspace.`}
+        description={`${pluralise(experiments.length, 'experiment')} across this lab.`}
         actions={
           projects[0] ? (
             <ButtonLink href={`/projects/${projects[0].id}/experiments/new`}>

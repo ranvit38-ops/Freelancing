@@ -30,7 +30,17 @@ export type PathExperiment = {
 };
 export type PathProtocol = { id: string; name: string; projectId: string | null };
 export type PathUpdate = { id: string; title: string; projectId: string; updatedAt: Date | string };
-export type PathFile = { id: string; filename: string; createdAt: Date | string; attached: boolean };
+export type PathFile = {
+  id: string;
+  filename: string;
+  createdAt: Date | string;
+  attached: boolean;
+  /** Written inside Labvia: opens in the editor rather than downloading. */
+  isDocument?: boolean;
+};
+
+/** Shared files the path lists; the rest are a click away in Files. */
+export const MAX_PATH_FILES = 12;
 
 export type ReadingStep = {
   key: string;
@@ -62,6 +72,14 @@ const FILE_WHY = [
   'Shared with the lab.',
 ];
 
+/** The lab's loose shared files, in reading order. */
+export function pathFiles(files: PathFile[]): PathFile[] {
+  return files
+    // Screenshots pasted into chat are conversation, not reading.
+    .filter((f) => !f.attached && !/^pasted-\d+/.test(f.filename))
+    .sort((a, b) => fileRank(a.filename) - fileRank(b.filename) || time(a.createdAt) - time(b.createdAt));
+}
+
 function time(value: Date | string | null): number {
   return value ? new Date(value).getTime() : 0;
 }
@@ -77,8 +95,12 @@ export function buildReadingPath(input: {
   const steps: ReadingStep[] = [];
   const perProject = input.maxExperimentsPerProject ?? 5;
 
-  // Live projects first, most recently touched first; the worked example last.
-  const projects = [...input.projects].sort(
+  // Live projects first, most recently touched first. The worked example is
+  // made-up data: it shows how the path reads until the lab has anything of
+  // its own (a project or a shared file), then it drops out so newcomers never
+  // study it as real work.
+  const hasReal = input.projects.some((p) => !p.isExample) || pathFiles(input.files).length > 0;
+  const projects = input.projects.filter((p) => !(hasReal && p.isExample)).sort(
     (a, b) =>
       Number(a.isExample) - Number(b.isExample) ||
       Number(ACTIVE.has(b.status)) - Number(ACTIVE.has(a.status)) ||
@@ -86,7 +108,7 @@ export function buildReadingPath(input: {
   );
 
   for (const p of projects) {
-    const group = p.isExample ? `${p.name} (example)` : p.name;
+    const group = p.isExample && !/^example\b/i.test(p.name) ? `${p.name} (example)` : p.name;
     steps.push({
       key: `project:${p.id}`,
       title: `Why “${p.name}” exists`,
@@ -155,16 +177,13 @@ export function buildReadingPath(input: {
     }
   }
 
-  const loose = input.files
-    // Screenshots pasted into chat are conversation, not reading.
-    .filter((f) => !f.attached && !/^pasted-\d+/.test(f.filename))
-    .sort((a, b) => fileRank(a.filename) - fileRank(b.filename) || time(a.createdAt) - time(b.createdAt));
-  for (const f of loose.slice(0, 12)) {
+  for (const f of pathFiles(input.files).slice(0, MAX_PATH_FILES)) {
+    const rank = fileRank(f.filename);
     steps.push({
       key: `file:${f.id}`,
-      title: f.filename,
-      why: FILE_WHY[fileRank(f.filename)]!,
-      href: `/api/files/${f.id}`,
+      title: f.isDocument ? f.filename.replace(/\.md$/i, '') : f.filename,
+      why: f.isDocument && rank === 5 ? 'Written in Labvia by someone in the lab.' : FILE_WHY[rank]!,
+      href: f.isDocument ? `/docs/${f.id}` : `/api/files/${f.id}`,
       group: 'Lab files',
     });
   }

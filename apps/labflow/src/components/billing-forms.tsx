@@ -85,7 +85,7 @@ export function PlanPicker({
       </div>
       {canManage ? null : (
         <p className="text-sm text-muted">
-          Only an owner or admin can choose a plan for this workspace.
+          Only an owner or admin can choose a plan for this lab.
         </p>
       )}
     </div>

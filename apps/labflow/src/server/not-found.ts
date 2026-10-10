@@ -3,10 +3,10 @@
  * in next/headers and React, which only exist inside a request.
  */
 
-/** Thrown when a record exists but belongs to a different workspace. */
+/** Thrown when a record exists but belongs to a different lab. */
 export class NotFoundInWorkspaceError extends Error {
   constructor(entity: string) {
-    super(`${entity} not found in this workspace`);
+    super(`${entity} not found in this lab`);
     this.name = 'NotFoundInWorkspaceError';
   }
 }

@@ -1136,7 +1136,7 @@ export async function search(s: SessionContext, rawQuery: string): Promise<Searc
         .where(and(eq(experiments.workspaceId, s.workspaceId), allTerms(experimentNotes.body)))
         .limit(10),
       db
-        .select({ id: files.id, filename: files.filename })
+        .select({ id: files.id, filename: files.filename, isDocument: files.isDocument })
         .from(files)
         .where(and(fileVisibleTo(s), allTerms(files.filename)))
         .limit(10),
@@ -1181,8 +1181,8 @@ export async function search(s: SessionContext, rawQuery: string): Promise<Searc
     ...fileRows.map((r): SearchResult => ({
       type: 'file',
       id: r.id,
-      href: `/api/files/${r.id}`,
-      title: r.filename,
+      href: r.isDocument ? `/docs/${r.id}` : `/api/files/${r.id}`,
+      title: r.isDocument ? r.filename.replace(/\.md$/i, '') : r.filename,
       context: null,
     })),
   ];

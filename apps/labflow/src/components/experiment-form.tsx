@@ -180,7 +180,7 @@ export function ExperimentForm(props: ExperimentFormProps) {
         </Field>
         {props.protocolVersions.length === 0 ? (
           <p className="text-xs text-muted">
-            No protocols in this workspace yet.{' '}
+            No protocols in this lab yet.{' '}
             <Link href="/protocols/new" className="underline underline-offset-2">
               Add one
             </Link>
@@ -254,7 +254,7 @@ export function ExperimentForm(props: ExperimentFormProps) {
 
       <SectionCard
         title="Samples"
-        description="Paste or type sample IDs. Anything new is created in this workspace automatically."
+        description="Paste or type sample IDs. Anything new is created in this lab automatically."
       >
         <Field label="Sample IDs" htmlFor="sampleCodes" optional hint="Separated by commas, spaces or new lines.">
           <Textarea

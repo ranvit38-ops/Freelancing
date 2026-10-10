@@ -22,7 +22,7 @@ export function welcomeEmail({
       '',
       joined
         ? `Your Labvia account is set up and you are now a member of ${labName}.`
-        : `Your Labvia account is set up, along with a workspace for ${labName}.`,
+        : `Your Labvia account is set up, along with a lab called ${labName}.`,
       '',
       joined
         ? 'Start here. It lists what to read first, in order, and who works on what:'

@@ -29,7 +29,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader
         title="Settings"
-        description="Workspace, people, appearance and integrations."
+        description="The lab, its people, appearance and integrations."
       />
       <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
         <Card className="p-5">
@@ -67,7 +67,7 @@ export default async function SettingsPage() {
         </Card>
 
         <Card className="p-5">
-          <h2 className="mb-4 text-sm font-semibold tracking-tight">Workspace</h2>
+          <h2 className="mb-4 text-sm font-semibold tracking-tight">Lab</h2>
           <DefinitionList
             items={[
               { term: 'Name', value: session.workspaceName },
@@ -78,7 +78,7 @@ export default async function SettingsPage() {
         </Card>
 
         <Card>
-          <CardHeader title="People" description={`${members.length} in this workspace`} />
+          <CardHeader title="People" description={`${members.length} in this lab`} />
           <ul className="divide-y divide-line">
             {members.map((m) => (
               <li key={m.id} className="flex items-center gap-3 px-5 py-3">

@@ -28,7 +28,7 @@ export async function inviteMemberAction(
 ): Promise<ActionState> {
   const session = await requireSession();
   if (session.role === 'member') {
-    return { error: 'Only an owner or admin can invite people to this workspace.' };
+    return { error: 'Only an owner or admin can invite people to this lab.' };
   }
 
   // Each invitation is an email sent in the lab's name, so a runaway form or a
@@ -55,7 +55,7 @@ export async function inviteMemberAction(
     q.seatUsage(session),
   ]);
   if (!writable) {
-    return { error: 'This workspace needs an active plan before you can invite people.' };
+    return { error: 'This lab needs an active plan before you can invite people.' };
   }
   const seats = PLANS[plan].seats;
   if (usage.members + usage.pending >= seats) {

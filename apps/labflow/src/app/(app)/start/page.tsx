@@ -3,7 +3,7 @@ import { CatchUp } from '@/components/catch-up';
 import { ReadingPath } from '@/components/reading-path';
 import { Card, CardHeader, PageHeader } from '@/components/ui';
 import { experimentCode } from '@/lib/display';
-import { buildReadingPath } from '@/lib/reading-path';
+import { buildReadingPath, MAX_PATH_FILES, pathFiles, type PathFile } from '@/lib/reading-path';
 import { requireSession } from '@/server/authz';
 import {
   listExperiments,
@@ -38,6 +38,20 @@ export default async function StartPage({ searchParams }: { searchParams: { join
 
   const attached = new Set(files.filter((f) => f.experimentId).map((f) => f.id));
   const lab = [...new Map(files.filter((f) => !f.private).map((f) => [f.id, f])).values()];
+  const pathInput: PathFile[] = lab.map((f) => ({
+    id: f.id,
+    filename: f.filename,
+    createdAt: f.createdAt,
+    attached: attached.has(f.id),
+    isDocument: f.isDocument,
+  }));
+  const moreFiles = Math.max(0, pathFiles(pathInput).length - MAX_PATH_FILES);
+  const canCurate = session.role === 'owner' || session.role === 'admin';
+  // The worked example is made-up data: never counted as the lab's work.
+  const exampleIds = new Set(projects.filter((p) => p.isExample).map((p) => p.id));
+  const projectCount = projects.length - exampleIds.size;
+  const realExperiments = experiments.filter((e) => !exampleIds.has(e.projectId));
+  const experimentCount = realExperiments.length;
   const steps = buildReadingPath({
     projects,
     experiments: experiments.map((e) => ({
@@ -51,12 +65,12 @@ export default async function StartPage({ searchParams }: { searchParams: { join
     })),
     protocols,
     updates,
-    files: lab.map((f) => ({ id: f.id, filename: f.filename, createdAt: f.createdAt, attached: attached.has(f.id) })),
+    files: pathInput,
   });
 
   // Who did what, from the records themselves, so "ask Maya" means something.
   const runsBy = new Map<string, { count: number; projects: Set<string> }>();
-  for (const e of experiments) {
+  for (const e of realExperiments) {
     if (!e.researcherName) continue;
     const entry = runsBy.get(e.researcherName) ?? { count: 0, projects: new Set<string>() };
     entry.count += 1;
@@ -77,8 +91,8 @@ export default async function StartPage({ searchParams }: { searchParams: { join
       <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           [members.length, members.length === 1 ? 'person' : 'people'],
-          [projects.length, projects.length === 1 ? 'project' : 'projects'],
-          [experiments.length, experiments.length === 1 ? 'experiment' : 'experiments'],
+          [projectCount, projectCount === 1 ? 'project' : 'projects'],
+          [experimentCount, experimentCount === 1 ? 'experiment' : 'experiments'],
           [lab.length, lab.length === 1 ? 'shared file' : 'shared files'],
         ].map(([value, label]) => (
           <div key={String(label)} className="rounded-xl border border-line bg-surface px-4 py-3">
@@ -105,6 +119,25 @@ export default async function StartPage({ searchParams }: { searchParams: { join
             ) : (
               <ReadingPath steps={steps} storageKey={`labvia:read:${session.workspaceId}:${session.userId}`} />
             )}
+            {moreFiles > 0 ? (
+              <p className="border-t border-line px-5 py-3 text-xs text-muted">
+                {moreFiles} more shared {moreFiles === 1 ? 'file is' : 'files are'} in{' '}
+                <Link href="/files" className="underline">
+                  Files
+                </Link>
+                .
+              </p>
+            ) : null}
+            {canCurate ? (
+              <p className="border-t border-line px-5 py-3 text-xs text-muted">
+                Shared files are ordered by name: put “Welcome” or “Start” in a file’s name to have it read first,
+                “Protocol” or “Safety” next. Or{' '}
+                <Link href="/files" className="underline">
+                  write a Welcome document
+                </Link>{' '}
+                for newcomers.
+              </p>
+            ) : null}
           </Card>
         </div>
 

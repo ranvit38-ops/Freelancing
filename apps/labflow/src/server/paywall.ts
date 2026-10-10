@@ -144,7 +144,7 @@ export async function blockedReason(
   const { plan, limits, writable } = await workspacePlan(session);
 
   if (!writable) {
-    return 'This workspace is read-only because its plan has ended. Everything already recorded stays readable. Choose a plan to write again.';
+    return 'This lab is read-only because its plan has ended. Everything already recorded stays readable. Choose a plan to write again.';
   }
   if (!adding) return null;
 
@@ -166,10 +166,10 @@ export async function blockedReason(
     limits.storageBytes !== null &&
     usage.storageBytes >= limits.storageBytes
   ) {
-    return `The ${PLANS[plan].name} plan includes ${formatLimitBytes(limits.storageBytes)} of uploads, which this workspace has used.${upgrade}`;
+    return `The ${PLANS[plan].name} plan includes ${formatLimitBytes(limits.storageBytes)} of uploads, which this lab has used.${upgrade}`;
   }
   if (adding === 'ai' && usage.aiThisMonth >= limits.aiPerMonth) {
-    return `The ${PLANS[plan].name} plan includes ${limits.aiPerMonth} LabBot questions a month, which this workspace has used.${upgrade}`;
+    return `The ${PLANS[plan].name} plan includes ${limits.aiPerMonth} LabBot questions a month, which this lab has used.${upgrade}`;
   }
   return null;
 }

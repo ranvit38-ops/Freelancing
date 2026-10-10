@@ -81,15 +81,30 @@ export function ReadingPath({ steps, storageKey }: { steps: ReadingStep[]; stora
                       {read ? '✓' : n}
                     </button>
                     <div className="min-w-0">
-                      <Link
-                        href={s.href}
-                        onClick={() => {
-                          if (!read) toggle(s.key);
-                        }}
-                        className={cx('text-sm font-medium hover:underline', read && 'text-muted')}
-                      >
-                        {s.title}
-                      </Link>
+                      {s.href.startsWith('/api/') ? (
+                        // A download is not a page. Through <Link> Next would
+                        // prefetch the whole file whenever the path is shown,
+                        // and fetch it twice on click.
+                        <a
+                          href={s.href}
+                          onClick={() => {
+                            if (!read) toggle(s.key);
+                          }}
+                          className={cx('text-sm font-medium hover:underline', read && 'text-muted')}
+                        >
+                          {s.title}
+                        </a>
+                      ) : (
+                        <Link
+                          href={s.href}
+                          onClick={() => {
+                            if (!read) toggle(s.key);
+                          }}
+                          className={cx('text-sm font-medium hover:underline', read && 'text-muted')}
+                        >
+                          {s.title}
+                        </Link>
+                      )}
                       <p className="text-xs text-muted">{s.why}</p>
                     </div>
                   </li>

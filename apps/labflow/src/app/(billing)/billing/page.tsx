@@ -70,7 +70,7 @@ export default async function BillingPage({
 
       <div className="mb-5 grid gap-5 lg:grid-cols-2">
         <Card className="p-5">
-          <h2 className="mb-4 text-sm font-semibold tracking-tight">This workspace</h2>
+          <h2 className="mb-4 text-sm font-semibold tracking-tight">This lab</h2>
           <DefinitionList
             items={[
               {

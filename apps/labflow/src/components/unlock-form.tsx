@@ -11,7 +11,7 @@ export function UnlockForm() {
   const [state, action] = useFormState(redeemOwnerCodeAction, noState);
   return (
     <Card>
-      <CardHeader title="Owner code" description="Redeem a code to comp this workspace." />
+      <CardHeader title="Owner code" description="Redeem a code to comp this lab." />
       <form action={action} className="space-y-3 px-5 py-4">
         <FormError>{state.error}</FormError>
         {state.ok ? (

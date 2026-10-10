@@ -63,7 +63,7 @@ export async function syncSubscriptionFromStripe(
     // until Stripe's own copy says it belongs to this workspace.
     const claimed = checkout.client_reference_id ?? checkout.metadata?.workspaceId;
     if (claimed !== workspaceId) {
-      return { ok: false, reason: 'That checkout belongs to a different workspace.' };
+      return { ok: false, reason: 'That checkout belongs to a different lab.' };
     }
     if (!checkout.subscription) {
       return { ok: false, reason: 'Stripe has not finished setting up the subscription yet.' };
@@ -75,7 +75,7 @@ export async function syncSubscriptionFromStripe(
 
   const existing = await getSubscriptionByWorkspace(workspaceId);
   if (!existing?.stripeCustomerId) {
-    return { ok: false, reason: 'This workspace has no Stripe customer yet.' };
+    return { ok: false, reason: 'This lab has no Stripe customer yet.' };
   }
 
   // Newest first, so a re-subscription wins over the cancelled one before it.

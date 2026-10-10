@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildReadingPath, fileRank } from './reading-path';
+import { buildReadingPath, fileRank, MAX_PATH_FILES, pathFiles } from './reading-path';
 
 const project = (id: string, extra: Partial<Parameters<typeof buildReadingPath>[0]['projects'][number]> = {}) => ({
   id,
@@ -36,8 +36,31 @@ describe('buildReadingPath', () => {
   });
   const keys = steps.map((s) => s.key);
 
-  it('puts real projects before the worked example', () => {
-    expect(keys.indexOf('project:a')).toBeLessThan(keys.indexOf('project:ex'));
+  it('leaves the made-up worked example out once the lab has a real project', () => {
+    expect(keys).toContain('project:a');
+    expect(keys.some((k) => k.endsWith(':ex'))).toBe(false);
+  });
+
+  it('leaves the worked example out once the lab has shared a file, even with no projects yet', () => {
+    const steps = buildReadingPath({
+      projects: [project('ex', { isExample: true })],
+      experiments: [],
+      protocols: [],
+      updates: [],
+      files: [{ id: 'w', filename: 'Welcome.pdf', createdAt: '2026-01-01', attached: false }],
+    });
+    expect(steps.map((s) => s.key)).toEqual(['file:w']);
+  });
+
+  it('shows the worked example while it is all the lab has', () => {
+    const only = buildReadingPath({
+      projects: [project('ex', { isExample: true, name: 'Example: PFAS removal' })],
+      experiments: [],
+      protocols: [],
+      updates: [],
+      files: [],
+    });
+    expect(only[0]).toMatchObject({ key: 'project:ex', group: 'Example: PFAS removal' });
   });
 
   it('goes why → what is known → how → first run → … → latest → write-up', () => {
@@ -57,6 +80,38 @@ describe('buildReadingPath', () => {
   it('orders shared files orientation first, slides last, and skips ones on an experiment or pasted into chat', () => {
     const files = keys.filter((k) => k.startsWith('file:'));
     expect(files).toEqual(['file:f2', 'file:f3', 'file:f1']);
+  });
+});
+
+describe('documents and long file lists on the path', () => {
+  const empty = { projects: [], experiments: [], protocols: [], updates: [] };
+
+  it('opens a Labvia document in the editor, titled without its .md', () => {
+    const [step] = buildReadingPath({
+      ...empty,
+      files: [{ id: 'd1', filename: 'Welcome to the lab.md', createdAt: '2026-01-01', attached: false, isDocument: true }],
+    });
+    expect(step).toMatchObject({ href: '/docs/d1', title: 'Welcome to the lab' });
+    expect(step!.why).toMatch(/read it first/i);
+  });
+
+  it('still downloads an uploaded markdown file rather than opening the editor', () => {
+    const [step] = buildReadingPath({
+      ...empty,
+      files: [{ id: 'u1', filename: 'notes.md', createdAt: '2026-01-01', attached: false }],
+    });
+    expect(step).toMatchObject({ href: '/api/files/u1', title: 'notes.md' });
+  });
+
+  it('lists at most MAX_PATH_FILES files, so the page can say how many more there are', () => {
+    const files = Array.from({ length: MAX_PATH_FILES + 3 }, (_, i) => ({
+      id: `f${i}`,
+      filename: `data-${i}.csv`,
+      createdAt: `2026-01-${String(i + 1).padStart(2, '0')}`,
+      attached: false,
+    }));
+    expect(buildReadingPath({ ...empty, files })).toHaveLength(MAX_PATH_FILES);
+    expect(pathFiles(files).length - MAX_PATH_FILES).toBe(3);
   });
 });
 

@@ -187,7 +187,7 @@ export default async function PricingPage() {
             {[
               {
                 q: 'What happens if we stop paying?',
-                a: 'The workspace becomes read-only. Every record, file and dataset stays exactly where it is and stays readable, nothing is ever deleted for non-payment. Start a plan again and you can write again.',
+                a: 'The lab becomes read-only. Every record, file and dataset stays exactly where it is and stays readable, nothing is ever deleted for non-payment. Start a plan again and you can write again.',
               },
               {
                 q: 'Can we pay by invoice or purchase order?',
@@ -199,7 +199,7 @@ export default async function PricingPage() {
               },
               {
                 q: 'What counts as a person?',
-                a: 'Anyone who can open the workspace. An invitation you have sent but nobody has accepted counts toward the limit until it is accepted or revoked. When a lab needs more people than its plan covers, the next plan up is the way to get them.',
+                a: 'Anyone who can open the lab. An invitation you have sent but nobody has accepted counts toward the limit until it is accepted or revoked. When a lab needs more people than its plan covers, the next plan up is the way to get them.',
               },
             ].map((item) => (
               <div key={item.q}>

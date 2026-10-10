@@ -61,9 +61,9 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           />
         ) : (
           <ul className="divide-y divide-line">
-            {results.map((r) => (
-              <li key={`${r.type}:${r.id}`}>
-                <Link href={r.href} className="flex items-start gap-4 px-5 py-3.5 hover:bg-raised">
+            {results.map((r) => {
+              const row = (
+                <>
                   <span className="w-24 shrink-0 pt-0.5">
                     <Badge>{typeLabel[r.type]}</Badge>
                   </span>
@@ -73,9 +73,24 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                       <span className="mt-0.5 block truncate text-xs text-muted">{r.context}</span>
                     ) : null}
                   </span>
-                </Link>
-              </li>
-            ))}
+                </>
+              );
+              const rowClass = 'flex items-start gap-4 px-5 py-3.5 hover:bg-raised';
+              return (
+                <li key={`${r.type}:${r.id}`}>
+                  {/* A file download is a plain link, so Next never prefetches its bytes. */}
+                  {r.href.startsWith('/api/') ? (
+                    <a href={r.href} className={rowClass}>
+                      {row}
+                    </a>
+                  ) : (
+                    <Link href={r.href} className={rowClass}>
+                      {row}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

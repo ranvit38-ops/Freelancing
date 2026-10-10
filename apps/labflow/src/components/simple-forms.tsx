@@ -84,9 +84,9 @@ export function ProtocolForm({ projects }: { projects: ProjectOption[] }) {
         <Field label="Description" htmlFor="description" optional>
           <Input id="description" name="description" />
         </Field>
-        <Field label="Project" htmlFor="projectId" optional hint="Leave blank to share it across the workspace.">
+        <Field label="Project" htmlFor="projectId" optional hint="Leave blank to share it across the lab.">
           <Select id="projectId" name="projectId" defaultValue="">
-            <option value="">Whole workspace</option>
+            <option value="">Whole lab</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}

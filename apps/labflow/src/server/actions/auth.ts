@@ -185,7 +185,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     .where(eq(workspaceMembers.userId, user.id))
     .limit(1);
   if (membership.length === 0 && !formData.get('inviteToken') && !formData.get('joinCode')) {
-    return { error: 'This account is not a member of any workspace. Ask a lab owner to invite you.' };
+    return { error: 'This account is not a member of any lab. Ask a lab owner to invite you.' };
   }
 
   // Whichever lab the link named is the one they came to see, so that is where

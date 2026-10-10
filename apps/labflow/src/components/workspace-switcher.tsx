@@ -12,7 +12,7 @@ export function CreateWorkspaceForm() {
     <Card>
       <CardHeader
         title="Start another lab"
-        description="Creates a separate workspace. Records never cross between workspaces."
+        description="A separate lab with its own people and records. Nothing crosses between labs."
       />
       <form action={action} className="space-y-4 px-5 py-4">
         <FormError>{state.error}</FormError>
@@ -23,7 +23,7 @@ export function CreateWorkspaceForm() {
           <Input id="ws-institution" name="institution" />
         </Field>
         <SubmitButton tone="secondary" size="sm" pendingLabel="Creating…">
-          Create workspace
+          Create lab
         </SubmitButton>
       </form>
     </Card>

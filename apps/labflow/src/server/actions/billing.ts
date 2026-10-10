@@ -23,7 +23,7 @@ export async function startCheckoutAction(
 ): Promise<ActionState> {
   const session = await requireSession();
   if (session.role === 'member') {
-    return { error: 'Only an owner or admin can change the plan for this workspace.' };
+    return { error: 'Only an owner or admin can change the plan for this lab.' };
   }
 
   const plan = String(formData.get('plan') ?? '');
@@ -96,7 +96,7 @@ export async function syncBillingAction(
     if (!result.ok) return { error: result.reason };
     revalidatePath('/billing');
     revalidatePath('/', 'layout');
-    return { ok: true, message: `Stripe says this workspace is ${result.status}.` };
+    return { ok: true, message: `Stripe says this lab is ${result.status}.` };
   } catch (error) {
     if (error instanceof BillingNotConfiguredError) return { error: error.message };
     console.error('[labflow] billing sync failed', error);
@@ -116,7 +116,7 @@ export async function openBillingPortalAction(
 
   const subscription = await q.getSubscription(session);
   if (!subscription?.stripeCustomerId) {
-    return { error: 'This workspace has no billing account yet. Choose a plan first.' };
+    return { error: 'This lab has no billing account yet. Choose a plan first.' };
   }
 
   let url: string;

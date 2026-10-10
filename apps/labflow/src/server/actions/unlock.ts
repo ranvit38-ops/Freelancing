@@ -61,5 +61,5 @@ export async function redeemOwnerCodeAction(
     `[labflow] owner code redeemed for workspace ${session.workspaceId} by ${session.userEmail}`,
   );
   revalidatePath('/', 'layout');
-  return { ok: true, message: 'Unlocked. This workspace now has the Department plan.' };
+  return { ok: true, message: 'Unlocked. This lab now has the Department plan.' };
 }

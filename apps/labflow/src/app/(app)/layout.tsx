@@ -174,10 +174,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             }`}
           >
             {trialDaysLeft(state)! <= 0
-              ? 'Your trial has ended. This workspace is on the free plan now.'
+              ? 'Your trial has ended. This lab is on the free plan now.'
               : `${trialDaysLeft(state)} ${
                   trialDaysLeft(state) === 1 ? 'day' : 'days'
-                } left in your trial. After that this workspace moves to the free plan: 1 project, 10 experiments, and nothing is deleted.`}{' '}
+                } left in your trial. After that this lab moves to the free plan: 1 project, 10 experiments, and nothing is deleted.`}{' '}
             <Link href="/billing" className="font-medium underline underline-offset-2">
               See plans
             </Link>
