@@ -82,6 +82,7 @@ export const experimentSchema = z
       .transform((v) => (v === '' ? null : new Date(v))),
     objective: optionalText(4000),
     hypothesis: optionalText(4000),
+    dataLocation: optionalText(1000),
     status: z
       .enum(['planned', 'in_progress', 'completed', 'repeated', 'needs_investigation'])
       .default('planned'),

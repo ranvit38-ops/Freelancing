@@ -34,6 +34,7 @@ export type ExperimentFormProps = {
     status: ExperimentStatus;
     objective: string;
     hypothesis: string;
+    dataLocation: string;
     protocolVersionId: string;
     protocolNotes: string;
     repeatsExperimentId: string;
@@ -54,6 +55,7 @@ const blank: NonNullable<ExperimentFormProps['initial']> = {
   status: 'in_progress',
   objective: '',
   hypothesis: '',
+  dataLocation: '',
   protocolVersionId: '',
   protocolNotes: '',
   repeatsExperimentId: '',
@@ -262,6 +264,27 @@ export function ExperimentForm(props: ExperimentFormProps) {
             name="sampleCodes"
             defaultValue={initial.sampleCodes}
             placeholder="S-104, S-105, S-106"
+            className="min-h-[64px] font-mono text-sm"
+          />
+        </Field>
+      </SectionCard>
+
+      <SectionCard
+        title="Original data"
+        description="Where the raw files from this run are kept, so anyone can find them later."
+      >
+        <Field
+          label="Location"
+          htmlFor="dataLocation"
+          optional
+          hint="Specific enough that someone else could open it: computer, drive or folder, and file name."
+          error={state.fieldErrors?.dataLocation}
+        >
+          <Textarea
+            id="dataLocation"
+            name="dataLocation"
+            defaultValue={initial.dataLocation}
+            placeholder="Plate reader PC, D:\Data\2026-10\run12.xlsx"
             className="min-h-[64px] font-mono text-sm"
           />
         </Field>

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { checkCompleteness, completenessMessage, type CompletenessInput } from './completeness';
+import {
+  checkCompleteness,
+  completenessMessage,
+  gapsByResearcher,
+  type CompletenessInput,
+} from './completeness';
 
 const empty: CompletenessInput = {
   objective: null,
@@ -10,6 +15,7 @@ const empty: CompletenessInput = {
   sampleCount: 0,
   datasetCount: 0,
   fileCount: 0,
+  dataLocation: null,
   summary: null,
   observations: null,
   conclusion: null,
@@ -38,6 +44,7 @@ describe('checkCompleteness', () => {
       sampleCount: 3,
       datasetCount: 1,
       fileCount: 1,
+      dataLocation: null,
       summary: 'Breakthrough at 42 bed volumes.',
       observations: 'Column pressure rose sharply after 30 bed volumes.',
       conclusion: 'The v4 packing delays breakthrough materially.',
@@ -57,6 +64,13 @@ describe('checkCompleteness', () => {
   it('treats a stray file as partial evidence of raw data', () => {
     expect(state({ ...empty, fileCount: 1 }, 'rawData')).toBe('incomplete');
     expect(state({ ...empty, fileCount: 1, datasetCount: 1 }, 'rawData')).toBe('documented');
+  });
+
+  it('accepts a written location for raw data that was never uploaded', () => {
+    const where = 'Plate reader PC, D:\\Data\\2026-10\\run12.xlsx';
+    expect(state({ ...empty, dataLocation: where }, 'rawData')).toBe('documented');
+    expect(state({ ...empty, dataLocation: 'NAS' }, 'rawData')).toBe('incomplete');
+    expect(state({ ...empty, dataLocation: '   ' }, 'rawData')).toBe('missing');
   });
 
   it('treats placeholder prose as incomplete rather than documented', () => {
@@ -81,5 +95,40 @@ describe('completenessMessage', () => {
     expect(completenessMessage({ ...report, incomplete: 0, missing: 0 })).toContain(
       'Every category',
     );
+  });
+});
+
+describe('gapsByResearcher', () => {
+  const full: CompletenessInput = {
+    objective: 'Measure PFOA breakthrough on the new sorbent bed.',
+    hypothesis: 'Breakthrough occurs later than with the v3 packing.',
+    protocolName: 'PFAS Extraction',
+    protocolVersion: 4,
+    conditionCount: 3,
+    sampleCount: 3,
+    datasetCount: 0,
+    fileCount: 0,
+    dataLocation: 'Lab NAS /raw/pfas/2026-10-03/',
+    summary: 'Breakthrough at 42 bed volumes.',
+    observations: 'Column pressure rose sharply after 30 bed volumes.',
+    conclusion: 'The v4 packing delays breakthrough materially.',
+    nextSteps: 'Repeat at 30 °C to test temperature sensitivity.',
+    noteCount: 1,
+  };
+
+  it('leaves out fully documented runs', () => {
+    expect(gapsByResearcher([{ ...full, researcherName: 'Ada' }])).toEqual([]);
+  });
+
+  it('groups thin records by researcher, most gaps first, thinnest record first', () => {
+    const groups = gapsByResearcher([
+      { ...full, researcherName: 'Ada', hypothesis: null },
+      { ...full, researcherName: 'Tom', conclusion: null },
+      { ...empty, researcherName: 'Tom' },
+      { ...full, researcherName: null, sampleCount: 0 },
+    ]);
+    expect(groups.map((g) => g.researcher)).toEqual(['Tom', 'Ada', 'Former member']);
+    expect(groups[0]!.gaps[0]!.score).toBe(0);
+    expect(groups[1]!.gaps[0]!.outstanding.map((c) => c.key)).toEqual(['hypothesis']);
   });
 });

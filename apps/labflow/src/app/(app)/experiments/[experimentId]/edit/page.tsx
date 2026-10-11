@@ -41,6 +41,7 @@ export default async function EditExperimentPage({
             status: experiment.status,
             objective: experiment.objective ?? '',
             hypothesis: experiment.hypothesis ?? '',
+            dataLocation: experiment.dataLocation ?? '',
             protocolVersionId: experiment.protocolVersionId ?? '',
             protocolNotes: experiment.protocolNotes ?? '',
             repeatsExperimentId: experiment.repeatsExperimentId ?? '',

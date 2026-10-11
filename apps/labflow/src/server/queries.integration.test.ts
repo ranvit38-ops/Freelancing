@@ -160,6 +160,33 @@ suite('workspace isolation', () => {
     expect(await ctx.q.search(ctx.sessionA, 'Private')).not.toHaveLength(0);
   });
 
+  it('checks records lab-wide for the caller only, skipping planned runs', async () => {
+    const planned = await ctx.q.createExperiment(ctx.sessionA, projectA, {
+      title: 'Not started',
+      objective: null,
+      hypothesis: null,
+      performedOn: null,
+      status: 'planned',
+      protocolVersionId: null,
+      protocolNotes: null,
+      repeatsExperimentId: null,
+    });
+    await ctx.q.updateExperiment(ctx.sessionA, experimentA, {
+      dataLocation: 'Lab NAS /raw/lab-a/run1/',
+    });
+    const rows = await ctx.q.listRecordChecks(ctx.sessionA);
+    expect(rows.map((r) => r.id)).toEqual([experimentA]);
+    expect(rows[0]).toMatchObject({
+      researcherName: 'Ada A',
+      dataLocation: 'Lab NAS /raw/lab-a/run1/',
+      conditionCount: 0,
+      fileCount: 0,
+      noteCount: 0,
+    });
+    expect(await ctx.q.listRecordChecks(ctx.sessionB)).toHaveLength(0);
+    await ctx.q.deleteExperiment(ctx.sessionA, planned);
+  });
+
   it('reports which project each comparable experiment belongs to', async () => {
     const rows = await ctx.q.getComparableExperiments(ctx.sessionA, [experimentA]);
     expect(rows[0]?.projectId).toBe(projectA);

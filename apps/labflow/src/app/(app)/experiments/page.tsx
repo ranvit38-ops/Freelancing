@@ -27,13 +27,18 @@ export default async function ExperimentsPage({
         title="Experiments"
         description={`${pluralise(experiments.length, 'experiment')} across this lab.`}
         actions={
-          projects[0] ? (
-            <ButtonLink href={`/projects/${projects[0].id}/experiments/new`}>
-              New experiment
+          <>
+            <ButtonLink href="/experiments/record-check" tone="secondary">
+              Record check
             </ButtonLink>
-          ) : (
-            <ButtonLink href="/projects/new">Create a project first</ButtonLink>
-          )
+            {projects[0] ? (
+              <ButtonLink href={`/projects/${projects[0].id}/experiments/new`}>
+                New experiment
+              </ButtonLink>
+            ) : (
+              <ButtonLink href="/projects/new">Create a project first</ButtonLink>
+            )}
+          </>
         }
       />
 

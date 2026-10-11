@@ -31,6 +31,7 @@ export default async function AnalysisPage({ params }: { params: { experimentId:
     sampleCount: samples.length,
     datasetCount: datasets.length,
     fileCount: files.length,
+    dataLocation: experiment.dataLocation,
     summary: result?.summary ?? null,
     observations: result?.observations ?? null,
     conclusion: result?.conclusion ?? null,

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gt, ilike, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/db';
 import { normaliseEmail } from '@/lib/trial-eligibility';
@@ -196,6 +196,7 @@ export async function getExperiment(s: SessionContext, experimentId: string) {
       status: experiments.status,
       objective: experiments.objective,
       hypothesis: experiments.hypothesis,
+      dataLocation: experiments.dataLocation,
       performedOn: experiments.performedOn,
       protocolNotes: experiments.protocolNotes,
       protocolVersionId: experiments.protocolVersionId,
@@ -294,6 +295,7 @@ export async function createExperiment(
     title: string;
     objective: string | null;
     hypothesis: string | null;
+    dataLocation?: string | null;
     performedOn: Date | null;
     status: 'planned' | 'in_progress' | 'completed' | 'repeated' | 'needs_investigation';
     protocolVersionId: string | null;
@@ -325,6 +327,7 @@ export async function updateExperiment(
     title: string;
     objective: string | null;
     hypothesis: string | null;
+    dataLocation: string | null;
     performedOn: Date | null;
     status: 'planned' | 'in_progress' | 'completed' | 'repeated' | 'needs_investigation';
     protocolVersionId: string | null;
@@ -1479,6 +1482,64 @@ export async function deleteResearchUpdate(s: SessionContext, updateId: string) 
 }
 
 /* ── connective views ───────────────────────────────────────────────────── */
+
+/**
+ * Everything the documentation check needs, for every run in the lab that has
+ * started. One query, so the PI can see which records are thin without opening
+ * each one. Planned runs and the example project are left out: an empty
+ * result on a run nobody has done yet is not a gap.
+ */
+export async function listRecordChecks(s: SessionContext) {
+  return db
+    .select({
+      id: experiments.id,
+      number: experiments.number,
+      title: experiments.title,
+      status: experiments.status,
+      updatedAt: experiments.updatedAt,
+      projectName: projects.name,
+      researcherId: experiments.researcherId,
+      researcherName: users.name,
+      objective: experiments.objective,
+      hypothesis: experiments.hypothesis,
+      dataLocation: experiments.dataLocation,
+      protocolName: protocols.name,
+      protocolVersion: protocolVersions.version,
+      summary: experimentResults.summary,
+      observations: experimentResults.observations,
+      conclusion: experimentResults.conclusion,
+      nextSteps: experimentResults.nextSteps,
+      conditionCount: sql<number>`(
+        select count(*)::int from "experiment_conditions" ec where ec.experiment_id = experiments.id
+      )`,
+      sampleCount: sql<number>`(
+        select count(*)::int from "experiment_samples" es where es.experiment_id = experiments.id
+      )`,
+      datasetCount: sql<number>`(
+        select count(*)::int from "datasets" d where d.experiment_id = experiments.id
+      )`,
+      fileCount: sql<number>`(
+        select count(*)::int from "experiment_files" ef where ef.experiment_id = experiments.id
+      )`,
+      noteCount: sql<number>`(
+        select count(*)::int from "experiment_notes" en where en.experiment_id = experiments.id
+      )`,
+    })
+    .from(experiments)
+    .innerJoin(projects, eq(projects.id, experiments.projectId))
+    .leftJoin(users, eq(users.id, experiments.researcherId))
+    .leftJoin(protocolVersions, eq(protocolVersions.id, experiments.protocolVersionId))
+    .leftJoin(protocols, eq(protocols.id, protocolVersions.protocolId))
+    .leftJoin(experimentResults, eq(experimentResults.experimentId, experiments.id))
+    .where(
+      and(
+        eq(experiments.workspaceId, s.workspaceId),
+        ne(experiments.status, 'planned'),
+        eq(projects.isExample, false),
+      ),
+    )
+    .orderBy(desc(experiments.updatedAt));
+}
 
 /** Signals the deterministic next-actions engine runs on. */
 export async function nextActionSignals(s: SessionContext, opts: { projectId?: string } = {}) {

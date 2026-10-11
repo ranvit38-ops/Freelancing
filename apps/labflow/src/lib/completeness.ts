@@ -34,6 +34,8 @@ export type CompletenessInput = {
   sampleCount: number;
   datasetCount: number;
   fileCount: number;
+  /** Where the original data lives when it is not uploaded: instrument PC, drive, NAS. */
+  dataLocation: string | null;
   summary: string | null;
   observations: string | null;
   conclusion: string | null;
@@ -75,8 +77,13 @@ export function checkCompleteness(input: CompletenessInput): CompletenessReport 
     {
       key: 'rawData',
       label: 'Raw data',
-      state: input.datasetCount > 0 ? 'documented' : input.fileCount > 0 ? 'incomplete' : 'missing',
-      hint: 'Upload the measurement file so the numbers live with the record.',
+      state:
+        input.datasetCount > 0 || textState(input.dataLocation) === 'documented'
+          ? 'documented'
+          : input.fileCount > 0 || textState(input.dataLocation) === 'incomplete'
+            ? 'incomplete'
+            : 'missing',
+      hint: 'Upload the measurement file, or write down exactly where the original is stored.',
     },
     { key: 'results', label: 'Results', state: textState(input.summary),
       hint: 'Summarise what the run produced.' },
@@ -116,4 +123,29 @@ export function completenessMessage(report: CompletenessReport): string {
   if (outstanding === 0) return 'Every category on this checklist is documented.';
   const noun = outstanding === 1 ? 'piece of information' : 'pieces of information';
   return `${outstanding} ${noun} may be useful to document before closing this experiment.`;
+}
+
+export type RecordGap<T> = { record: T; outstanding: CheckCategory[]; score: number };
+
+/**
+ * The lab-wide view of the same checklist: records with anything outstanding,
+ * grouped by who ran them, thinnest first. Fully documented runs are left out,
+ * so an empty result means every started run passes the check.
+ */
+export function gapsByResearcher<T extends CompletenessInput & { researcherName: string | null }>(
+  records: T[],
+): { researcher: string; gaps: RecordGap<T>[] }[] {
+  const groups = new Map<string, RecordGap<T>[]>();
+  for (const record of records) {
+    const report = checkCompleteness(record);
+    const outstanding = report.categories.filter((c) => c.state !== 'documented');
+    if (outstanding.length === 0) continue;
+    const researcher = record.researcherName ?? 'Former member';
+    const list = groups.get(researcher) ?? [];
+    list.push({ record, outstanding, score: report.score });
+    groups.set(researcher, list);
+  }
+  return [...groups.entries()]
+    .map(([researcher, gaps]) => ({ researcher, gaps: gaps.sort((a, b) => a.score - b.score) }))
+    .sort((a, b) => b.gaps.length - a.gaps.length || a.researcher.localeCompare(b.researcher));
 }

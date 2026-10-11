@@ -194,7 +194,15 @@ export default async function HomePage() {
         </Card>
 
         <Card className="lg:col-span-3">
-          <CardHeader title="Recent experiments" action={<SeeAll href="/experiments" />} />
+          <CardHeader
+            title="Recent experiments"
+            action={
+              <span className="flex gap-4">
+                <SeeAll href="/experiments/record-check" label="Record check" />
+                <SeeAll href="/experiments" />
+              </span>
+            }
+          />
           <ExperimentList
             experiments={data.recent}
             showProject

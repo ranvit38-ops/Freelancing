@@ -230,6 +230,8 @@ export const experiments = pgTable(
     researcherId: uuid('researcher_id').references(() => users.id, { onDelete: 'set null' }),
     objective: text('objective'),
     hypothesis: text('hypothesis'),
+    /** Where the original data is kept when it is not uploaded (instrument PC, drive, NAS). */
+    dataLocation: text('data_location'),
     status: experimentStatus('status').notNull().default('planned'),
     protocolVersionId: uuid('protocol_version_id').references(() => protocolVersions.id, {
       onDelete: 'set null',

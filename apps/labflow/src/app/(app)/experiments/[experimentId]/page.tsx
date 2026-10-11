@@ -74,6 +74,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
     sampleCount: samples.length,
     datasetCount: datasets.length,
     fileCount: files.length,
+    dataLocation: experiment.dataLocation,
     summary: result?.summary ?? null,
     observations: result?.observations ?? null,
     conclusion: result?.conclusion ?? null,
@@ -171,6 +172,14 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                 <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">Hypothesis</h3>
                 <div className="mt-1">
                   <Prose text={experiment.hypothesis} />
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+                  Original data
+                </h3>
+                <div className="mt-1 break-all font-mono">
+                  <Prose text={experiment.dataLocation} />
                 </div>
               </div>
               {experiment.protocolNotes ? (

@@ -70,6 +70,7 @@ function toInitial(draft: ExperimentDraft): NonNullable<ExperimentFormProps['ini
     status: 'completed',
     objective: '',
     hypothesis: '',
+    dataLocation: '',
     protocolVersionId: '',
     protocolNotes: '',
     repeatsExperimentId: '',
