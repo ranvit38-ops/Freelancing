@@ -50,6 +50,41 @@ export function joinedLabEmail({ name, labName, link }: { name: string; labName:
   };
 }
 
+/** Sent when someone hands you a piece of work, so it reaches your inbox and not only the app. */
+export function taskAssignedEmail({
+  name,
+  from,
+  title,
+  dueOn,
+  labName,
+  link,
+}: {
+  name: string;
+  from: string;
+  title: string;
+  dueOn: string | null;
+  labName: string;
+  link: string;
+}): Email {
+  const first = name.trim().split(/\s+/)[0] || 'there';
+  return {
+    subject: `${from} gave you a task: ${title}`,
+    text: [
+      `Hi ${first},`,
+      '',
+      `${from} gave you a task in ${labName}:`,
+      '',
+      `  ${title}`,
+      dueOn ? `  Due ${dueOn}` : '',
+      '',
+      'Open it here:',
+      link,
+    ]
+      .filter((line, i, all) => line !== '' || all[i - 1] !== '')
+      .join('\n'),
+  };
+}
+
 /**
  * Sends a confirmation without making anyone wait for it or fail because of
  * it. Signing up must not depend on an email provider being up, so this is not

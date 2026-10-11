@@ -62,7 +62,8 @@ async function setup() {
   };
   const sessionB = { ...sessionA, userId: userB.id, workspaceId: wsB.id, workspaceName: 'Lab B' };
 
-  return { db, pool, schema, q, NotFoundInWorkspaceError, sessionA, sessionB, wsA, wsB };
+  const { eq, sql } = await import('drizzle-orm');
+  return { db, pool, schema, q, eq, sql, NotFoundInWorkspaceError, sessionA, sessionB, wsA, wsB };
 }
 
 suite('workspace isolation', () => {
@@ -763,5 +764,85 @@ suite('importing from Google Drive', () => {
     expect(requested[0]).toContain('Bearer token-abc');
     const listed = await ctx.q.listFiles(ctx.sessionA);
     expect(listed.map((f) => f.filename)).toContain('Plate run 4.xlsx');
+  });
+});
+
+suite('activity log', () => {
+  let ctx: Ctx;
+
+  beforeAll(async () => {
+    ctx = await setup();
+  });
+
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.schema.workspaces).where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db
+      .delete(ctx.schema.users)
+      .where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId]));
+  });
+
+  it('records who created, edited, noted and deleted what, folding one save into one entry', async () => {
+    const projectId = await ctx.q.createProject(ctx.sessionA, {
+      name: 'Biofilm',
+      description: null,
+      researchQuestion: null,
+      status: 'active',
+      tags: [],
+    });
+    const experimentId = await ctx.q.createExperiment(ctx.sessionA, projectId, {
+      title: 'Crystal violet',
+      objective: null,
+      hypothesis: null,
+      performedOn: null,
+      status: 'in_progress',
+      protocolVersionId: null,
+      protocolNotes: null,
+      repeatsExperimentId: null,
+    });
+    // Filling in the detail right after creating is part of creating it.
+    await ctx.q.replaceConditions(ctx.sessionA, experimentId, [{ name: 'T', value: '37', unit: '°C' }]);
+
+    // A later save touching three tables reads as one edit.
+    await ctx.db
+      .update(ctx.schema.activity)
+      .set({ createdAt: ctx.sql`${ctx.schema.activity.createdAt} - interval '5 minutes'` })
+      .where(ctx.eq(ctx.schema.activity.workspaceId, ctx.wsA.id));
+    await ctx.q.updateExperiment(ctx.sessionA, experimentId, { objective: 'Quantify biomass', status: 'completed' });
+    await ctx.q.replaceConditions(ctx.sessionA, experimentId, [{ name: 'T', value: '30', unit: '°C' }]);
+    await ctx.q.upsertResult(ctx.sessionA, experimentId, {
+      summary: 'OD590 doubled',
+      observations: null,
+      conclusion: null,
+      nextSteps: null,
+    });
+    // Saving again with nothing changed adds nothing.
+    await ctx.q.updateExperiment(ctx.sessionA, experimentId, { objective: 'Quantify biomass' });
+
+    await ctx.q.addNote(ctx.sessionA, experimentId, 'Wells B3 and B4 dried out.');
+    const noteId = (await ctx.q.getExperimentRecord(ctx.sessionA, experimentId)).notes[0]!.id;
+    await ctx.q.deleteNote(ctx.sessionA, experimentId, noteId);
+    await ctx.q.recordFile(ctx.sessionA, { filename: 'secret.csv', contentType: 'text/csv', byteSize: 1, storageKey: 'k1', private: true });
+    await ctx.q.recordFile(ctx.sessionA, { filename: 'plate.csv', contentType: 'text/csv', byteSize: 1, storageKey: 'k2' });
+
+    const log = await ctx.q.listActivity(ctx.sessionA);
+    const lines = log.map((r) => `${r.actorName} ${r.action} ${r.subjectType} ${r.label} | ${r.detail ?? ''}`).reverse();
+    expect(lines).toEqual([
+      'Ada A created project Biofilm | ',
+      'Ada A created experiment EXP-001 Crystal violet | ',
+      'Ada A edited experiment EXP-001 Crystal violet | objective, status In progress → Completed, conditions, result summary',
+      'Ada A added note EXP-001 Crystal violet | Wells B3 and B4 dried out.',
+      'Ada A deleted note EXP-001 Crystal violet | Wells B3 and B4 dried out.',
+      'Ada A uploaded file plate.csv | ',
+    ]);
+  });
+
+  it('is for owners and admins of the lab, and never crosses labs', async () => {
+    await expect(
+      ctx.q.listActivity({ ...ctx.sessionA, role: 'member' as const }),
+    ).rejects.toBeInstanceOf(ctx.q.MembershipRefusedError);
+    expect(await ctx.q.listActivity({ ...ctx.sessionA, role: 'admin' as const })).not.toHaveLength(0);
+    expect(await ctx.q.listActivity(ctx.sessionB)).toHaveLength(0);
+    expect(await ctx.q.listActivity(ctx.sessionA, { actorId: ctx.sessionB.userId })).toHaveLength(0);
   });
 });

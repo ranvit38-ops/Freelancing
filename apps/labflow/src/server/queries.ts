@@ -3,6 +3,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/db';
 import { normaliseEmail } from '@/lib/trial-eligibility';
 import {
+  activity,
   aiGenerations,
   datasetColumns as datasetColumnsTable,
   datasets,
@@ -38,6 +39,8 @@ import {
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { dmParticipants } from '@/lib/dm';
+import { changedFields, excerpt } from '@/lib/activity';
+import { experimentCode, experimentStatusLabel } from '@/lib/display';
 import { InUseError, NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
 
 /*
@@ -105,7 +108,9 @@ export async function createProject(
     .insert(projects)
     .values({ ...input, workspaceId: s.workspaceId, ownerId: s.userId })
     .returning({ id: projects.id });
-  return assertFound(rows[0], 'Project').id;
+  const projectId = assertFound(rows[0], 'Project').id;
+  await logActivity(s, { action: 'created', subjectType: 'project', subjectId: projectId, label: input.name, href: `/projects/${projectId}` });
+  return projectId;
 }
 
 export async function updateProject(
@@ -133,8 +138,124 @@ export async function deleteProject(s: SessionContext, projectId: string) {
   const rows = await db
     .delete(projects)
     .where(and(eq(projects.id, projectId), eq(projects.workspaceId, s.workspaceId)))
-    .returning({ id: projects.id });
-  assertFound(rows[0], 'Project');
+    .returning({ id: projects.id, name: projects.name });
+  const row = assertFound(rows[0], 'Project');
+  await logActivity(s, { action: 'deleted', subjectType: 'project', subjectId: row.id, label: row.name, detail: 'with all its experiments' });
+}
+
+/* ── activity ───────────────────────────────────────────────────────────── */
+
+type ActivityEntry = {
+  action: 'created' | 'edited' | 'deleted' | 'added' | 'uploaded' | 'changed' | 'removed';
+  subjectType: string;
+  subjectId?: string | null;
+  label: string;
+  detail?: string | null;
+  href?: string | null;
+};
+
+/** Edits by one person to one record within this window read as one entry. */
+const EDIT_WINDOW_MS = 10 * 60 * 1000;
+/** Edits this soon after creating a record are part of creating it. */
+const CREATE_WINDOW_MS = 60 * 1000;
+
+/**
+ * Writes one line of the lab's activity log, in the same code path as the
+ * change. A save touches several tables and a document saves as it is typed,
+ * so repeated edits by the same person to the same record within ten minutes
+ * fold into the latest entry, with the changed fields added to it.
+ */
+async function logActivity(s: SessionContext, entry: ActivityEntry) {
+  if (entry.action === 'edited' && entry.subjectId) {
+    const recent = await db
+      .select({ id: activity.id, action: activity.action, detail: activity.detail, createdAt: activity.createdAt })
+      .from(activity)
+      .where(
+        and(
+          eq(activity.workspaceId, s.workspaceId),
+          eq(activity.actorId, s.userId),
+          eq(activity.subjectId, entry.subjectId),
+          gt(activity.createdAt, new Date(Date.now() - EDIT_WINDOW_MS)),
+        ),
+      )
+      .orderBy(desc(activity.createdAt))
+      .limit(1);
+    const last = recent[0];
+    if (last?.action === 'created' && Date.now() - last.createdAt.getTime() < CREATE_WINDOW_MS) return;
+    if (last?.action === 'edited') {
+      const parts = new Set([...(last.detail ?? '').split(', '), ...(entry.detail ?? '').split(', ')].filter(Boolean));
+      await db
+        .update(activity)
+        .set({ detail: [...parts].join(', ') || null, label: entry.label, createdAt: new Date() })
+        .where(eq(activity.id, last.id));
+      return;
+    }
+  }
+  await db.insert(activity).values({
+    workspaceId: s.workspaceId,
+    actorId: s.userId,
+    action: entry.action,
+    subjectType: entry.subjectType,
+    subjectId: entry.subjectId ?? null,
+    label: entry.label,
+    detail: entry.detail ?? null,
+    href: entry.href ?? null,
+  });
+}
+
+/**
+ * The lab's activity, newest first: who put in or changed what. For whoever
+ * runs the lab. Private files and direct messages are never logged, so this
+ * shows nothing a member could not already open.
+ */
+export async function listActivity(
+  s: SessionContext,
+  opts: { actorId?: string; before?: Date; limit?: number } = {},
+) {
+  if (s.role === 'member') throw new MembershipRefusedError('Only owners and admins can see the activity log.');
+  const where = [eq(activity.workspaceId, s.workspaceId)];
+  if (opts.actorId && /^[0-9a-f-]{36}$/i.test(opts.actorId)) where.push(eq(activity.actorId, opts.actorId));
+  if (opts.before) where.push(sql`${activity.createdAt} < ${opts.before}`);
+  return db
+    .select({
+      id: activity.id,
+      createdAt: activity.createdAt,
+      actorId: activity.actorId,
+      actorName: users.name,
+      action: activity.action,
+      subjectType: activity.subjectType,
+      label: activity.label,
+      detail: activity.detail,
+      href: activity.href,
+    })
+    .from(activity)
+    .leftJoin(users, eq(users.id, activity.actorId))
+    .where(and(...where))
+    .orderBy(desc(activity.createdAt))
+    .limit(Math.min(opts.limit ?? 200, 5000));
+}
+
+const EXPERIMENT_FIELDS = {
+  title: 'name',
+  objective: 'objective',
+  hypothesis: 'hypothesis',
+  dataLocation: 'original data location',
+  performedOn: 'date',
+  status: 'status',
+  protocolVersionId: 'protocol',
+  protocolNotes: 'protocol deviations',
+  repeatsExperimentId: 'repeat link',
+} as const;
+
+const RESULT_FIELDS = {
+  summary: 'result summary',
+  observations: 'observations',
+  conclusion: 'conclusion',
+  nextSteps: 'next steps',
+} as const;
+
+function experimentLabel(e: { number: number; title: string }) {
+  return `${experimentCode(e.number)} ${e.title}`;
 }
 
 /* ── experiments ────────────────────────────────────────────────────────── */
@@ -319,7 +440,15 @@ export async function createExperiment(
       researcherId: s.userId,
     })
     .returning({ id: experiments.id });
-  return assertFound(rows[0], 'Experiment').id;
+  const experimentId = assertFound(rows[0], 'Experiment').id;
+  await logActivity(s, {
+    action: 'created',
+    subjectType: 'experiment',
+    subjectId: experimentId,
+    label: experimentLabel({ number, title: input.title }),
+    href: `/experiments/${experimentId}`,
+  });
+  return experimentId;
 }
 
 export async function updateExperiment(
@@ -338,12 +467,28 @@ export async function updateExperiment(
   }>,
 ) {
   assertId(experimentId, 'Experiment');
+  const before = await getExperiment(s, experimentId);
   const rows = await db
     .update(experiments)
     .set({ ...input, updatedAt: new Date() })
     .where(and(eq(experiments.id, experimentId), eq(experiments.workspaceId, s.workspaceId)))
     .returning({ id: experiments.id });
   assertFound(rows[0], 'Experiment');
+  const changed = changedFields(before, input, EXPERIMENT_FIELDS).map((field) =>
+    field === 'status' && input.status
+      ? `status ${experimentStatusLabel[before.status]} → ${experimentStatusLabel[input.status]}`
+      : field,
+  );
+  if (changed.length > 0) {
+    await logActivity(s, {
+      action: 'edited',
+      subjectType: 'experiment',
+      subjectId: experimentId,
+      label: experimentLabel({ number: before.number, title: input.title ?? before.title }),
+      detail: changed.join(', '),
+      href: `/experiments/${experimentId}`,
+    });
+  }
 }
 
 export async function deleteExperiment(s: SessionContext, experimentId: string) {
@@ -351,8 +496,9 @@ export async function deleteExperiment(s: SessionContext, experimentId: string) 
   const rows = await db
     .delete(experiments)
     .where(and(eq(experiments.id, experimentId), eq(experiments.workspaceId, s.workspaceId)))
-    .returning({ id: experiments.id });
-  assertFound(rows[0], 'Experiment');
+    .returning({ id: experiments.id, number: experiments.number, title: experiments.title });
+  const row = assertFound(rows[0], 'Experiment');
+  await logActivity(s, { action: 'deleted', subjectType: 'experiment', subjectId: row.id, label: experimentLabel(row) });
 }
 
 export async function replaceConditions(
@@ -361,12 +507,30 @@ export async function replaceConditions(
   rows: { name: string; value: string; unit: string | null }[],
 ) {
   assertId(experimentId, 'Experiment');
-  await getExperiment(s, experimentId);
+  const experiment = await getExperiment(s, experimentId);
+  const old = await db
+    .select({ name: experimentConditions.name, value: experimentConditions.value, unit: experimentConditions.unit })
+    .from(experimentConditions)
+    .where(eq(experimentConditions.experimentId, experimentId))
+    .orderBy(experimentConditions.position);
   await db.delete(experimentConditions).where(eq(experimentConditions.experimentId, experimentId));
-  if (rows.length === 0) return;
-  await db
-    .insert(experimentConditions)
-    .values(rows.map((r, i) => ({ ...r, experimentId, position: i })));
+  if (rows.length > 0) {
+    await db
+      .insert(experimentConditions)
+      .values(rows.map((r, i) => ({ ...r, experimentId, position: i })));
+  }
+  const key = (list: { name: string; value: string; unit: string | null }[]) =>
+    JSON.stringify(list.map((c) => [c.name, c.value, c.unit ?? '']));
+  if (key(old) !== key(rows)) {
+    await logActivity(s, {
+      action: 'edited',
+      subjectType: 'experiment',
+      subjectId: experimentId,
+      label: experimentLabel(experiment),
+      detail: 'conditions',
+      href: `/experiments/${experimentId}`,
+    });
+  }
 }
 
 export async function upsertResult(
@@ -380,7 +544,12 @@ export async function upsertResult(
   },
 ) {
   assertId(experimentId, 'Experiment');
-  await getExperiment(s, experimentId);
+  const experiment = await getExperiment(s, experimentId);
+  const previous = await db
+    .select()
+    .from(experimentResults)
+    .where(eq(experimentResults.experimentId, experimentId))
+    .limit(1);
   await db
     .insert(experimentResults)
     .values({ experimentId, ...input })
@@ -388,21 +557,40 @@ export async function upsertResult(
       target: experimentResults.experimentId,
       set: { ...input, updatedAt: new Date() },
     });
+  const changed = changedFields(previous[0] ?? {}, input, RESULT_FIELDS);
+  if (changed.length > 0) {
+    await logActivity(s, {
+      action: 'edited',
+      subjectType: 'experiment',
+      subjectId: experimentId,
+      label: experimentLabel(experiment),
+      detail: changed.join(', '),
+      href: `/experiments/${experimentId}`,
+    });
+  }
 }
 
 export async function addNote(s: SessionContext, experimentId: string, body: string) {
   assertId(experimentId, 'Experiment');
-  await getExperiment(s, experimentId);
+  const experiment = await getExperiment(s, experimentId);
   await db.insert(experimentNotes).values({ experimentId, body, authorId: s.userId });
+  await logActivity(s, {
+    action: 'added',
+    subjectType: 'note',
+    subjectId: experimentId,
+    label: experimentLabel(experiment),
+    detail: excerpt(body),
+    href: `/experiments/${experimentId}`,
+  });
 }
 
 export async function deleteNote(s: SessionContext, experimentId: string, noteId: string) {
   assertId(experimentId, 'Experiment');
-  await getExperiment(s, experimentId);
+  const experiment = await getExperiment(s, experimentId);
   // A notebook entry is its author's. Anyone else in the lab can read it and
   // reply, but only the author, or whoever runs the lab, can take it back.
   const canModerate = s.role === 'owner' || s.role === 'admin';
-  await db
+  const removed = await db
     .delete(experimentNotes)
     .where(
       and(
@@ -410,7 +598,20 @@ export async function deleteNote(s: SessionContext, experimentId: string, noteId
         eq(experimentNotes.experimentId, experimentId),
         canModerate ? undefined : eq(experimentNotes.authorId, s.userId),
       ),
-    );
+    )
+    .returning({ body: experimentNotes.body });
+  if (removed[0]) {
+    // The deleted text is kept here on purpose: a lab record that can vanish
+    // without trace is not a record.
+    await logActivity(s, {
+      action: 'deleted',
+      subjectType: 'note',
+      subjectId: experimentId,
+      label: experimentLabel(experiment),
+      detail: excerpt(removed[0].body, 500),
+      href: `/experiments/${experimentId}`,
+    });
+  }
 }
 
 /* ── samples ────────────────────────────────────────────────────────────── */
@@ -497,13 +698,29 @@ export async function setExperimentSamples(
   sampleIds: string[],
 ) {
   assertId(experimentId, 'Experiment');
-  await getExperiment(s, experimentId);
+  const experiment = await getExperiment(s, experimentId);
+  const old = await db
+    .select({ id: experimentSamples.sampleId })
+    .from(experimentSamples)
+    .where(eq(experimentSamples.experimentId, experimentId));
   await db.delete(experimentSamples).where(eq(experimentSamples.experimentId, experimentId));
-  if (sampleIds.length === 0) return;
-  await db
-    .insert(experimentSamples)
-    .values(sampleIds.map((sampleId) => ({ experimentId, sampleId })))
-    .onConflictDoNothing();
+  if (sampleIds.length > 0) {
+    await db
+      .insert(experimentSamples)
+      .values(sampleIds.map((sampleId) => ({ experimentId, sampleId })))
+      .onConflictDoNothing();
+  }
+  const key = (ids: string[]) => [...new Set(ids)].sort().join(',');
+  if (key(old.map((r) => r.id)) !== key(sampleIds)) {
+    await logActivity(s, {
+      action: 'edited',
+      subjectType: 'experiment',
+      subjectId: experimentId,
+      label: experimentLabel(experiment),
+      detail: 'samples',
+      href: `/experiments/${experimentId}`,
+    });
+  }
 }
 
 export async function experimentsForSample(s: SessionContext, sampleId: string) {
@@ -611,6 +828,7 @@ export async function createProtocol(
     changeNote: 'Initial version',
     createdById: s.userId,
   });
+  await logActivity(s, { action: 'created', subjectType: 'protocol', subjectId: protocolId, label: input.name, href: `/protocols/${protocolId}` });
   return protocolId;
 }
 
@@ -620,7 +838,7 @@ export async function addProtocolVersion(
   input: { body: string | null; changeNote: string },
 ) {
   assertId(protocolId, 'Protocol');
-  const { versions } = await getProtocolWithVersions(s, protocolId);
+  const { protocol, versions } = await getProtocolWithVersions(s, protocolId);
   const next = (versions[0]?.version ?? 0) + 1;
   await db.insert(protocolVersions).values({
     protocolId,
@@ -628,6 +846,14 @@ export async function addProtocolVersion(
     body: input.body,
     changeNote: input.changeNote,
     createdById: s.userId,
+  });
+  await logActivity(s, {
+    action: 'added',
+    subjectType: 'protocol version',
+    subjectId: protocolId,
+    label: `${protocol.name} v${next}`,
+    detail: input.changeNote,
+    href: `/protocols/${protocolId}`,
   });
   return next;
 }
@@ -744,7 +970,18 @@ export async function recordFile(
       ...(input.isDocument ? { updatedAt: new Date(), updatedById: s.userId } : {}),
     })
     .returning({ id: files.id });
-  return assertFound(rows[0], 'File').id;
+  const fileId = assertFound(rows[0], 'File').id;
+  // Private files stay out of the log: it must show nothing a member could not open.
+  if (!input.private) {
+    await logActivity(s, {
+      action: input.isDocument ? 'created' : 'uploaded',
+      subjectType: input.isDocument ? 'document' : 'file',
+      subjectId: fileId,
+      label: input.isDocument ? input.filename.replace(/\.md$/i, '') : input.filename,
+      href: input.isDocument ? `/docs/${fileId}` : '/files',
+    });
+  }
+  return fileId;
 }
 
 /* ── direct messages ────────────────────────────────────────────────────── */
@@ -889,6 +1126,15 @@ export async function saveDocumentVersion(
     )
     .returning({ id: files.id });
   if (rows.length === 0) throw new DocumentConflictError(null);
+  if (!current.private) {
+    await logActivity(s, {
+      action: 'edited',
+      subjectType: 'document',
+      subjectId: fileId,
+      label: input.filename.replace(/\.md$/i, ''),
+      href: `/docs/${fileId}`,
+    });
+  }
   return { replacedKey: current.storageKey, updatedAt: now };
 }
 
@@ -1008,6 +1254,21 @@ export async function setMemberRole(s: SessionContext, userId: string, role: Rol
     .update(workspaceMembers)
     .set({ role })
     .where(and(eq(workspaceMembers.workspaceId, s.workspaceId), eq(workspaceMembers.userId, userId)));
+  if (current !== role) {
+    await logActivity(s, {
+      action: 'changed',
+      subjectType: 'role',
+      subjectId: userId,
+      label: await personName(userId),
+      detail: `${current} → ${role}`,
+      href: '/team',
+    });
+  }
+}
+
+async function personName(userId: string): Promise<string> {
+  const rows = await db.select({ name: users.name, email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+  return rows[0]?.name ?? rows[0]?.email ?? 'Someone';
 }
 
 /**
@@ -1024,6 +1285,7 @@ export async function removeMember(s: SessionContext, userId: string): Promise<v
   await db
     .delete(workspaceMembers)
     .where(and(eq(workspaceMembers.workspaceId, s.workspaceId), eq(workspaceMembers.userId, userId)));
+  await logActivity(s, { action: 'removed', subjectType: 'person', subjectId: userId, label: await personName(userId), detail: `was ${target}` });
 }
 
 /** Leaves the current lab, unless that would leave it with nobody in charge. */
@@ -1748,7 +2010,9 @@ export async function recordLink(
       provider: input.provider,
     })
     .returning({ id: files.id });
-  return assertFound(rows[0], 'Link').id;
+  const linkId = assertFound(rows[0], 'Link').id;
+  await logActivity(s, { action: 'added', subjectType: 'link', subjectId: linkId, label: input.filename, detail: input.sourceUrl, href: '/files' });
+  return linkId;
 }
 
 /* ── discussion ─────────────────────────────────────────────────────────── */
@@ -2954,8 +3218,16 @@ export async function deleteFile(s: SessionContext, fileId: string) {
   const rows = await db
     .delete(files)
     .where(and(eq(files.id, fileId), fileVisibleTo(s)))
-    .returning({ id: files.id, storageKey: files.storageKey });
+    .returning({ id: files.id, storageKey: files.storageKey, filename: files.filename, private: files.private, isDocument: files.isDocument });
   const row = assertFound(rows[0], 'File');
+  if (!row.private) {
+    await logActivity(s, {
+      action: 'deleted',
+      subjectType: row.isDocument ? 'document' : 'file',
+      subjectId: row.id,
+      label: row.isDocument ? row.filename.replace(/\.md$/i, '') : row.filename,
+    });
+  }
   return row;
 }
 

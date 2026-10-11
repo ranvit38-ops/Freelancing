@@ -6,6 +6,7 @@ import { requireSession } from '../authz';
 import { blockedReason } from '../paywall';
 import * as q from '../queries';
 import { EVERYONE } from '@/lib/tasks';
+import { sendConfirmation, taskAssignedEmail } from '../account-emails';
 import type { ActionState } from './types';
 
 /**
@@ -52,13 +53,31 @@ export async function createTaskAction(
     return { fieldErrors: { dueOn: 'Use the date picker' } };
   }
 
+  const who = assignee(formData);
   await q.createTask(session, {
     title: title.slice(0, 200),
     detail: optionalText(formData, 'detail', 4000),
-    ...assignee(formData),
+    ...who,
     projectId: optionalId(formData, 'projectId'),
     dueOn,
   });
+
+  // Work handed to someone else reaches their inbox, not only the app.
+  if (who.assignedTo && who.assignedTo !== session.userId) {
+    const person = (await q.listWorkspaceMembers(session)).find((m) => m.id === who.assignedTo);
+    if (person) {
+      sendConfirmation(person.email, '/tasks', (link) =>
+        taskAssignedEmail({
+          name: person.name ?? person.email,
+          from: session.userName,
+          title: title.slice(0, 200),
+          dueOn,
+          labName: session.workspaceName,
+          link,
+        }),
+      );
+    }
+  }
 
   revalidatePath('/tasks');
   revalidatePath('/dashboard');

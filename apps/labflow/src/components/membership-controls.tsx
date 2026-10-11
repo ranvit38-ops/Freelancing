@@ -61,6 +61,7 @@ export function MemberControls({
         ) : null}
       </div>
       {error ? <p className="max-w-[16rem] text-right text-xs text-danger">{error}</p> : null}
+      {!error && roleState.ok ? <p className="text-right text-xs text-ok">{roleState.message}</p> : null}
     </div>
   );
 }

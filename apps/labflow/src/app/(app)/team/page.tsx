@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { InviteForm } from '@/components/invite-form';
+import { MemberControls } from '@/components/membership-controls';
 import { JoinLink } from '@/components/join-link';
 import { Badge, Card, CardHeader, PageHeader } from '@/components/ui';
 import { linkForViewer } from '@/server/origin';
@@ -50,7 +52,26 @@ export default async function PeoplePage() {
                   </p>
                   <p className="truncate text-xs text-muted">{m.email}</p>
                 </div>
-                <Badge tone={m.role === 'owner' ? 'accent' : 'neutral'}>{m.role}</Badge>
+                {canManage ? (
+                  <Link
+                    href={`/activity?person=${m.id}`}
+                    className="hidden text-xs text-muted underline-offset-2 hover:text-fg hover:underline sm:block"
+                  >
+                    Activity
+                  </Link>
+                ) : null}
+                {m.id !== session.userId &&
+                (session.role === 'owner' || (session.role === 'admin' && m.role === 'member')) ? (
+                  <MemberControls
+                    userId={m.id}
+                    role={m.role}
+                    name={m.name ?? m.email}
+                    canChangeRole={session.role === 'owner'}
+                    canRemove
+                  />
+                ) : (
+                  <Badge tone={m.role === 'owner' ? 'accent' : 'neutral'}>{m.role}</Badge>
+                )}
               </li>
             ))}
           </ul>
@@ -62,6 +83,31 @@ export default async function PeoplePage() {
             canManage={canManage}
           />
           <InviteForm canInvite={canManage} />
+          <Card className="p-5">
+            <h2 className="text-sm font-semibold tracking-tight">Who can do what</h2>
+            <dl className="mt-3 space-y-3 text-sm">
+              <div>
+                <dt className="font-medium">Member</dt>
+                <dd className="text-muted">
+                  Records experiments, notes and files, and reads everything in the lab that is not someone&apos;s
+                  private file or direct message.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium">Admin</dt>
+                <dd className="text-muted">
+                  Everything a member can, plus inviting and removing members, the activity log of who put in or
+                  changed what, and removing notes.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium">Owner</dt>
+                <dd className="text-muted">
+                  Everything, including making anyone an admin or owner. A lab always keeps at least one owner.
+                </dd>
+              </div>
+            </dl>
+          </Card>
         </div>
       </div>
     </>

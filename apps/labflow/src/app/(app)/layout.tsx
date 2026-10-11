@@ -57,7 +57,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // The owner link is added for the owner alone. Everyone else never sees the
   // route exists, and the page itself refuses them regardless of the nav.
-  const footer = navFor(pilotMode());
+  // Whoever runs the lab gets its activity log; members never see the link.
+  const footer =
+    session.role === 'member'
+      ? navFor(pilotMode())
+      : [{ href: '/activity', label: 'Activity' }, ...navFor(pilotMode())];
   const secondary = isOwnerEmail(session.userEmail)
     ? [...footer, { href: '/owner', label: 'Owner' }]
     : footer;

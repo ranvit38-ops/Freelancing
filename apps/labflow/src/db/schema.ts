@@ -818,3 +818,28 @@ export const chatReads = pgTable(
   },
   (t) => ({ pk: primaryKey({ columns: [t.userId, t.workspaceId, t.channel] }) }),
 );
+
+/**
+ * Who put in or changed what, and when. Written in the same code path as the
+ * change itself; label and detail keep what a thing was called at the time.
+ */
+export const activity = pgTable(
+  'activity',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    action: text('action').notNull(),
+    subjectType: text('subject_type').notNull(),
+    subjectId: uuid('subject_id'),
+    label: text('label').notNull(),
+    detail: text('detail'),
+    href: text('href'),
+    createdAt: createdAt(),
+  },
+  (t) => ({
+    wsCreatedIdx: index('activity_workspace_created_idx').on(t.workspaceId, t.createdAt),
+  }),
+);
