@@ -837,6 +837,16 @@ suite('activity log', () => {
     ]);
   });
 
+  it('gives whoever runs the lab one row per person, counted from the records', async () => {
+    const rows = await ctx.q.labPulse(ctx.sessionA);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: ctx.sessionA.userId, runsThisWeek: 1, notesThisWeek: 0 });
+    expect(rows[0]!.lastActive).toBeInstanceOf(Date);
+    await expect(ctx.q.labPulse({ ...ctx.sessionA, role: 'member' as const })).rejects.toBeInstanceOf(
+      ctx.q.MembershipRefusedError,
+    );
+  });
+
   it('is for owners and admins of the lab, and never crosses labs', async () => {
     await expect(
       ctx.q.listActivity({ ...ctx.sessionA, role: 'member' as const }),

@@ -1216,6 +1216,44 @@ export async function listWorkspaceMembers(s: SessionContext) {
     .orderBy(workspaceMembers.createdAt);
 }
 
+/**
+ * One row per person for whoever runs the lab: what they recorded this week
+ * and when they last put anything in. Worked out from the records themselves,
+ * so it is right from the first day and not only once the activity log has
+ * history. Private files are never counted.
+ */
+export async function labPulse(s: SessionContext) {
+  if (s.role === 'member') throw new MembershipRefusedError('Only owners and admins can see this.');
+  const ws = s.workspaceId;
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000);
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: workspaceMembers.role,
+      runsThisWeek: sql<number>`(
+        select count(*)::int from "experiments" e
+        where e.workspace_id = ${ws} and e.researcher_id = ${users.id} and e.updated_at > ${weekAgo}
+      )`,
+      notesThisWeek: sql<number>`(
+        select count(*)::int from "experiment_notes" n join "experiments" e on e.id = n.experiment_id
+        where e.workspace_id = ${ws} and n.author_id = ${users.id} and n.created_at > ${weekAgo}
+      )`,
+      lastActive: sql<Date | null>`greatest(
+        (select max(e.updated_at) from "experiments" e where e.workspace_id = ${ws} and e.researcher_id = ${users.id}),
+        (select max(n.created_at) from "experiment_notes" n join "experiments" e on e.id = n.experiment_id
+          where e.workspace_id = ${ws} and n.author_id = ${users.id}),
+        (select max(f.created_at) from "files" f where f.workspace_id = ${ws} and f.uploaded_by_id = ${users.id} and not f.private),
+        (select max(a.created_at) from "activity" a where a.workspace_id = ${ws} and a.actor_id = ${users.id})
+      )`.mapWith((value: string | Date | null) => (value ? new Date(value) : null)),
+    })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
+    .where(eq(workspaceMembers.workspaceId, ws))
+    .orderBy(workspaceMembers.createdAt);
+}
+
 /** A change to who is in the lab that would leave it without an owner, or is not yours to make. */
 export class MembershipRefusedError extends Error {}
 

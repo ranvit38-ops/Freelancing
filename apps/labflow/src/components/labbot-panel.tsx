@@ -137,6 +137,7 @@ export function LabBotPanel({
         onClick={toggle}
         aria-expanded={open}
         aria-controls="labbot-panel"
+        data-labbot-launcher
         hidden={open}
         className={cx(
           'fixed right-5 z-30 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg shadow-lg transition-opacity hover:opacity-90',

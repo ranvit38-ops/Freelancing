@@ -128,7 +128,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
         ) : null}
         <form action={setExperimentStatusAction} className="ml-auto flex items-center gap-2">
           <input type="hidden" name="experimentId" value={experiment.id} />
-          <label htmlFor="status-change" className="text-sm text-muted">
+          <label htmlFor="status-change" className="whitespace-nowrap text-sm text-muted">
             Set status
           </label>
           <Select id="status-change" name="status" defaultValue={experiment.status} className="w-48">
@@ -185,7 +185,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                 <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
                   Original data
                 </h3>
-                <div className="mt-1 break-all font-mono">
+                <div className={experiment.dataLocation ? 'mt-1 break-all font-mono' : 'mt-1'}>
                   <Prose text={experiment.dataLocation} />
                 </div>
               </div>

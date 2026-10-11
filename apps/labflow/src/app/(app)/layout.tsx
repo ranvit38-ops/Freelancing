@@ -30,6 +30,7 @@ const navItems: NavItem[] = [
 ];
 
 const footerItems: NavItem[] = [
+  { href: '/guide', label: 'Tutorial' },
   { href: '/settings', label: 'Settings' },
   { href: '/billing', label: 'Billing' },
 ];

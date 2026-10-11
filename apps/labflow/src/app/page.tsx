@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ButtonLink } from '@/components/ui';
+import { WhyNotFree } from '@/components/why-not-free';
 import { getSession } from '@/server/auth';
 
 const steps = [
@@ -26,6 +27,30 @@ const steps = [
 ];
 
 const features = [
+  {
+    title: 'Record check',
+    body: 'Every started run that is missing something, grouped by who ran it, with exactly what is missing. Catch a thin record while the student still remembers.',
+  },
+  {
+    title: 'Activity log',
+    body: 'Who created, edited or deleted what, and when, across the whole lab. Filter by person, download as a spreadsheet. Deleted notes keep their text.',
+  },
+  {
+    title: 'Your lab this week',
+    body: 'One table on Home for whoever runs the lab: runs and notes per person, records to fill in, and who has gone quiet.',
+  },
+  {
+    title: 'Roles you choose',
+    body: 'Make any postdoc or senior student an admin. Members record; admins also invite, remove and see the log; owners decide who is who.',
+  },
+  {
+    title: 'Start here for new people',
+    body: 'One join link, then an ordered reading path through the lab’s own documents, protocols and runs.',
+  },
+  {
+    title: 'Run again',
+    body: 'Repeat a run with one change: the plan is copied, the new run is linked to the old one, and nothing is retyped.',
+  },
   {
     title: 'Experiment records',
     body: 'Objective, hypothesis, protocol version, conditions, samples, data, results and next steps in one structured record.',
@@ -78,6 +103,9 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
             >
               Features
             </Link>
+            <Link href="/guide" className="rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
+              Tutorial
+            </Link>
             <Link href="/pricing" className="rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
               Pricing
             </Link>
@@ -106,17 +134,17 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
               For university research labs
             </p>
             <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
-              Turn experiments into a living research record.
+              Know what your lab recorded, and what it left out.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted">
-              Labvia connects experiments, protocols, samples, data, results and research updates
-              in one place, with AI that helps researchers understand what happened and
-              communicate it faster.
+              Students record each experiment in one structured place: hypothesis, protocol,
+              conditions, samples, where the raw data lives, results. You see whose records are
+              thin, who changed what, and who has gone quiet, without opening a single file.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <ButtonLink href={primaryHref}>{primaryLabel}</ButtonLink>
-              <ButtonLink href="#how-it-works" tone="secondary">
-                See how it works
+              <ButtonLink href="/guide" tone="secondary">
+                See the tutorial
               </ButtonLink>
             </div>
           </div>
@@ -188,8 +216,13 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
           </div>
         </section>
 
+        {/* Why pay */}
+        <section id="why" className="mx-auto max-w-6xl scroll-mt-16 px-6 py-20">
+          <WhyNotFree />
+        </section>
+
         {/* Trust */}
-        <section className="mx-auto max-w-6xl px-6 py-20">
+        <section className="border-t border-line mx-auto max-w-6xl px-6 py-20">
           <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">

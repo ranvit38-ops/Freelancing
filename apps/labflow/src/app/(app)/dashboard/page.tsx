@@ -2,11 +2,21 @@ import Link from 'next/link';
 import { ButtonLink, Card, CardHeader, EmptyState, PageHeader, cx } from '@/components/ui';
 import { ExperimentList } from '@/components/records';
 import { TaskCheck } from '@/components/task-check';
+import { LabPulse } from '@/components/lab-pulse';
+import { pulseRows } from '@/lib/pulse';
 import { displayTime } from '@/lib/calendar';
 import { greetingName, pluralise, projectStatusLabel } from '@/lib/display';
 import { byDeadline, dueLabel, todayIso } from '@/lib/tasks';
 import { requireSession } from '@/server/authz';
-import { dashboardData, listCalendar, listDiscussion, listTasks, usageCounts } from '@/server/queries';
+import {
+  dashboardData,
+  labPulse,
+  listCalendar,
+  listDiscussion,
+  listRecordChecks,
+  listTasks,
+  usageCounts,
+} from '@/server/queries';
 
 export const metadata = { title: 'Home' };
 export const dynamic = 'force-dynamic';
@@ -30,6 +40,11 @@ export default async function HomePage() {
     listDiscussion(session, { workspace: true }),
     usageCounts(session),
   ]);
+  // Whoever runs the lab sees the lab, not only their own plate.
+  const runsLab = session.role !== 'member';
+  const pulse = runsLab
+    ? pulseRows(...(await Promise.all([labPulse(session), listRecordChecks(session)])), new Date())
+    : null;
 
   const mine = tasks
     .filter((t) => t.status !== 'done' && (t.assignedTo === session.userId || t.forEveryone))
@@ -76,6 +91,8 @@ export default async function HomePage() {
           ]}
         />
       ) : null}
+
+      {pulse && pulse.length > 1 ? <LabPulse rows={pulse} /> : null}
 
       <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
         <Card className="lg:col-span-2">

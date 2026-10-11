@@ -3,6 +3,7 @@ import { getSession } from '@/server/auth';
 import { Badge, ButtonLink, Card, cx } from '@/components/ui';
 import { PLANS, PLAN_ORDER, formatLimitBytes, type PlanId } from '@/lib/plans';
 import { PILOT_PLAN, pilotMode } from '@/lib/pilot';
+import { WhyNotFree } from '@/components/why-not-free';
 
 export const metadata = {
   title: 'Pricing',
@@ -180,6 +181,10 @@ export default async function PricingPage() {
             </tbody>
           </table>
         </Card>
+
+        <section id="why" className="mt-16 scroll-mt-16">
+          <WhyNotFree />
+        </section>
 
         <section className="mt-16 max-w-3xl">
           <h2 className="text-2xl font-semibold tracking-tight">Questions labs actually ask</h2>
