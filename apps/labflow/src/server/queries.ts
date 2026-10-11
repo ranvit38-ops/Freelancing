@@ -208,6 +208,7 @@ export async function getExperiment(s: SessionContext, experimentId: string) {
       researcherName: users.name,
       projectId: experiments.projectId,
       projectName: projects.name,
+      projectIsExample: projects.isExample,
       researchQuestion: projects.researchQuestion,
       createdAt: experiments.createdAt,
       updatedAt: experiments.updatedAt,
@@ -248,6 +249,7 @@ export async function getExperimentRecord(s: SessionContext, experimentId: strin
         id: experimentNotes.id,
         body: experimentNotes.body,
         createdAt: experimentNotes.createdAt,
+        authorId: experimentNotes.authorId,
         authorName: users.name,
       })
       .from(experimentNotes)
@@ -397,9 +399,18 @@ export async function addNote(s: SessionContext, experimentId: string, body: str
 export async function deleteNote(s: SessionContext, experimentId: string, noteId: string) {
   assertId(experimentId, 'Experiment');
   await getExperiment(s, experimentId);
+  // A notebook entry is its author's. Anyone else in the lab can read it and
+  // reply, but only the author, or whoever runs the lab, can take it back.
+  const canModerate = s.role === 'owner' || s.role === 'admin';
   await db
     .delete(experimentNotes)
-    .where(and(eq(experimentNotes.id, noteId), eq(experimentNotes.experimentId, experimentId)));
+    .where(
+      and(
+        eq(experimentNotes.id, noteId),
+        eq(experimentNotes.experimentId, experimentId),
+        canModerate ? undefined : eq(experimentNotes.authorId, s.userId),
+      ),
+    );
 }
 
 /* ── samples ────────────────────────────────────────────────────────────── */

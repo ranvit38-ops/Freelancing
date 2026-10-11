@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFormState } from 'react-dom';
 import { Button, Card, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
@@ -11,7 +11,9 @@ import { noState } from '@/server/actions/types';
 import { experimentCode, experimentStatusLabel } from '@/lib/display';
 import type { ExperimentStatus } from '@/db/schema';
 
-export type ConditionRow = { name: string; value: string; unit: string };
+import { draftFromFormData, readDraft, writeDraft, type ConditionRow, type FormDraft } from '@/lib/form-draft';
+
+export type { ConditionRow };
 
 export type ExperimentFormProps = {
   mode: 'create' | 'edit';
@@ -51,7 +53,7 @@ const emptyRow: ConditionRow = { name: '', value: '', unit: '' };
 
 const blank: NonNullable<ExperimentFormProps['initial']> = {
   title: '',
-  performedOn: new Date().toISOString().slice(0, 10),
+  performedOn: '',
   status: 'in_progress',
   objective: '',
   hypothesis: '',
@@ -95,11 +97,85 @@ export function ExperimentForm(props: ExperimentFormProps) {
     initial.conditions.length > 0 ? initial.conditions : [emptyRow],
   );
 
+  // A new record with no date means today, in the researcher's own time zone.
+  // Filled here rather than on the server, which runs on UTC and would date
+  // an evening run tomorrow.
+  const dateRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const input = dateRef.current;
+    if (props.mode === 'create' && input && !input.value) input.value = localToday();
+  }, [props.mode]);
+
+  // Unsaved text is kept on this device as it is typed, and offered back if
+  // the page is reopened before saving. Keyed per record, or per project and
+  // starting point for a new one.
+  const formRef = useRef<HTMLFormElement>(null);
+  const draftKey = `labvia:experiment-draft:${
+    props.experimentId ?? `new:${props.projectId}:${initial.repeatsExperimentId}`
+  }`;
+  const [unsaved, setUnsaved] = useState<FormDraft | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    setUnsaved(readDraft(draftKey));
+    return () => clearTimeout(timer.current);
+  }, [draftKey]);
+
+  function remember() {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (formRef.current) writeDraft(draftKey, draftFromFormData(new FormData(formRef.current), Date.now()));
+    }, 400);
+  }
+
+  function restore(draft: FormDraft) {
+    const form = formRef.current;
+    if (!form) return;
+    for (const [name, value] of Object.entries(draft.fields)) {
+      const el = form.elements.namedItem(name);
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+        el.value = value;
+      }
+    }
+    if (draft.conditions.length > 0) setConditions(draft.conditions);
+    setUnsaved(null);
+  }
+
+  function discard() {
+    clearTimeout(timer.current);
+    writeDraft(draftKey, null);
+    setUnsaved(null);
+  }
+
   const updateRow = (index: number, patch: Partial<ConditionRow>) =>
     setConditions((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form
+      ref={formRef}
+      action={formAction}
+      onInput={remember}
+      onSubmit={() => {
+        clearTimeout(timer.current);
+        writeDraft(draftKey, null);
+      }}
+      className="space-y-5"
+    >
+      {unsaved ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-warn/30 bg-warn/5 px-4 py-3 text-sm"
+        >
+          <span className="min-w-0 flex-1">
+            You have unsaved text from {new Date(unsaved.savedAt).toLocaleString()} on this device.
+          </span>
+          <Button type="button" size="sm" onClick={() => restore(unsaved)}>
+            Put it back
+          </Button>
+          <Button type="button" tone="ghost" size="sm" onClick={discard}>
+            Discard
+          </Button>
+        </div>
+      ) : null}
       <input type="hidden" name="projectId" value={props.projectId} />
       {props.storedFileId ? (
         <input type="hidden" name="existingFileId" value={props.storedFileId} />
@@ -134,7 +210,13 @@ export function ExperimentForm(props: ExperimentFormProps) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Date performed" htmlFor="performedOn" error={state.fieldErrors?.performedOn}>
-            <Input id="performedOn" name="performedOn" type="date" defaultValue={initial.performedOn} />
+            <Input
+              ref={dateRef}
+              id="performedOn"
+              name="performedOn"
+              type="date"
+              defaultValue={initial.performedOn}
+            />
           </Field>
           <Field label="Status" htmlFor="status">
             <Select id="status" name="status" defaultValue={initial.status}>
@@ -346,4 +428,9 @@ export function ExperimentForm(props: ExperimentFormProps) {
       </div>
     </form>
   );
+}
+
+function localToday(): string {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 }

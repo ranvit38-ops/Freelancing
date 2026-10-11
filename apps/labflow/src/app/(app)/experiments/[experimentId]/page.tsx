@@ -5,6 +5,8 @@ import { notFound } from 'next/navigation';
 import { CompletenessPanel } from '@/components/completeness-panel';
 import { AttachLink } from '@/components/attach-link';
 import { Discussion } from '@/components/discussion';
+import { LocalDateTime } from '@/components/local-date-time';
+import { NoteForm } from '@/components/note-form';
 import { ConfirmSubmit, FileUpload } from '@/components/file-upload';
 import { StatusBadge } from '@/components/records';
 import {
@@ -25,7 +27,6 @@ import { experimentCode, experimentStatusLabel, formatBytes, formatDate } from '
 import { embedUrl, providerLabel } from '@/lib/links';
 import type { ExperimentStatus } from '@/db/schema';
 import {
-  addNoteAction,
   deleteExperimentAction,
   deleteNoteAction,
   setExperimentStatusAction,
@@ -59,6 +60,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
   }
 
   const { experiment, conditions, samples, result, notes, files, datasets } = record;
+  const canModerate = session.role === 'owner' || session.role === 'admin';
   const messages = await listDiscussion(session, { experimentId: experiment.id });
   const [lotsUsed, availableLots] = await Promise.all([
     lotsForExperiment(session, experiment.id),
@@ -102,6 +104,11 @@ export default async function ExperimentPage({ params }: { params: { experimentI
         actions={
           <>
             <ButtonLink href={`/experiments/${experiment.id}/edit`}>Edit</ButtonLink>
+            {experiment.projectIsExample ? null : (
+              <ButtonLink href={`/experiments/new?from=${experiment.id}`} tone="secondary">
+                Run again
+              </ButtonLink>
+            )}
             <ButtonLink href={`/projects/${experiment.projectId}/compare?ids=${experiment.id}`} tone="secondary">
               Compare
             </ButtonLink>
@@ -193,6 +200,41 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                 </div>
               ) : null}
             </div>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Notes"
+              description="The running log of this run, newest first, each stamped with who and when."
+            />
+            <NoteForm experimentId={experiment.id} />
+            {notes.length > 0 ? (
+              <ul className="divide-y divide-line border-t border-line">
+                {notes.map((note) => (
+                  <li key={note.id} className="px-5 py-4">
+                    <div className="mb-1 flex items-center justify-between gap-3 text-xs text-subtle">
+                      <span>
+                        {note.authorName ?? 'Unknown'} · <LocalDateTime value={note.createdAt} />
+                      </span>
+                      {note.authorId === session.userId || canModerate ? (
+                        <form action={deleteNoteAction}>
+                          <input type="hidden" name="experimentId" value={experiment.id} />
+                          <input type="hidden" name="noteId" value={note.id} />
+                          <ConfirmSubmit
+                            tone="ghost"
+                            size="sm"
+                            message="Delete this note? This cannot be undone."
+                          >
+                            Delete
+                          </ConfirmSubmit>
+                        </form>
+                      ) : null}
+                    </div>
+                    <p className="whitespace-pre-wrap text-sm leading-6">{note.body}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </Card>
 
           <Card>
@@ -329,50 +371,6 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                       {d.name}
                     </Link>
                     <Badge tone="accent">{d.rowCount} rows</Badge>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </Card>
-
-          <Card>
-            <CardHeader title="Notes" description={`${notes.length} recorded`} />
-            <form action={addNoteAction} className="space-y-3 px-5 py-4">
-              <input type="hidden" name="experimentId" value={experiment.id} />
-              <label htmlFor="note-body" className="sr-only">
-                Add a note
-              </label>
-              <Textarea
-                id="note-body"
-                name="body"
-                required
-                placeholder="Something worth remembering about this run…"
-              />
-              <Button type="submit" tone="secondary" size="sm">
-                Add note
-              </Button>
-            </form>
-            {notes.length > 0 ? (
-              <ul className="divide-y divide-line border-t border-line">
-                {notes.map((note) => (
-                  <li key={note.id} className="px-5 py-4">
-                    <div className="mb-1 flex items-center justify-between gap-3 text-xs text-subtle">
-                      <span>
-                        {note.authorName ?? 'Unknown'} · {formatDate(note.createdAt)}
-                      </span>
-                      <form action={deleteNoteAction}>
-                        <input type="hidden" name="experimentId" value={experiment.id} />
-                        <input type="hidden" name="noteId" value={note.id} />
-                        <ConfirmSubmit
-                          tone="ghost"
-                          size="sm"
-                          message="Delete this note? This cannot be undone."
-                        >
-                          Delete
-                        </ConfirmSubmit>
-                      </form>
-                    </div>
-                    <p className="whitespace-pre-wrap text-sm leading-6">{note.body}</p>
                   </li>
                 ))}
               </ul>

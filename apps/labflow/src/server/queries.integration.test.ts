@@ -187,6 +187,17 @@ suite('workspace isolation', () => {
     await ctx.q.deleteExperiment(ctx.sessionA, planned);
   });
 
+  it('lets only a note author, or whoever runs the lab, delete a note', async () => {
+    await ctx.q.addNote(ctx.sessionA, experimentA, 'Wells B3 and B4 dried out.');
+    const noteId = (await ctx.q.getExperimentRecord(ctx.sessionA, experimentA)).notes[0]!.id;
+    const colleague = { ...ctx.sessionA, userId: ctx.sessionB.userId, role: 'member' as const };
+    await ctx.q.deleteNote(colleague, experimentA, noteId);
+    expect((await ctx.q.getExperimentRecord(ctx.sessionA, experimentA)).notes).toHaveLength(1);
+    const admin = { ...colleague, role: 'admin' as const };
+    await ctx.q.deleteNote(admin, experimentA, noteId);
+    expect((await ctx.q.getExperimentRecord(ctx.sessionA, experimentA)).notes).toHaveLength(0);
+  });
+
   it('reports which project each comparable experiment belongs to', async () => {
     const rows = await ctx.q.getComparableExperiments(ctx.sessionA, [experimentA]);
     expect(rows[0]?.projectId).toBe(projectA);

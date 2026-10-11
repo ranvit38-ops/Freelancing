@@ -21,15 +21,19 @@ import type { ExperimentDraft } from '@/lib/experiment-draft';
 export function NewExperiment({
   initialDraft,
   storedFile,
+  repeatOf,
+  initial: startFrom,
   ...props
-}: Omit<ExperimentFormProps, 'mode' | 'initial'> & {
+}: Omit<ExperimentFormProps, 'mode'> & {
+  /** The run this one starts as a copy of, named so the copy is not a surprise. */
+  repeatOf?: string;
   /** Read on the server from a file already in the lab's Files. */
   initialDraft?: ExperimentDraft;
   /** That file, attached when the experiment is saved rather than re-uploaded. */
   storedFile?: { id: string; name: string };
 }) {
   const [initial, setInitial] = useState<ExperimentFormProps['initial']>(
-    initialDraft ? toInitial(initialDraft) : undefined,
+    initialDraft ? toInitial(initialDraft) : startFrom,
   );
   const [files, setFiles] = useState<File[]>([]);
   const [version, setVersion] = useState(0);
@@ -41,6 +45,13 @@ export function NewExperiment({
 
   return (
     <div className="space-y-5">
+      {repeatOf ? (
+        <p className="rounded-lg border border-accent/25 bg-accent/5 px-4 py-3 text-sm">
+          Starting from <span className="font-medium">{repeatOf}</span>: the objective, protocol,
+          conditions and samples are copied. Change whatever is different this time. The date is
+          today, and the data location and results start empty.
+        </p>
+      ) : null}
       {storedFile ? (
         <p className="rounded-lg border border-ok/25 bg-ok/5 px-4 py-3 text-sm text-ok">
           Filled in from <span className="font-medium">{storedFile.name}</span>. Check it over, change
@@ -66,7 +77,7 @@ function toInitial(draft: ExperimentDraft): NonNullable<ExperimentFormProps['ini
     title: draft.title ?? '',
     // A file with no date in its name means today, which is the common case
     // for a run being written up the afternoon it happened.
-    performedOn: draft.performedOn ?? new Date().toISOString().slice(0, 10),
+    performedOn: draft.performedOn ?? '',
     status: 'completed',
     objective: '',
     hypothesis: '',

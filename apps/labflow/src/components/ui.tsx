@@ -138,9 +138,12 @@ const fieldBase =
   'placeholder:text-subtle focus:border-accent focus-visible:outline-none ' +
   'focus:ring-2 focus:ring-accent/25 disabled:bg-raised';
 
-export function Input({ className, ...props }: ComponentProps<'input'>) {
-  return <input {...props} className={cx(fieldBase, 'h-9 py-0', className)} />;
-}
+export const Input = forwardRef<HTMLInputElement, ComponentProps<'input'>>(function Input(
+  { className, ...props },
+  ref,
+) {
+  return <input ref={ref} {...props} className={cx(fieldBase, 'h-9 py-0', className)} />;
+});
 
 export const Textarea = forwardRef<HTMLTextAreaElement, ComponentProps<'textarea'>>(function Textarea(
   { className, ...props },

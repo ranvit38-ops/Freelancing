@@ -47,6 +47,11 @@ export async function createProjectAction(
 
   const projectId = await q.createProject(session, parsed.data);
   revalidatePath('/projects');
+  // Named from the record-an-experiment screen: go straight back to it.
+  if (formData.get('then') === 'record') {
+    const file = String(formData.get('file') ?? '');
+    redirect(`/experiments/new?project=${projectId}${file ? `&file=${encodeURIComponent(file)}` : ''}`);
+  }
   redirect(`/projects/${projectId}`);
 }
 

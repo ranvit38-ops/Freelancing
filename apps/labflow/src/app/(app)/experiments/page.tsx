@@ -31,13 +31,7 @@ export default async function ExperimentsPage({
             <ButtonLink href="/experiments/record-check" tone="secondary">
               Record check
             </ButtonLink>
-            {projects[0] ? (
-              <ButtonLink href={`/projects/${projects[0].id}/experiments/new`}>
-                New experiment
-              </ButtonLink>
-            ) : (
-              <ButtonLink href="/projects/new">Create a project first</ButtonLink>
-            )}
+            <ButtonLink href="/experiments/new">New experiment</ButtonLink>
           </>
         }
       />

@@ -6,6 +6,7 @@ import { Card, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import {
   addProtocolVersionAction,
+  createProjectAction,
   createProtocolAction,
   createSampleAction,
 } from '@/server/actions/records';
@@ -128,6 +129,31 @@ export function ProtocolVersionForm({ protocolId }: { protocolId: string }) {
       <SubmitButton tone="secondary" size="sm" pendingLabel="Saving…">
         Save new version
       </SubmitButton>
+    </form>
+  );
+}
+
+/**
+ * The one question standing between a new lab and its first real record.
+ * Asked on the record screen itself, so nobody's first experiment is filed
+ * under the example project for want of somewhere else to put it.
+ */
+export function QuickProjectForm({ file }: { file?: string }) {
+  const [state, action] = useFormState(createProjectAction, noState);
+  return (
+    <form action={action} className="space-y-4">
+      <input type="hidden" name="then" value="record" />
+      {file ? <input type="hidden" name="file" value={file} /> : null}
+      <FormError>{state.error}</FormError>
+      <Field
+        label="What is this work part of?"
+        htmlFor="name"
+        hint="A thesis chapter, a grant aim, a paper in progress. You can rename it later."
+        error={state.fieldErrors?.name}
+      >
+        <Input id="name" name="name" placeholder="Biofilm growth on PDMS" required autoFocus />
+      </Field>
+      <SubmitButton pendingLabel="Creating…">Continue</SubmitButton>
     </form>
   );
 }

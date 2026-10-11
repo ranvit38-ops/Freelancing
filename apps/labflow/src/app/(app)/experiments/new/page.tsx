@@ -1,8 +1,12 @@
 import Link from 'next/link';
 import { NewExperiment } from '@/components/new-experiment';
-import { ButtonLink, EmptyState, PageHeader } from '@/components/ui';
+import { QuickProjectForm } from '@/components/simple-forms';
+import { Card, PageHeader } from '@/components/ui';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
+import { experimentCode } from '@/lib/display';
+import { runAgainInitial } from '@/lib/run-again';
 import {
+  getExperimentRecord,
   listExperiments,
   listProjects,
   listProtocolVersionOptions,
@@ -23,25 +27,43 @@ export const dynamic = 'force-dynamic';
 export default async function RecordExperimentPage({
   searchParams,
 }: {
-  searchParams: { project?: string; file?: string };
+  searchParams: { project?: string; file?: string; from?: string };
 }) {
   const session = await requireSession();
-  const projects = await listProjects(session);
+  // The example project is there to be looked at. Real work never lands in it
+  // by default, and it is not offered as a place to put a new record.
+  const projects = (await listProjects(session)).filter((p) => !p.isExample);
 
   if (projects.length === 0) {
     return (
-      <>
-        <PageHeader title="Record an experiment" />
-        <EmptyState
-          title="Make a project first"
-          description="Every experiment belongs to a project, so it has something to be compared with. It takes ten seconds."
-          action={<ButtonLink href="/projects/new">New project</ButtonLink>}
+      <div className="mx-auto max-w-xl">
+        <PageHeader
+          title="Record an experiment"
+          description="Experiments are grouped by the project they belong to, so related runs can be compared. Name yours and you are straight back here."
         />
-      </>
+        <Card className="p-5">
+          <QuickProjectForm file={searchParams.file} />
+        </Card>
+      </div>
     );
   }
 
-  const project = projects.find((p) => p.id === searchParams.project) ?? projects[0]!;
+  // "Run again": an earlier run in this lab to start from. A stale link, or a
+  // run in the example project, falls back to the ordinary blank form.
+  let source: Awaited<ReturnType<typeof getExperimentRecord>> | null = null;
+  if (searchParams.from) {
+    try {
+      source = await getExperimentRecord(session, searchParams.from);
+    } catch (error) {
+      if (!(error instanceof NotFoundInWorkspaceError)) throw error;
+    }
+  }
+  const sourceProjectId = source?.experiment.projectId;
+  const sourceProject = sourceProjectId ? projects.find((p) => p.id === sourceProjectId) : undefined;
+  if (!sourceProject) source = null;
+
+  const project =
+    sourceProject ?? projects.find((p) => p.id === searchParams.project) ?? projects[0]!;
 
   // A file from the lab's Files. A stale or private link simply falls back to
   // the ordinary form rather than an error page.
@@ -69,7 +91,7 @@ export default async function RecordExperimentPage({
         description="Drop the files you already have and Labvia fills in what it can read. Only the name is required."
       />
 
-      {projects.length > 1 ? (
+      {projects.length > 1 && !source ? (
         <nav aria-label="Which project" className="mb-5">
           <p className="mb-2 text-sm font-medium">Which project is it for?</p>
           <ul className="flex flex-wrap gap-2">
@@ -93,7 +115,7 @@ export default async function RecordExperimentPage({
       ) : null}
 
       <NewExperiment
-        key={`${project.id}:${fromFile?.file.id ?? ''}`}
+        key={`${project.id}:${fromFile?.file.id ?? ''}:${source?.experiment.id ?? ''}`}
         projectId={project.id}
         projectName={project.name}
         nextNumber={number}
@@ -101,6 +123,20 @@ export default async function RecordExperimentPage({
         siblingExperiments={siblings.map((e) => ({ id: e.id, number: e.number, title: e.title }))}
         initialDraft={fromFile?.draft}
         storedFile={fromFile?.file}
+        initial={
+          source
+            ? runAgainInitial({
+                ...source.experiment,
+                conditions: source.conditions,
+                samples: source.samples,
+              })
+            : undefined
+        }
+        repeatOf={
+          source
+            ? `${experimentCode(source.experiment.number)} ${source.experiment.title}`
+            : undefined
+        }
       />
     </div>
   );
