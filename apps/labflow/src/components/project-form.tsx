@@ -40,16 +40,16 @@ export function ProjectForm({
           <Input id="name" name="name" defaultValue={value.name} placeholder="PFAS Removal Study" required autoFocus />
         </Field>
         <Field
-          label="Research question"
+          label="Question and hypothesis"
           htmlFor="researchQuestion"
           optional
-          hint="The question this whole project is trying to answer."
+          hint="What this project is testing. Every experiment in it is a run toward answering this, and shows it."
         >
           <Textarea
             id="researchQuestion"
             name="researchQuestion"
             defaultValue={value.researchQuestion}
-            placeholder="Which sorbent achieves the longest PFOA breakthrough time under field-relevant conditions?"
+            placeholder="Which sorbent holds PFOA longest under field conditions? We expect the v4 packing to delay breakthrough because of its higher surface area."
           />
         </Field>
         <Field label="Description" htmlFor="description" optional>

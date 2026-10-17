@@ -533,6 +533,20 @@ suite('private files', () => {
       ctx.q.postMessage(ctx.sessionA, { workspace: true, parentId: null, body: 'see this', fileId: privateId }),
     ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
   });
+  it('turns a shared PDF into a protocol, and a revised file into v2, but never a private one', async () => {
+    const id = await ctx.q.createProtocol(ctx.sessionA, {
+      name: 'Tensiometer', description: null, projectId: null, body: null, fileId: sharedId,
+    });
+    await ctx.q.addProtocolVersion(ctx.sessionA, id, { body: null, changeNote: 'New ring', fileId: sharedId });
+    const { versions } = await ctx.q.getProtocolWithVersions(colleague, id);
+    expect(versions.map((v) => [v.version, v.filename])).toEqual([[2, 'slides.txt'], [1, 'slides.txt']]);
+    await expect(
+      ctx.q.createProtocol(ctx.sessionA, { name: 'Draft', description: null, projectId: null, body: null, fileId: privateId }),
+    ).rejects.toBeInstanceOf(ctx.q.PrivateProtocolFileError);
+    await expect(
+      ctx.q.createProtocol(ctx.sessionB, { name: 'Theirs', description: null, projectId: null, body: null, fileId: sharedId }),
+    ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+  });
 });
 
 /**

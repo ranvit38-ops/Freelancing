@@ -17,6 +17,8 @@ export const dynamic = 'force-dynamic';
 
 /** Spreadsheets Labvia can read an experiment out of. */
 const READABLE = /\.(csv|tsv|xlsx)$/i;
+/** What lab protocols are usually kept as. */
+const PROTOCOL_LIKE = /\.(pdf|docx?|odt|rtf)$/i;
 
 /**
  * The lab's files, and your own.
@@ -68,7 +70,7 @@ export default async function FilesPage({
     <>
       <PageHeader
         title="Files"
-        description="Everything the lab has uploaded or written, and your own files. Write documents here, or drop a spreadsheet in and Labvia can turn it into an experiment."
+        description="Everything the lab has uploaded or written, and your own files. A protocol PDF or Word file becomes a protocol with “Use as a protocol”. Data from a run belongs on that experiment’s page."
       />
       {storage ? (
         <p
@@ -169,6 +171,14 @@ export default async function FilesPage({
                           className="shrink-0 rounded-lg border border-accent/30 bg-accent/5 px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent/10"
                         >
                           Make an experiment from this
+                        </Link>
+                      ) : null}
+                      {!f.private && !f.experimentId && (f.isDocument || PROTOCOL_LIKE.test(f.filename)) ? (
+                        <Link
+                          href={`/protocols/new?file=${f.id}`}
+                          className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted hover:border-accent/40 hover:text-fg"
+                        >
+                          Use as a protocol
                         </Link>
                       ) : null}
                       {f.uploadedById === session.userId || session.role !== 'member' ? (

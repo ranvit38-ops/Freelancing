@@ -104,6 +104,45 @@ export default async function StartPage({ searchParams }: { searchParams: { join
 
       <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
         <div className="space-y-5 lg:col-span-2">
+          {canCurate && projectCount === 0 ? (
+            <Card>
+              <CardHeader
+                title="Setting up the lab"
+                description="In this order: each step needs the one before it."
+              />
+              <ol className="space-y-3 px-5 pb-5 text-sm">
+                {[
+                  {
+                    href: '/projects/new',
+                    label: 'Create a project',
+                    text: 'The study: its question and hypothesis. Experiments and their files live inside it.',
+                  },
+                  {
+                    href: '/files',
+                    label: 'Add your protocols',
+                    text: 'Upload the PDF or Word file in Files, then choose “Use as a protocol”. Revisions become v2, v3.',
+                  },
+                  {
+                    href: '/experiments/new',
+                    label: 'Record an experiment',
+                    text: 'One run of a protocol: date, conditions, sample IDs, where the raw data is, notes.',
+                  },
+                ].map((step, i) => (
+                  <li key={step.href} className="flex gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-semibold text-accent">
+                      {i + 1}
+                    </span>
+                    <span>
+                      <Link href={step.href} className="font-medium underline underline-offset-2">
+                        {step.label}
+                      </Link>
+                      <span className="text-muted"> · {step.text}</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </Card>
+          ) : null}
           <Card>
             <CardHeader title="Catch me up" description="The whole lab on one page, in plain language." />
             <CatchUp configured={Boolean(process.env.ANTHROPIC_API_KEY)} />

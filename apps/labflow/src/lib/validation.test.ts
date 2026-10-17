@@ -44,6 +44,15 @@ describe('parseSampleCodes', () => {
   it('returns nothing for empty input', () => {
     expect(parseSampleCodes('   ')).toEqual([]);
   });
+
+  it('takes only the ID column of rows pasted from Excel, without the header', () => {
+    const sheet = 'Sample ID\tTemperature\tPressure\nSB-01\t25.3\t101\nSB-02\t25.1\t99\n';
+    expect(parseSampleCodes(sheet)).toEqual(['SB-01', 'SB-02']);
+  });
+
+  it('drops a header pasted on top of a single column', () => {
+    expect(parseSampleCodes('Sample ID\nSB-01\nSB-02')).toEqual(['SB-01', 'SB-02']);
+  });
 });
 
 describe('zipConditions', () => {

@@ -275,12 +275,21 @@ export async function createProtocolAction(
   const parsed = protocolSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
-  const protocolId = await q.createProtocol(session, {
-    name: parsed.data.name,
-    description: parsed.data.description,
-    projectId: parsed.data.projectId,
-    body: parsed.data.body,
-  });
+  let protocolId: string;
+  try {
+    protocolId = await q.createProtocol(session, {
+      name: parsed.data.name,
+      description: parsed.data.description,
+      projectId: parsed.data.projectId,
+      body: parsed.data.body,
+      fileId: parsed.data.fileId,
+    });
+  } catch (error) {
+    if (error instanceof NotFoundInWorkspaceError || error instanceof q.PrivateProtocolFileError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
   revalidatePath('/protocols');
   redirect(`/protocols/${protocolId}`);
 }
@@ -300,8 +309,12 @@ export async function addProtocolVersionAction(
     q.addProtocolVersion(session, protocolId, {
       body: parsed.data.body,
       changeNote: parsed.data.changeNote,
+      fileId: parsed.data.fileId,
     }),
-  );
+  ).catch((error) => {
+    if (error instanceof q.PrivateProtocolFileError) return { error: error.message };
+    throw error;
+  });
   if (result && typeof result === 'object' && 'error' in result) return result;
   revalidatePath(`/protocols/${protocolId}`);
   redirect(`/protocols/${protocolId}`);

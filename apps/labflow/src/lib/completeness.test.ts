@@ -77,8 +77,17 @@ describe('checkCompleteness', () => {
     expect(state({ ...empty, objective: 'test' }, 'objective')).toBe('incomplete');
   });
 
-  it('lets free-text notes partially cover observations', () => {
-    expect(state({ ...empty, noteCount: 1 }, 'observations')).toBe('incomplete');
+  it('counts a dated note as the bench record', () => {
+    expect(state({ ...empty, noteCount: 1 }, 'notes')).toBe('documented');
+    expect(state({ ...empty, observations: 'Column pressure rose after 30 BV.' }, 'notes')).toBe('documented');
+    expect(state(empty, 'notes')).toBe('missing');
+  });
+
+  it('does not ask every run for a hypothesis, results or a conclusion', () => {
+    const keys = checkCompleteness(empty).categories.map((c) => c.key);
+    expect(keys).not.toContain('hypothesis');
+    expect(keys).not.toContain('results');
+    expect(keys).not.toContain('conclusion');
   });
 });
 
@@ -122,13 +131,13 @@ describe('gapsByResearcher', () => {
 
   it('groups thin records by researcher, most gaps first, thinnest record first', () => {
     const groups = gapsByResearcher([
-      { ...full, researcherName: 'Ada', hypothesis: null },
-      { ...full, researcherName: 'Tom', conclusion: null },
+      { ...full, researcherName: 'Ada', dataLocation: null },
+      { ...full, researcherName: 'Tom', conditionCount: 0 },
       { ...empty, researcherName: 'Tom' },
       { ...full, researcherName: null, sampleCount: 0 },
     ]);
     expect(groups.map((g) => g.researcher)).toEqual(['Tom', 'Ada', 'Former member']);
     expect(groups[0]!.gaps[0]!.score).toBe(0);
-    expect(groups[1]!.gaps[0]!.outstanding.map((c) => c.key)).toEqual(['hypothesis']);
+    expect(groups[1]!.gaps[0]!.outstanding.map((c) => c.key)).toEqual(['rawData']);
   });
 });

@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { href: '/calendar', label: 'Calendar' },
   { href: '/files', label: 'Files' },
   { href: '/projects', label: 'Projects' },
+  { href: '/protocols', label: 'Protocols' },
   { href: '/team', label: 'People' },
 ];
 

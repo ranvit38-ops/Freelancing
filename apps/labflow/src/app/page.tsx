@@ -53,7 +53,7 @@ const features = [
   },
   {
     title: 'Experiment records',
-    body: 'Objective, hypothesis, protocol version, conditions, samples, data, results and next steps in one structured record.',
+    body: 'Purpose, protocol version, conditions, samples, raw data location and notes in one structured record, under the project’s question and hypothesis.',
   },
   {
     title: 'Connected research history',
@@ -137,8 +137,8 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
               Know what your lab recorded, and what it left out.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted">
-              Students record each experiment in one structured place: hypothesis, protocol,
-              conditions, samples, where the raw data lives, results. You see whose records are
+              Students record each run in one structured place: protocol version, conditions,
+              samples, where the raw data lives, what happened at the bench. You see whose records are
               thin, who changed what, and who has gone quiet, without opening a single file.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">

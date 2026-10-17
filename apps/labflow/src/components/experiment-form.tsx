@@ -229,23 +229,27 @@ export function ExperimentForm(props: ExperimentFormProps) {
           </Field>
         </div>
 
-        <Field label="Objective" htmlFor="objective" optional error={state.fieldErrors?.objective}>
+        <Field
+          label="Purpose of this run"
+          htmlFor="objective"
+          optional
+          hint="The project holds the question and hypothesis. Say what this run is for."
+          error={state.fieldErrors?.objective}
+        >
           <Textarea
             id="objective"
             name="objective"
             defaultValue={initial.objective}
-            placeholder="What is this run meant to find out?"
+            placeholder="Surface tension of the new soil extract batch before the field trial."
           />
         </Field>
 
-        <Field label="Hypothesis" htmlFor="hypothesis" optional>
-          <Textarea
-            id="hypothesis"
-            name="hypothesis"
-            defaultValue={initial.hypothesis}
-            placeholder="What do you expect to happen, and why?"
-          />
-        </Field>
+        {/* Hypotheses moved to the project; older runs that recorded one keep it editable. */}
+        {initial.hypothesis ? (
+          <Field label="Hypothesis" htmlFor="hypothesis" optional>
+            <Textarea id="hypothesis" name="hypothesis" defaultValue={initial.hypothesis} />
+          </Field>
+        ) : null}
       </SectionCard>
 
       <SectionCard
@@ -264,9 +268,13 @@ export function ExperimentForm(props: ExperimentFormProps) {
         </Field>
         {props.protocolVersions.length === 0 ? (
           <p className="text-xs text-muted">
-            No protocols in this lab yet.{' '}
+            No protocols in this lab yet. Already uploaded the PDF or Word file? Open{' '}
+            <Link href="/files" className="underline underline-offset-2">
+              Files
+            </Link>{' '}
+            and choose “Use as a protocol”, or{' '}
             <Link href="/protocols/new" className="underline underline-offset-2">
-              Add one
+              write one here
             </Link>
             .
           </p>
@@ -340,7 +348,12 @@ export function ExperimentForm(props: ExperimentFormProps) {
         title="Samples"
         description="Paste or type sample IDs. Anything new is created in this lab automatically."
       >
-        <Field label="Sample IDs" htmlFor="sampleCodes" optional hint="Separated by commas, spaces or new lines.">
+        <Field
+          label="Sample IDs"
+          htmlFor="sampleCodes"
+          optional
+          hint="Paste rows straight from Excel: the first column is taken as the ID. Put the sheet with the measured values under Original data."
+        >
           <Textarea
             id="sampleCodes"
             name="sampleCodes"
@@ -379,24 +392,43 @@ export function ExperimentForm(props: ExperimentFormProps) {
           optional
           hint={props.mode === 'edit' ? 'Saved as a new dated note; earlier notes are kept.' : undefined}
         >
-          <Textarea id="notes" name="notes" className="min-h-[140px]" placeholder="Observations, problems, things to check next time…" />
+          <Textarea id="notes" name="notes" className="min-h-[140px]" placeholder="What you saw, problems, anything that differed from last time…" />
+        </Field>
+        <Field
+          label="Next steps"
+          htmlFor="nextSteps"
+          optional
+          hint="For whoever picks this up next: what is left to do."
+        >
+          <Textarea id="nextSteps" name="nextSteps" defaultValue={initial.nextSteps} className="min-h-[64px]" />
         </Field>
       </SectionCard>
 
-      <SectionCard title="Result" description="Fill this in when the run is done. Nothing here is required to save.">
-        <Field label="Result summary" htmlFor="summary" optional>
-          <Textarea id="summary" name="summary" defaultValue={initial.summary} />
-        </Field>
-        <Field label="Observations" htmlFor="observations" optional>
-          <Textarea id="observations" name="observations" defaultValue={initial.observations} />
-        </Field>
-        <Field label="Conclusion" htmlFor="conclusion" optional>
-          <Textarea id="conclusion" name="conclusion" defaultValue={initial.conclusion} />
-        </Field>
-        <Field label="Next steps" htmlFor="nextSteps" optional>
-          <Textarea id="nextSteps" name="nextSteps" defaultValue={initial.nextSteps} />
-        </Field>
-      </SectionCard>
+      <details
+        className="rounded-xl border border-line bg-surface shadow-card"
+        open={Boolean(initial.summary || initial.conclusion || initial.observations)}
+      >
+        <summary className="cursor-pointer px-5 py-4 text-sm font-medium sm:px-6">
+          Results and conclusions <span className="font-normal text-muted">(optional)</span>
+        </summary>
+        <div className="space-y-4 border-t border-line px-5 py-4 sm:px-6">
+          <p className="text-xs text-muted">
+            Analysis usually happens in your own code or software. If you write it up, link the report under
+            Files and data instead of copying it here.
+          </p>
+          <Field label="Result summary" htmlFor="summary" optional>
+            <Textarea id="summary" name="summary" defaultValue={initial.summary} />
+          </Field>
+          {initial.observations ? (
+            <Field label="Observations" htmlFor="observations" optional>
+              <Textarea id="observations" name="observations" defaultValue={initial.observations} />
+            </Field>
+          ) : null}
+          <Field label="Conclusion" htmlFor="conclusion" optional>
+            <Textarea id="conclusion" name="conclusion" defaultValue={initial.conclusion} />
+          </Field>
+        </div>
+      </details>
 
       {props.siblingExperiments.length > 0 ? (
         <SectionCard title="Relationship" description="Link this run to the one it repeats, so the timeline shows it.">

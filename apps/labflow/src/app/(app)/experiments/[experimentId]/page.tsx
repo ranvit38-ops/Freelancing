@@ -60,6 +60,13 @@ export default async function ExperimentPage({ params }: { params: { experimentI
   }
 
   const { experiment, conditions, samples, result, notes, files, datasets } = record;
+  // Only what was written: an empty Result card is normal, not a gap.
+  const resultSections = [
+    { label: 'Summary', value: result?.summary ?? null },
+    { label: 'Observations', value: result?.observations ?? null },
+    { label: 'Conclusion', value: result?.conclusion ?? null },
+    { label: 'Next steps', value: result?.nextSteps ?? null },
+  ].filter((section) => section.value?.trim());
   const canModerate = session.role === 'owner' || session.role === 'admin';
   const messages = await listDiscussion(session, { experimentId: experiment.id });
   const [lotsUsed, availableLots] = await Promise.all([
@@ -170,17 +177,29 @@ export default async function ExperimentPage({ params }: { params: { experimentI
             />
             <div className="mt-5 space-y-4 border-t border-line pt-5">
               <div>
-                <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">Objective</h3>
+                <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">Purpose of this run</h3>
                 <div className="mt-1">
                   <Prose text={experiment.objective} />
                 </div>
               </div>
-              <div>
-                <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">Hypothesis</h3>
-                <div className="mt-1">
-                  <Prose text={experiment.hypothesis} />
+              {experiment.researchQuestion ? (
+                <div>
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+                    Project question and hypothesis
+                  </h3>
+                  <div className="mt-1 text-muted">
+                    <Prose text={experiment.researchQuestion} />
+                  </div>
                 </div>
-              </div>
+              ) : null}
+              {experiment.hypothesis ? (
+                <div>
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">Hypothesis</h3>
+                  <div className="mt-1">
+                    <Prose text={experiment.hypothesis} />
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
                   Original data
@@ -276,12 +295,13 @@ export default async function ExperimentPage({ params }: { params: { experimentI
           <Card>
             <CardHeader title="Result" />
             <div className="space-y-4 px-5 py-4">
-              {[
-                { label: 'Summary', value: result?.summary ?? null },
-                { label: 'Observations', value: result?.observations ?? null },
-                { label: 'Conclusion', value: result?.conclusion ?? null },
-                { label: 'Next steps', value: result?.nextSteps ?? null },
-              ].map((section) => (
+              {resultSections.length === 0 ? (
+                <p className="text-sm text-muted">
+                  Nothing written here, which is fine: analysis usually lives in your own code and reports.
+                  Link the report under Files and data.
+                </p>
+              ) : null}
+              {resultSections.map((section) => (
                 <div key={section.label}>
                   <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
                     {section.label}

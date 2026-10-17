@@ -70,7 +70,7 @@ const SECTIONS: Section[] = [
     width: 1280,
     height: 800,
     steps: [
-      'The record at the top: date, who ran it, the protocol version, objective, hypothesis and where the original data is.',
+      'The record at the top: date, who ran it, the protocol version, the purpose of the run, the project’s question and hypothesis, and where the original data is.',
       'Notes are the running log of the run. Each one is stamped with who wrote it and the time, in your time zone. Add them as you go.',
       'Attach files and links under “Files and data”. Spreadsheets become datasets you can chart.',
       'Change the status (planned, in progress, completed, needs investigation) from the top right.',
@@ -83,9 +83,10 @@ const SECTIONS: Section[] = [
     image: 'completeness',
     alt: 'The record completeness checklist with documented, incomplete and missing items',
     width: 312,
-    height: 1010,
+    height: 552,
     steps: [
-      'Every experiment checks itself against eleven things a good record has: objective, hypothesis, protocol and version, conditions, samples, raw data, results, observations, conclusion and next steps.',
+      'Every experiment checks itself against seven things only the person at the bench can write down: purpose, protocol and version, conditions, samples, raw data and notes.',
+      'Results and conclusions are optional and not checked: analysis usually happens in your own code and reports.',
       'Red is missing, amber is too thin to be useful, green is written down. Each gap says what to add.',
       'It checks that information is written down. It never claims the work is correct.',
     ],
@@ -100,7 +101,7 @@ const SECTIONS: Section[] = [
     height: 800,
     steps: [
       'On any experiment, press “Run again” to repeat it with one change.',
-      'The objective, hypothesis, protocol, conditions and samples are copied, and the new run is linked to the old one.',
+      'The purpose, protocol, conditions and samples are copied, and the new run is linked to the old one.',
       'The date is today; deviations, data location and results start empty because they belong to this run alone.',
     ],
   },
@@ -114,7 +115,7 @@ const SECTIONS: Section[] = [
     height: 800,
     steps: [
       '“Record check”, linked from Home, lists every started run that is missing something, grouped by who ran it, thinnest first.',
-      'Each line says exactly what to fill in, so the conversation with a student is specific: “EXP-003 needs the raw data location and a conclusion.”',
+      'Each line says exactly what to fill in, so the conversation with a student is specific: “EXP-003 needs the raw data location and the sample IDs.”',
       'Catch thin records while the person who ran the experiment still remembers.',
     ],
     try: { href: '/experiments/record-check', label: 'Open Record check' },

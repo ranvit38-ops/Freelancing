@@ -73,14 +73,37 @@ export function SampleForm({
   );
 }
 
-export function ProtocolForm({ projects }: { projects: ProjectOption[] }) {
+export function ProtocolForm({
+  projects,
+  file,
+}: {
+  projects: ProjectOption[];
+  /** The uploaded PDF or Word file this protocol is, when made from Files. */
+  file?: { id: string; filename: string } | null;
+}) {
   const [state, action] = useFormState(createProtocolAction, noState);
   return (
     <form action={action} className="space-y-5">
       <FormError>{state.error}</FormError>
       <Card className="space-y-4 p-5 sm:p-6">
+        {file ? (
+          <>
+            <input type="hidden" name="fileId" value={file.id} />
+            <p className="rounded-lg border border-line bg-raised px-3 py-2 text-sm">
+              Version 1 is <span className="font-medium">{file.filename}</span>. When it is revised, upload the new
+              file and add it as version 2; experiments keep pointing at the version they used.
+            </p>
+          </>
+        ) : null}
         <Field label="Protocol name" htmlFor="name" error={state.fieldErrors?.name}>
-          <Input id="name" name="name" placeholder="PFAS Extraction" required autoFocus />
+          <Input
+            id="name"
+            name="name"
+            defaultValue={file ? file.filename.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') : undefined}
+            placeholder="PFAS Extraction"
+            required
+            autoFocus
+          />
         </Field>
         <Field label="Description" htmlFor="description" optional>
           <Input id="description" name="description" />
@@ -95,7 +118,7 @@ export function ProtocolForm({ projects }: { projects: ProjectOption[] }) {
             ))}
           </Select>
         </Field>
-        <Field label="Method (version 1)" htmlFor="body" optional>
+        <Field label={file ? 'Notes on this version' : 'Method (version 1)'} htmlFor="body" optional>
           <Textarea id="body" name="body" className="min-h-[180px]" placeholder="Steps, reagents, instrument settings…" />
         </Field>
       </Card>
@@ -109,7 +132,14 @@ export function ProtocolForm({ projects }: { projects: ProjectOption[] }) {
   );
 }
 
-export function ProtocolVersionForm({ protocolId }: { protocolId: string }) {
+export function ProtocolVersionForm({
+  protocolId,
+  files = [],
+}: {
+  protocolId: string;
+  /** Shared PDFs and Word files, newest first, to pick the revised protocol from. */
+  files?: { id: string; filename: string }[];
+}) {
   const [state, action] = useFormState(addProtocolVersionAction, noState);
   return (
     <form action={action} className="space-y-4 px-5 py-4">
@@ -123,6 +153,23 @@ export function ProtocolVersionForm({ protocolId }: { protocolId: string }) {
       >
         <Input id="changeNote" name="changeNote" required placeholder="Increased rinse volume to 10 mL" />
       </Field>
+      {files.length > 0 ? (
+        <Field
+          label="Revised file"
+          htmlFor="fileId"
+          optional
+          hint="Upload the new PDF or Word file in Files first, then pick it here."
+        >
+          <Select id="fileId" name="fileId" defaultValue="">
+            <option value="">No file</option>
+            {files.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.filename}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
       <Field label="Method" htmlFor="body" optional>
         <Textarea id="body" name="body" className="min-h-[160px]" />
       </Field>

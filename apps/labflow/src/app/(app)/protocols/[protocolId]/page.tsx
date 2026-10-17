@@ -4,7 +4,7 @@ import { Badge, Card, CardHeader, PageHeader, Prose } from '@/components/ui';
 import Link from 'next/link';
 import { experimentCode, formatDate, pluralise } from '@/lib/display';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
-import { getProtocolWithVersions, protocolVersionUsage } from '@/server/queries';
+import { getProtocolWithVersions, listProtocolFileOptions, protocolVersionUsage } from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +12,10 @@ export default async function ProtocolPage({ params }: { params: { protocolId: s
   const session = await requireSession();
   try {
     const { protocol, versions } = await getProtocolWithVersions(session, params.protocolId);
-    const usage = await protocolVersionUsage(session, protocol.id);
+    const [usage, fileOptions] = await Promise.all([
+      protocolVersionUsage(session, protocol.id),
+      listProtocolFileOptions(session),
+    ]);
 
     return (
       <div className="mx-auto max-w-3xl">
@@ -27,7 +30,7 @@ export default async function ProtocolPage({ params }: { params: { protocolId: s
               title="Add a version"
               description="Never edit an old version, experiments point at it."
             />
-            <ProtocolVersionForm protocolId={protocol.id} />
+            <ProtocolVersionForm protocolId={protocol.id} files={fileOptions} />
           </Card>
 
           <Card>
@@ -44,6 +47,14 @@ export default async function ProtocolPage({ params }: { params: { protocolId: s
                   <p className="mt-2 text-sm font-medium">
                     {v.changeNote ?? 'No change note recorded'}
                   </p>
+                  {v.fileId ? (
+                    <a
+                      href={v.fileIsDocument ? `/docs/${v.fileId}` : `/api/files/${v.fileId}`}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-line bg-raised px-2.5 py-1 text-sm hover:border-accent/40"
+                    >
+                      Open {v.filename}
+                    </a>
+                  ) : null}
                   {(() => {
                     const used = usage.filter((u) => u.versionId === v.id && u.experimentId);
                     return (

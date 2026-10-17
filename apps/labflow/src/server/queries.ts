@@ -745,6 +745,14 @@ export async function experimentsForSample(s: SessionContext, sampleId: string) 
 
 /* ── protocols ──────────────────────────────────────────────────────────── */
 
+/** A protocol file only its uploader can open would leave the lab with a dead link. */
+export class PrivateProtocolFileError extends Error {
+  constructor() {
+    super('This file is private. Share it with the lab first, so everyone following the protocol can open it.');
+    this.name = 'PrivateProtocolFileError';
+  }
+}
+
 export async function listProtocols(s: SessionContext, opts: { projectId?: string } = {}) {
   const where = opts.projectId
     ? and(
@@ -785,9 +793,13 @@ export async function getProtocolWithVersions(s: SessionContext, protocolId: str
       body: protocolVersions.body,
       createdAt: protocolVersions.createdAt,
       authorName: users.name,
+      fileId: files.id,
+      filename: files.filename,
+      fileIsDocument: files.isDocument,
     })
     .from(protocolVersions)
     .leftJoin(users, eq(users.id, protocolVersions.createdById))
+    .leftJoin(files, and(eq(files.id, protocolVersions.fileId), eq(files.workspaceId, s.workspaceId)))
     .where(eq(protocolVersions.protocolId, protocolId))
     .orderBy(desc(protocolVersions.version));
   return { protocol, versions };
@@ -809,8 +821,19 @@ export async function listProtocolVersionOptions(s: SessionContext) {
 
 export async function createProtocol(
   s: SessionContext,
-  input: { name: string; description: string | null; projectId: string | null; body: string | null },
+  input: {
+    name: string;
+    description: string | null;
+    projectId: string | null;
+    body: string | null;
+    fileId?: string | null;
+  },
 ) {
+  if (input.fileId) {
+    // Everyone who follows the protocol must be able to open it.
+    const file = await getFileForDownload(s, input.fileId);
+    if (file.private) throw new PrivateProtocolFileError();
+  }
   const rows = await db
     .insert(protocols)
     .values({
@@ -825,6 +848,7 @@ export async function createProtocol(
     protocolId,
     version: 1,
     body: input.body,
+    fileId: input.fileId ?? null,
     changeNote: 'Initial version',
     createdById: s.userId,
   });
@@ -835,15 +859,20 @@ export async function createProtocol(
 export async function addProtocolVersion(
   s: SessionContext,
   protocolId: string,
-  input: { body: string | null; changeNote: string },
+  input: { body: string | null; changeNote: string; fileId?: string | null },
 ) {
   assertId(protocolId, 'Protocol');
   const { protocol, versions } = await getProtocolWithVersions(s, protocolId);
+  if (input.fileId) {
+    const file = await getFileForDownload(s, input.fileId);
+    if (file.private) throw new PrivateProtocolFileError();
+  }
   const next = (versions[0]?.version ?? 0) + 1;
   await db.insert(protocolVersions).values({
     protocolId,
     version: next,
     body: input.body,
+    fileId: input.fileId ?? null,
     changeNote: input.changeNote,
     createdById: s.userId,
   });
@@ -859,6 +888,22 @@ export async function addProtocolVersion(
 }
 
 /* ── files ──────────────────────────────────────────────────────────────── */
+
+/** Shared lab files that could be a protocol version: PDFs, Word files, Labvia documents. */
+export async function listProtocolFileOptions(s: SessionContext) {
+  return db
+    .select({ id: files.id, filename: files.filename })
+    .from(files)
+    .where(
+      and(
+        eq(files.workspaceId, s.workspaceId),
+        eq(files.private, false),
+        or(eq(files.isDocument, true), sql`${files.filename} ~* '\\.(pdf|docx?|odt|rtf)$'`),
+      ),
+    )
+    .orderBy(desc(files.createdAt))
+    .limit(50);
+}
 
 /**
  * The files this person may see: everything shared with the lab, plus their

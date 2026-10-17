@@ -118,27 +118,37 @@ export const protocolSchema = z
     projectId: z.string().uuid().nullable().catch(null).default(null),
     body: optionalText(20000),
     changeNote: optionalText(2000),
+    /** An uploaded PDF or Word file that is the protocol itself. */
+    fileId: z.string().uuid().nullable().catch(null).default(null),
   });
 
 export const protocolVersionSchema = z
   .object({
     body: optionalText(20000),
     changeNote: trimmed(2000).min(1, 'Describe what changed in this version'),
+    fileId: z.string().uuid().nullable().catch(null).default(null),
   });
 
 export type ExperimentInput = z.infer<typeof experimentSchema>;
 export type ProjectInput = z.infer<typeof projectSchema>;
 
 /** Splits pasted sample codes on commas, whitespace or newlines. */
+/** A header cell someone pasted along with the IDs: "Sample ID", "ID", "Code" … */
+const SAMPLE_HEADER = /^(sample\s*(id|code|name|no\.?|number)?|id|code)s?$/i;
+
+/**
+ * Sample IDs from whatever was pasted: a list, or rows straight from Excel.
+ * When the paste has tabs it is a spreadsheet, so only the first column is
+ * an ID; the other columns are measurements and are not turned into samples.
+ * A header row on top is dropped.
+ */
 export function parseSampleCodes(raw: string): string[] {
-  return Array.from(
-    new Set(
-      raw
-        .split(/[\s,;]+/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    ),
-  ).slice(0, 200);
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 0 && SAMPLE_HEADER.test(lines[0]!.split('\t')[0]!.trim())) lines.shift();
+  const cells = raw.includes('\t')
+    ? lines.map((l) => l.split('\t')[0]!.trim())
+    : lines.flatMap((l) => l.split(/[\s,;]+/));
+  return Array.from(new Set(cells.map((s) => s.trim()).filter(Boolean))).slice(0, 200);
 }
 
 /** Zips the repeatable condition rows, dropping rows the user left blank. */

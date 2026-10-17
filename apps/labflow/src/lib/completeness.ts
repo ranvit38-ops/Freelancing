@@ -4,6 +4,11 @@
  * This is deliberately NOT AI and NOT a reproducibility guarantee. It asks one
  * mechanical question per category: is this piece of the record filled in? A
  * green row means "documented", never "correct" or "reproducible".
+ *
+ * It covers what was done, to what, and where the data went: the part only
+ * the person at the bench can write down. Hypothesis belongs to the project,
+ * and results and conclusions come out of analysis done elsewhere (code,
+ * reports, manuscripts), so neither is asked of every run.
  */
 
 export type CheckState = 'documented' | 'incomplete' | 'missing';
@@ -58,10 +63,8 @@ function countState(count: number): CheckState {
 
 export function checkCompleteness(input: CompletenessInput): CompletenessReport {
   const categories: CheckCategory[] = [
-    { key: 'objective', label: 'Objective', state: textState(input.objective),
-      hint: 'State what this run was meant to find out.' },
-    { key: 'hypothesis', label: 'Hypothesis', state: textState(input.hypothesis),
-      hint: 'What did you expect to happen, and why?' },
+    { key: 'objective', label: 'Purpose', state: textState(input.objective),
+      hint: 'Say why this run was done: what it was meant to find out or produce.' },
     { key: 'protocol', label: 'Protocol', state: input.protocolName ? 'documented' : 'missing',
       hint: 'Link the protocol that was followed.' },
     {
@@ -85,23 +88,17 @@ export function checkCompleteness(input: CompletenessInput): CompletenessReport 
             : 'missing',
       hint: 'Upload the measurement file, or write down exactly where the original is stored.',
     },
-    { key: 'results', label: 'Results', state: textState(input.summary),
-      hint: 'Summarise what the run produced.' },
     {
-      key: 'observations',
-      label: 'Observations',
+      key: 'notes',
+      label: 'Notes',
       state:
-        textState(input.observations) === 'documented'
+        input.noteCount > 0 || textState(input.observations) === 'documented'
           ? 'documented'
-          : input.noteCount > 0
+          : textState(input.observations) === 'incomplete'
             ? 'incomplete'
             : 'missing',
-      hint: 'Note anything unexpected while you still remember it.',
+      hint: 'Write down what happened at the bench while you still remember it.',
     },
-    { key: 'conclusion', label: 'Conclusion', state: textState(input.conclusion),
-      hint: 'What do you take from this run?' },
-    { key: 'nextSteps', label: 'Next steps', state: textState(input.nextSteps),
-      hint: 'What should happen after this: repeat, vary, or stop?' },
   ];
 
   const documented = categories.filter((c) => c.state === 'documented').length;
