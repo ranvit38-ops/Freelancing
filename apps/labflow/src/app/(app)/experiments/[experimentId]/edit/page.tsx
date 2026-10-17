@@ -34,6 +34,7 @@ export default async function EditExperimentPage({
           projectId={experiment.projectId}
           projectName={experiment.projectName}
           protocolVersions={protocolVersions}
+          aiConfigured={Boolean(process.env.ANTHROPIC_API_KEY)}
           siblingExperiments={siblings.map((e) => ({ id: e.id, number: e.number, title: e.title }))}
           initial={{
             title: experiment.title,

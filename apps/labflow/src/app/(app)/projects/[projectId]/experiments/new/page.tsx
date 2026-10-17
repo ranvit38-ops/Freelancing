@@ -27,13 +27,14 @@ export default async function NewExperimentPage({ params }: { params: { projectI
         <PageHeader
           eyebrow={project.name}
           title="New experiment"
-          description="Drop the files you already have and Labvia fills in what it can read. Everything except the name is optional either way."
+          description="Say what you did in your own words, or drop your files, and LabLedger fills in the form for you to check. Everything except the name is optional either way."
         />
         <NewExperiment
           projectId={project.id}
           projectName={project.name}
           nextNumber={number}
           protocolVersions={protocolVersions}
+          aiConfigured={Boolean(process.env.ANTHROPIC_API_KEY)}
           siblingExperiments={siblings.map((e) => ({ id: e.id, number: e.number, title: e.title }))}
         />
       </div>

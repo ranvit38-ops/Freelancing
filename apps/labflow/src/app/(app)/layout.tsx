@@ -16,7 +16,7 @@ import { workspacePlan } from '@/server/paywall';
  * Seven places, each one a thing a lab does every week. Samples, inventory,
  * protocols, search and the literature tools still exist and are reached from
  * inside a project or experiment where they apply; they were crowding out the
- * things people open Labvia for.
+ * things people open LabLedger for.
  */
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Home' },
@@ -120,7 +120,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <summary className="flex h-14 cursor-pointer list-none items-center justify-between px-4">
           <span className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            Labvia
+            LabLedger
           </span>
           <span className="text-sm text-muted group-open:hidden">Menu</span>
           <span className="hidden text-sm text-muted group-open:inline">Close</span>
@@ -137,7 +137,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="px-6 py-5">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            Labvia
+            LabLedger
           </Link>
           {workspacePicker}
         </div>

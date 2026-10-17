@@ -132,7 +132,7 @@ export default async function BillingPage({
           <div className="space-y-3 px-5 py-4 text-sm leading-6 text-muted">
             <p>
               Choosing a plan opens Stripe Checkout. Card details go straight to Stripe and never
-              touch Labvia, so there is no card data here to leak.
+              touch LabLedger, so there is no card data here to leak.
             </p>
             <p>
               After that it is automatic: Stripe raises an invoice each month, charges the card on
@@ -209,7 +209,7 @@ async function PilotView({ session }: { session: Awaited<ReturnType<typeof requi
           />
           <div className="space-y-3 px-5 py-4 text-sm leading-6 text-muted">
             <p>
-              Labvia is new. Whether it is worth building further depends on
+              LabLedger is new. Whether it is worth building further depends on
               whether labs like yours would actually pay for it, and the only
               people who can answer that are labs who have used it on real work.
             </p>

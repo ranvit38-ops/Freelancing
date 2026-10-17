@@ -28,9 +28,10 @@ async function login(email, viewport = { width: 1280, height: 800 }) {
   return page;
 }
 
-async function shot(page, name, path, { scrollTo, element } = {}) {
+async function shot(page, name, path, { scrollTo, element, prepare } = {}) {
   if (path) await page.goto(`${BASE}${path}`);
   await page.waitForLoadState('networkidle');
+  if (prepare) await prepare(page);
   // The floating assistant button covers content in a still image.
   await page.addStyleTag({ content: '[data-labbot-launcher]{display:none!important}' }).catch(() => {});
   if (scrollTo) await page.getByText(scrollTo, { exact: true }).first().scrollIntoViewIfNeeded();
@@ -55,7 +56,15 @@ await student.getByRole('button', { name: 'Add note' }).click();
 await student.waitForFunction(() => document.querySelector('#note-body')?.value === '');
 
 await shot(prof, 'home', '/dashboard');
-await shot(prof, 'record', '/experiments/new');
+await shot(prof, 'record', '/experiments/new', {
+  // Show the quickest way in: describing the run in your own words.
+  prepare: async (page) => {
+    await page
+      .getByLabel('What you did')
+      .fill('Ran the tensiometer on soil extract batch 3 at 25 °C, ring flamed between readings. Noisy after sample 6, probably a bubble. Raw files on the lab PC under D:\\Tensiometer\\2026-10.');
+    await page.evaluate(() => window.scrollTo(0, 0));
+  },
+});
 await shot(prof, 'experiment', experiment);
 await shot(prof, 'completeness', null, {
   element: (page) =>

@@ -889,7 +889,7 @@ export async function addProtocolVersion(
 
 /* ── files ──────────────────────────────────────────────────────────────── */
 
-/** Shared lab files that could be a protocol version: PDFs, Word files, Labvia documents. */
+/** Shared lab files that could be a protocol version: PDFs, Word files, LabLedger documents. */
 export async function listProtocolFileOptions(s: SessionContext) {
   return db
     .select({ id: files.id, filename: files.filename })
@@ -3317,7 +3317,7 @@ export async function deleteFile(s: SessionContext, fileId: string) {
 /* ── pilot feedback ─────────────────────────────────────────────────────── */
 
 /**
- * Records what this person says about paying for Labvia.
+ * Records what this person says about paying for LabLedger.
  *
  * Keyed on the workspace and the person, so answering twice replaces the first
  * answer rather than stacking. Someone who changes their mind after two weeks

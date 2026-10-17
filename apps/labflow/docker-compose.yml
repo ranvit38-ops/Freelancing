@@ -1,4 +1,4 @@
-# Labvia and its database, on any machine with Docker.
+# LabLedger and its database, on any machine with Docker.
 #
 #   docker compose up -d
 #

@@ -98,9 +98,9 @@ export async function inviteMemberAction(
     await sendEmail({
       to: email,
       replyTo: session.userEmail,
-      subject: `${session.userName} invited you to ${session.workspaceName} on Labvia`,
+      subject: `${session.userName} invited you to ${session.workspaceName} on LabLedger`,
       text: [
-        `${session.userName} has invited you to join ${session.workspaceName} on Labvia.`,
+        `${session.userName} has invited you to join ${session.workspaceName} on LabLedger.`,
         '',
         'Open this link to accept (it expires in two weeks):',
         link,

@@ -11,7 +11,7 @@ import { blockedReason } from '@/server/paywall';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const REVISE_RULES = `You edit documents for an academic research lab inside Labvia.
+const REVISE_RULES = `You edit documents for an academic research lab inside LabLedger.
 
 You are given a document and an instruction. Return the complete revised document and nothing else: no preamble, no explanation, no code fences. Use plain markdown (# headings, "- " bullets, **bold**).
 

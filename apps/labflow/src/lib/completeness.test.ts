@@ -134,7 +134,7 @@ describe('gapsByResearcher', () => {
       { ...full, researcherName: 'Ada', dataLocation: null },
       { ...full, researcherName: 'Tom', conditionCount: 0 },
       { ...empty, researcherName: 'Tom' },
-      { ...full, researcherName: null, sampleCount: 0 },
+      { ...full, researcherName: null, observations: null, noteCount: 0 },
     ]);
     expect(groups.map((g) => g.researcher)).toEqual(['Tom', 'Ada', 'Former member']);
     expect(groups[0]!.gaps[0]!.score).toBe(0);

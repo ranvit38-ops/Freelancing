@@ -14,6 +14,9 @@ import type { Evidence } from '../ai/context';
 import { catchUp } from '../ai/catch-up';
 import { searchPubMed, type Article } from '@/lib/pubmed';
 import { blockedReason, hasFeature } from '../paywall';
+import { fillRecordFromText, MAX_DESCRIPTION, type FilledRecord } from '../ai/fill-record';
+import { listProtocolVersionOptions } from '../queries';
+import { rateLimit } from '@/lib/rate-limit';
 
 export type AnalysisState = {
   error?: string;
@@ -127,6 +130,37 @@ export async function catchUpAction(_prev: CatchUpState, _formData: FormData): P
   if (blocked) return { error: blocked };
   try {
     return { briefing: await catchUp(session) };
+  } catch (error) {
+    return describe(error);
+  }
+}
+
+export type FillState = {
+  error?: string;
+  notConfigured?: true;
+  record?: FilledRecord;
+};
+
+/**
+ * Fills the experiment form from the researcher's own description. Returns
+ * fields for the form to show; it saves nothing, so a person checks every
+ * value before it becomes part of the record.
+ */
+export async function fillRecordAction(input: { text: string; today: string }): Promise<FillState> {
+  const session = await requireSession();
+  const blocked = await blockedReason(session, 'ai');
+  if (blocked) return { error: blocked };
+  const text = String(input.text ?? '').trim();
+  if (text.length < 10) return { error: 'Write a sentence or two about what you did first.' };
+  if (text.length > MAX_DESCRIPTION) {
+    return { error: `That is longer than ${MAX_DESCRIPTION.toLocaleString()} characters. Put the long parts in a file instead.` };
+  }
+  const limit = rateLimit(`fill-record:${session.userId}`, { limit: 10, windowMs: 60_000 });
+  if (!limit.ok) return { error: `Too many in a row. Try again in ${limit.retryAfterSec} seconds.` };
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(input.today) ? input.today : new Date().toISOString().slice(0, 10);
+  try {
+    const protocols = await listProtocolVersionOptions(session);
+    return { record: await fillRecordFromText({ text, today, protocols }) };
   } catch (error) {
     return describe(error);
   }

@@ -772,7 +772,7 @@ suite('importing from Google Drive', () => {
 
     expect(results[0]).toMatchObject({ name: 'Plate run 4.xlsx' });
     expect(results[0]!.fileId).toBeTruthy();
-    expect(results[1]!.error).toMatch(/did not let Labvia read/);
+    expect(results[1]!.error).toMatch(/did not let LabLedger read/);
     expect(results[2]!.error).toMatch(/Folders/);
     expect(requested[0]).toContain('/export?mimeType=application%2Fvnd.openxmlformats-officedocument.spreadsheetml.sheet');
     expect(requested[0]).toContain('Bearer token-abc');

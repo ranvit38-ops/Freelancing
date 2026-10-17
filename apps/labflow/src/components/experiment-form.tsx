@@ -7,6 +7,7 @@ import { Button, Card, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import { PendingFiles } from './experiment-dropzone';
 import { createExperimentAction, updateExperimentAction } from '@/server/actions/records';
+import { fillRecordAction } from '@/server/actions/ai';
 import { noState } from '@/server/actions/types';
 import { experimentCode, experimentStatusLabel } from '@/lib/display';
 import type { ExperimentStatus } from '@/db/schema';
@@ -29,6 +30,10 @@ export type ExperimentFormProps = {
   experimentId?: string;
   nextNumber?: number;
   protocolVersions: { id: string; version: number; protocolName: string }[];
+  /** Whether the server has a model key; without one the AI box says so rather than pretending. */
+  aiConfigured?: boolean;
+  /** Another way to start, such as dropping files, shown right after the describe box. */
+  startFrom?: React.ReactNode;
   siblingExperiments: { id: string; number: number; title: string }[];
   initial?: {
     title: string;
@@ -146,6 +151,62 @@ export function ExperimentForm(props: ExperimentFormProps) {
     setUnsaved(null);
   }
 
+  // "Describe it and the form fills itself." Only empty fields are filled, so
+  // nothing someone typed is overwritten, and nothing is saved until they do.
+  const [description, setDescription] = useState('');
+  const [filling, setFilling] = useState(false);
+  const [fillMessage, setFillMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+
+  async function fillFromDescription() {
+    const form = formRef.current;
+    if (!form) return;
+    setFilling(true);
+    setFillMessage(null);
+    let result: Awaited<ReturnType<typeof fillRecordAction>>;
+    try {
+      result = await fillRecordAction({ text: description, today: localToday() });
+    } catch {
+      result = { error: 'Could not reach the server. Check the connection and try again.' };
+    }
+    setFilling(false);
+    if (!result.record) {
+      setFillMessage({ tone: 'error', text: result.error ?? 'Nothing came back. Try again.' });
+      return;
+    }
+    const record = result.record;
+    const filled: string[] = [];
+    const fill = (name: string, value: string, label: string, replaceable?: string) => {
+      const el = form.elements.namedItem(name);
+      if (!value || !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) return;
+      if (el.value.trim() && el.value !== replaceable) return;
+      el.value = value;
+      filled.push(label);
+    };
+    fill('title', record.title, 'name');
+    // The date box starts as today; a date they actually wrote wins over that default.
+    fill('performedOn', record.performedOn, 'date', props.mode === 'create' ? localToday() : undefined);
+    fill('objective', record.objective, 'purpose');
+    fill('protocolVersionId', record.protocolVersionId, 'protocol');
+    fill('protocolNotes', record.protocolNotes, 'deviations');
+    fill('dataLocation', record.dataLocation, 'data location');
+    fill('notes', record.notes, 'notes');
+    fill('nextSteps', record.nextSteps, 'next steps');
+    if (record.conditions.length > 0) {
+      const have = new Set(conditions.filter((c) => c.name.trim()).map((c) => c.name.trim().toLowerCase()));
+      const fresh = record.conditions.filter((c) => !have.has(c.name.toLowerCase()));
+      if (fresh.length > 0) {
+        setConditions((rows) => [...rows.filter((r) => r.name.trim() || r.value.trim() || r.unit.trim()), ...fresh]);
+        filled.push(fresh.length === 1 ? '1 condition' : `${fresh.length} conditions`);
+      }
+    }
+    remember();
+    setFillMessage(
+      filled.length > 0
+        ? { tone: 'ok', text: `Filled in ${filled.join(', ')}. Check each one before saving; nothing is saved yet.` }
+        : { tone: 'ok', text: 'Nothing new to fill in: those fields already have something in them.' },
+    );
+  }
+
   const updateRow = (index: number, patch: Partial<ConditionRow>) =>
     setConditions((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
@@ -188,6 +249,40 @@ export function ExperimentForm(props: ExperimentFormProps) {
       ) : null}
 
       <FormError>{state.error}</FormError>
+
+      <SectionCard
+        title="Describe it in your own words"
+        description="Type or paste what you did, the way you would tell a labmate. The form below fills itself in; you check it and save."
+      >
+        <Textarea
+          aria-label="What you did"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="min-h-[96px]"
+          placeholder="Ran the tensiometer on soil extract batch 3 this morning, 25 °C, ring flamed between readings. Readings were noisy after sample 6, probably a bubble. Raw files on the lab PC under D:\Tensiometer\2026-10. Next: repeat 6–9."
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            tone="secondary"
+            size="sm"
+            disabled={!props.aiConfigured || filling || description.trim().length < 10}
+            onClick={fillFromDescription}
+          >
+            {filling ? 'Filling in…' : 'Fill in the form'}
+          </Button>
+          {!props.aiConfigured ? (
+            <span className="text-xs text-muted">AI is not switched on for this server yet, so fill the form in by hand.</span>
+          ) : null}
+        </div>
+        {fillMessage ? (
+          <p role="status" className={fillMessage.tone === 'ok' ? 'text-sm text-ok' : 'text-sm text-danger'}>
+            {fillMessage.text}
+          </p>
+        ) : null}
+      </SectionCard>
+
+      {props.startFrom}
 
       <SectionCard
         title="Basics"
@@ -342,26 +437,6 @@ export function ExperimentForm(props: ExperimentFormProps) {
         <Button type="button" tone="secondary" size="sm" onClick={() => setConditions((r) => [...r, emptyRow])}>
           Add condition
         </Button>
-      </SectionCard>
-
-      <SectionCard
-        title="Samples"
-        description="Paste or type sample IDs. Anything new is created in this lab automatically."
-      >
-        <Field
-          label="Sample IDs"
-          htmlFor="sampleCodes"
-          optional
-          hint="Paste rows straight from Excel: the first column is taken as the ID. Put the sheet with the measured values under Original data."
-        >
-          <Textarea
-            id="sampleCodes"
-            name="sampleCodes"
-            defaultValue={initial.sampleCodes}
-            placeholder="S-104, S-105, S-106"
-            className="min-h-[64px] font-mono text-sm"
-          />
-        </Field>
       </SectionCard>
 
       <SectionCard

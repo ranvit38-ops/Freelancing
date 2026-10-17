@@ -29,9 +29,9 @@ export async function sendTestEmailAction(_prev: ActionState, _formData: FormDat
   try {
     const { id } = await sendEmail({
       to: session.userEmail,
-      subject: 'Labvia test email',
+      subject: 'LabLedger test email',
       text: [
-        'This is a test from your Labvia deployment. If you are reading it, email works:',
+        'This is a test from your LabLedger deployment. If you are reading it, email works:',
         'invitations, password resets and sign-up confirmations will be delivered too.',
         '',
         `Sent from ${link}`,

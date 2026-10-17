@@ -86,7 +86,7 @@ describe('buildReadingPath', () => {
 describe('documents and long file lists on the path', () => {
   const empty = { projects: [], experiments: [], protocols: [], updates: [] };
 
-  it('opens a Labvia document in the editor, titled without its .md', () => {
+  it('opens a LabLedger document in the editor, titled without its .md', () => {
     const [step] = buildReadingPath({
       ...empty,
       files: [{ id: 'd1', filename: 'Welcome to the lab.md', createdAt: '2026-01-01', attached: false, isDocument: true }],

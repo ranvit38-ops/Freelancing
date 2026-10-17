@@ -86,7 +86,7 @@ describe('feedbackEmail', () => {
       { wouldPay: 'yes', monthlyValue: 80, blocker: null, decisionMaker: null },
       from,
     );
-    expect(subject).toBe('Labvia pilot: Would pay — Rao Lab');
+    expect(subject).toBe('LabLedger pilot: Would pay — Rao Lab');
   });
 
   it('carries who said it, so the reply has a name on it', () => {

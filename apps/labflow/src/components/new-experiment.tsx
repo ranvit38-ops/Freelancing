@@ -47,8 +47,8 @@ export function NewExperiment({
     <div className="space-y-5">
       {repeatOf ? (
         <p className="rounded-lg border border-accent/25 bg-accent/5 px-4 py-3 text-sm">
-          Starting from <span className="font-medium">{repeatOf}</span>: the objective, protocol,
-          conditions and samples are copied. Change whatever is different this time. The date is
+          Starting from <span className="font-medium">{repeatOf}</span>: the purpose, protocol and
+          conditions are copied. Change whatever is different this time. The date is
           today, and the data location and results start empty.
         </p>
       ) : null}
@@ -57,15 +57,14 @@ export function NewExperiment({
           Filled in from <span className="font-medium">{storedFile.name}</span>. Check it over, change
           anything, and save. The file will be attached to the experiment.
         </p>
-      ) : (
-        <ExperimentDropzone onDraft={apply} files={files} onFiles={setFiles} />
-      )}
+      ) : null}
       <ExperimentForm
         key={version}
         mode="create"
         initial={initial}
         pendingFiles={files}
         storedFileId={storedFile?.id}
+        startFrom={storedFile ? null : <ExperimentDropzone onDraft={apply} files={files} onFiles={setFiles} />}
         {...props}
       />
     </div>

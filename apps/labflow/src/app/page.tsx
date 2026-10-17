@@ -7,7 +7,7 @@ const steps = [
   {
     n: '01',
     title: 'Record the experiment',
-    body: 'One screen for objective, protocol version, conditions, samples, files and notes. Capture takes seconds; the rest can be filled in later.',
+    body: 'Describe the run in your own words and the record fills itself in for you to check. Or type it: purpose, protocol version, conditions, files and notes on one screen.',
   },
   {
     n: '02',
@@ -53,11 +53,11 @@ const features = [
   },
   {
     title: 'Experiment records',
-    body: 'Purpose, protocol version, conditions, samples, raw data location and notes in one structured record, under the project’s question and hypothesis.',
+    body: 'Purpose, protocol version, conditions, raw data location and notes in one structured record, under the project’s question and hypothesis. Google Sheets open and edit right beside it.',
   },
   {
     title: 'Connected research history',
-    body: 'Every experiment sits in a project timeline, linked to the runs it repeats and the samples it consumed.',
+    body: 'Every experiment sits in a project timeline, linked to the runs it repeats.',
   },
   {
     title: 'Experiment comparison',
@@ -88,7 +88,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            Labvia
+            LabLedger
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link
@@ -124,7 +124,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
       <main>
         {searchParams?.account === 'deleted' ? (
           <p role="status" className="mx-auto mt-4 max-w-3xl rounded-lg border border-line bg-raised px-4 py-2 text-center text-sm text-muted">
-            Your account has been deleted. Thank you for trying Labvia.
+            Your account has been deleted. Thank you for trying LabLedger.
           </p>
         ) : null}
         {/* Hero */}
@@ -137,8 +137,8 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
               Know what your lab recorded, and what it left out.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted">
-              Students record each run in one structured place: protocol version, conditions,
-              samples, where the raw data lives, what happened at the bench. You see whose records are
+              Students record each run in one structured place, in their own words if they like:
+              protocol version, conditions, where the raw data lives, what happened at the bench. You see whose records are
               thin, who changed what, and who has gone quiet, without opening a single file.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -186,7 +186,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
 
         {/* How it works */}
         <section id="how-it-works" className="mx-auto max-w-6xl scroll-mt-16 px-6 py-20">
-          <h2 className="text-2xl font-semibold tracking-tight">How Labvia works</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">How LabLedger works</h2>
           <ol className="mt-8 grid gap-4 sm:grid-cols-2">
             {steps.map((step) => (
               <li
@@ -229,7 +229,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
                 The researcher stays in control
               </h2>
               <p className="mt-4 text-sm leading-6 text-muted">
-                Labvia structures your record and helps you read it. It does not decide what your
+                LabLedger structures your record and helps you read it. It does not decide what your
                 results mean.
               </p>
             </div>
@@ -279,7 +279,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <span>Labvia. A research workflow system for labs.</span>
+          <span>LabLedger. A research workflow system for labs.</span>
           <span className="flex items-center gap-4 text-subtle">
             <Link href="/privacy" className="underline underline-offset-2 hover:text-fg">
               Privacy

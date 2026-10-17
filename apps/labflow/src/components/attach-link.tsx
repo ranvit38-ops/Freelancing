@@ -9,7 +9,7 @@ import { noState } from '@/server/actions/types';
 /**
  * Paste any URL: Drive, Dropbox, SharePoint, a DOI, a raw file.
  *
- * Labvia records the link; it does not copy the file. Reading a private Drive
+ * LabLedger records the link; it does not copy the file. Reading a private Drive
  * document needs OAuth per deployment, and almost every lab file is private.
  */
 export function AttachLink({ experimentId }: { experimentId: string }) {
@@ -31,7 +31,7 @@ export function AttachLink({ experimentId }: { experimentId: string }) {
             name="url"
             type="url"
             required
-            placeholder="https://drive.google.com/… or https://youtu.be/…"
+            placeholder="Paste a Google Sheet, Drive or any link"
           />
         </Field>
         <Field label="Label" htmlFor="link-label" optional>
@@ -42,10 +42,9 @@ export function AttachLink({ experimentId }: { experimentId: string }) {
         </SubmitButton>
       </div>
       <p className="text-xs text-subtle">
-        Google Drive, Docs, Dropbox, OneDrive, Notion, figshare, Zenodo, a DOI, a YouTube or Vimeo
-        walkthrough, or any URL. Labvia stores the link next to this experiment rather than
-        copying the file, so your sharing permissions stay exactly as you set them. Videos play
-        inline.
+        Google Sheets, Docs and Slides open right here so you can edit them without leaving the
+        experiment. Drive, Dropbox, OneDrive, a DOI, a YouTube or Vimeo walkthrough, or any URL
+        also works. The link is stored, not a copy, so your sharing settings stay as you set them.
       </p>
     </form>
   );

@@ -3,7 +3,7 @@ import { MailNotConfiguredError, MailSendError, sendEmail } from './mailer';
 import { listWorkspaceMembers } from './queries';
 
 /**
- * Emails something written in Labvia to people in the lab, or to yourself.
+ * Emails something written in LabLedger to people in the lab, or to yourself.
  * Only lab members can be chosen, so this cannot be used to send mail to
  * arbitrary addresses in the lab's name. Replies go to the sender.
  */

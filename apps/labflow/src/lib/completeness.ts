@@ -75,8 +75,6 @@ export function checkCompleteness(input: CompletenessInput): CompletenessReport 
     },
     { key: 'conditions', label: 'Experimental conditions', state: countState(input.conditionCount),
       hint: 'Add the variables you controlled (temperature, pH, concentration …).' },
-    { key: 'samples', label: 'Sample identifiers', state: countState(input.sampleCount),
-      hint: 'Attach the sample IDs used, so results can be traced back.' },
     {
       key: 'rawData',
       label: 'Raw data',

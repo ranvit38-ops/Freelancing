@@ -62,8 +62,8 @@ export function ExperimentDropzone({
   return (
     <Card>
       <CardHeader
-        title="Start from your files"
-        description="Drop the data you already have. Labvia fills in what it can read and you correct the rest — nothing is saved until you press the button at the bottom."
+        title="Or start from your files"
+        description="Drop the data you already have. LabLedger fills in what it can read and you correct the rest — nothing is saved until you press the button at the bottom."
       />
       <div className="space-y-3 px-5 py-4">
         <div
@@ -85,7 +85,7 @@ export function ExperimentDropzone({
             {reading ? 'Reading your files…' : 'Drag your files here'}
           </p>
           <p className="mt-1 text-xs text-muted">
-            CSV and Excel are read for conditions and samples. Anything else is attached as it is.
+            CSV and Excel are read for conditions. Anything else is attached as it is.
           </p>
           {/* Dragging is not available to everyone, and a dropzone with no
               other way in is a dropzone some people cannot use at all. */}

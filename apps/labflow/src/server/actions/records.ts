@@ -91,12 +91,17 @@ async function writeExperimentDetail(
   experimentId: string,
   projectId: string,
   data: ReturnType<typeof experimentSchema.parse>,
+  formData: FormData,
 ) {
   await q.replaceConditions(session, experimentId, zipConditions(data));
 
-  const codes = parseSampleCodes(data.sampleCodes).map(normaliseSampleCode);
-  const sampleIds = await q.ensureSamples(session, codes, projectId);
-  await q.setExperimentSamples(session, experimentId, sampleIds);
+  // The form no longer asks for sample IDs. Only a form that still sends them
+  // changes them, so saving an older run does not wipe the samples it has.
+  if (formData.has('sampleCodes')) {
+    const codes = parseSampleCodes(data.sampleCodes).map(normaliseSampleCode);
+    const sampleIds = await q.ensureSamples(session, codes, projectId);
+    await q.setExperimentSamples(session, experimentId, sampleIds);
+  }
 
   await q.upsertResult(session, experimentId, {
     summary: data.summary,
@@ -130,7 +135,7 @@ export async function createExperimentAction(
       protocolNotes: parsed.data.protocolNotes,
       repeatsExperimentId: parsed.data.repeatsExperimentId,
     });
-    await writeExperimentDetail(session, experimentId, projectId, parsed.data);
+    await writeExperimentDetail(session, experimentId, projectId, parsed.data, formData);
     if (parsed.data.notes) await q.addNote(session, experimentId, parsed.data.notes);
   } catch (error) {
     if (error instanceof NotFoundInWorkspaceError) return { error: error.message };
@@ -193,7 +198,7 @@ export async function updateExperimentAction(
       repeatsExperimentId:
         parsed.data.repeatsExperimentId === experimentId ? null : parsed.data.repeatsExperimentId,
     });
-    await writeExperimentDetail(session, experimentId, existing.projectId, parsed.data);
+    await writeExperimentDetail(session, experimentId, existing.projectId, parsed.data, formData);
     if (parsed.data.notes) await q.addNote(session, experimentId, parsed.data.notes);
   } catch (error) {
     if (error instanceof NotFoundInWorkspaceError) return { error: error.message };

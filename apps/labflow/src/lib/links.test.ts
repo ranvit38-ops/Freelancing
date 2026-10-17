@@ -72,3 +72,21 @@ describe('video links', () => {
     expect(embedUrl('https://drive.google.com/file/d/abc/view', 'google-drive')).toBeNull();
   });
 });
+
+describe('googleEditor', () => {
+  it('turns a Sheets link into its editor and names it a Google Sheet', async () => {
+    const { googleEditor, parseLink } = await import('./links');
+    const url = 'https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrS/edit#gid=0';
+    expect(googleEditor(url)).toMatchObject({
+      kind: 'sheet',
+      editUrl: 'https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrS/edit',
+    });
+    expect(parseLink(url)).toMatchObject({ provider: 'google-sheets', suggestedName: 'Google Sheet' });
+  });
+
+  it('leaves Drive files and other hosts alone', async () => {
+    const { googleEditor } = await import('./links');
+    expect(googleEditor('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrS/view')).toBeNull();
+    expect(googleEditor('https://evil.example/spreadsheets/d/1AbCdEfGhIjKlMnOpQrS/edit')).toBeNull();
+  });
+});

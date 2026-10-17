@@ -15,7 +15,7 @@ import { fileShareNames, listFiles, listWorkspaceMembers } from '@/server/querie
 export const metadata = { title: 'Files' };
 export const dynamic = 'force-dynamic';
 
-/** Spreadsheets Labvia can read an experiment out of. */
+/** Spreadsheets LabLedger can read an experiment out of. */
 const READABLE = /\.(csv|tsv|xlsx)$/i;
 /** What lab protocols are usually kept as. */
 const PROTOCOL_LIKE = /\.(pdf|docx?|odt|rtf)$/i;

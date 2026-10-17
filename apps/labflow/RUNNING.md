@@ -1,4 +1,4 @@
-# Running Labvia
+# Running LabLedger
 
 ## The quickest way: run it in your browser, install nothing
 

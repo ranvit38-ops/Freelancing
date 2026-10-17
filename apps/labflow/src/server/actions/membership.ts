@@ -48,7 +48,7 @@ async function otherLab(currentId: string): Promise<string | null> {
 export async function leaveLabAction(_prev: ActionState, _formData: FormData): Promise<ActionState> {
   const session = await requireSession();
   const next = await otherLab(session.workspaceId);
-  if (!next) return { error: 'This is your only lab. To leave Labvia entirely, delete your account below.' };
+  if (!next) return { error: 'This is your only lab. To leave LabLedger entirely, delete your account below.' };
   try {
     await q.leaveWorkspace(session);
   } catch (error) {

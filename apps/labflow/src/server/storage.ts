@@ -17,7 +17,7 @@ import { pool } from '@/db';
 export class StorageFullError extends Error {
   constructor(limitMb: number) {
     super(
-      `This server's file storage is full (${limitMb} MB). Delete files you no longer need, or ask whoever runs Labvia to add storage.`,
+      `This server's file storage is full (${limitMb} MB). Delete files you no longer need, or ask whoever runs LabLedger to add storage.`,
     );
     this.name = 'StorageFullError';
   }

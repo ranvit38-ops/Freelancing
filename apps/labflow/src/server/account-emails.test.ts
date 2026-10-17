@@ -4,14 +4,14 @@ import { taskAssignedEmail, joinedLabEmail, welcomeEmail } from './account-email
 describe('confirmation emails', () => {
   it('points someone who joined a lab at Start here, by first name', () => {
     const email = welcomeEmail({ name: 'Ada Lovelace', labName: 'Kim Lab', joined: true, link: 'https://x/start' });
-    expect(email.subject).toBe("You're in Kim Lab on Labvia");
+    expect(email.subject).toBe("You're in Kim Lab on LabLedger");
     expect(email.text).toMatch(/^Hi Ada,/);
     expect(email.text).toContain('https://x/start');
   });
 
   it('confirms a new lab for someone who started one', () => {
     const email = welcomeEmail({ name: 'Ada', labName: 'Ada Lab', joined: false, link: 'https://x/dashboard' });
-    expect(email.subject).toBe('Your Labvia account is ready');
+    expect(email.subject).toBe('Your LabLedger account is ready');
     expect(email.text).toContain('a lab called Ada Lab');
   });
 

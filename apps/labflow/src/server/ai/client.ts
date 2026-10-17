@@ -34,8 +34,23 @@ export function acceptsEffort(model: string): boolean {
   return !/haiku|sonnet-4-5|claude-3/.test(model);
 }
 
+/**
+ * Models that accept the server-side refusal fallback. On a safety decline the
+ * API re-runs the request on a fallback model inside the same call, so a lab
+ * question that trips a classifier still gets answered instead of failing.
+ */
+const FALLBACK_MODELS = /^claude-(opus-5-5|sonnet-5-5|fable-5-1)$/;
+
 export async function callModel(
-  input: { system: string; prompt: string; maxTokens?: number; effort?: Effort; model?: string },
+  input: {
+    system: string;
+    prompt: string;
+    maxTokens?: number;
+    effort?: Effort;
+    model?: string;
+    /** A JSON Schema the answer must match (structured outputs). */
+    schema?: Record<string, unknown>;
+  },
   fetchImpl: ModelTransport = fetch,
 ): Promise<{ text: string; model: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -43,6 +58,12 @@ export async function callModel(
 
   const model = input.model ?? env().LABFLOW_AI_MODEL;
   const base = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
+  // Only the Claude API itself takes the fallback; a proxy or gateway may not.
+  const fallback = FALLBACK_MODELS.test(model) && !process.env.ANTHROPIC_BASE_URL;
+  const outputConfig = {
+    ...(input.effort && acceptsEffort(model) ? { effort: input.effort } : {}),
+    ...(input.schema ? { format: { type: 'json_schema', schema: input.schema } } : {}),
+  };
   let response: Response;
   try {
     response = await fetchImpl(`${base}/v1/messages`, {
@@ -54,6 +75,7 @@ export async function callModel(
         'content-type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        ...(fallback ? { 'anthropic-beta': 'server-side-fallback-2026-07-01' } : {}),
       },
       body: JSON.stringify({
         model,
@@ -66,7 +88,8 @@ export async function callModel(
         // reason before answering, so the determinism it implied was never real.
         system: input.system,
         messages: [{ role: 'user', content: input.prompt }],
-        ...(input.effort && acceptsEffort(model) ? { output_config: { effort: input.effort } } : {}),
+        ...(Object.keys(outputConfig).length > 0 ? { output_config: outputConfig } : {}),
+        ...(fallback ? { fallbacks: 'default' } : {}),
       }),
     });
   } catch (error) {
@@ -95,7 +118,7 @@ export async function callModel(
     );
   }
 
-  let payload: { content?: { type: string; text?: string }[] };
+  let payload: { content?: { type: string; text?: string }[]; stop_reason?: string; model?: string };
   try {
     payload = (await response.json()) as typeof payload;
   } catch {
@@ -107,8 +130,11 @@ export async function callModel(
     .join('')
     .trim();
 
+  if (payload.stop_reason === 'refusal') {
+    throw new AiRequestError('The model declined to answer this one. Rephrase it, or leave out anything unrelated to the lab work.');
+  }
   if (!text) throw new AiRequestError('The model returned an empty response.');
-  return { text, model };
+  return { text, model: payload.model ?? model };
 }
 
 /** Models sometimes wrap JSON in prose or a code fence; take the object. */

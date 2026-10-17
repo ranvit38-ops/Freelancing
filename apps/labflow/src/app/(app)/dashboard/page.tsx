@@ -85,7 +85,7 @@ export default async function HomePage() {
       {isNew ? (
         <GettingStarted
           steps={[
-            { done: usage.experiments > 0, href: '/experiments/new', title: 'Record an experiment', text: 'Drop a spreadsheet from your instrument. Labvia fills in the rest.' },
+            { done: usage.experiments > 0, href: '/experiments/new', title: 'Record an experiment', text: 'Drop a spreadsheet from your instrument. LabLedger fills in the rest.' },
             { done: tasks.length > 0, href: '/tasks', title: 'Hand out a task', text: 'Give someone a piece of work and a deadline.' },
             { done: false, href: '/team', title: 'Bring in your lab', text: 'Share one join link. New people land on Start here, with a reading path through your work.' },
           ]}
@@ -226,7 +226,7 @@ export default async function HomePage() {
             empty={
               <EmptyState
                 title="No experiments yet"
-                description="Drop a spreadsheet from your instrument and Labvia fills in the experiment for you."
+                description="Drop a spreadsheet from your instrument and LabLedger fills in the experiment for you."
                 action={<ButtonLink href="/experiments/new" size="sm">Record an experiment</ButtonLink>}
               />
             }

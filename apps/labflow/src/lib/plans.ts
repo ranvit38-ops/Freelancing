@@ -3,7 +3,7 @@
  *
  * Priced against what an academic lab actually faces: LabArchives is roughly
  * £/$330 per user per year for academics, while Benchling, SciNote and eLabFTW
- * all have a free tier. So Labvia is priced per *lab*, not per seat, and lands
+ * all have a free tier. So LabLedger is priced per *lab*, not per seat, and lands
  * well under the paid comparator, a five-person lab pays about a third of what
  * LabArchives charges for the same five people.
  *
@@ -29,7 +29,7 @@ export type Plan = {
 };
 
 /**
- * What a plan allows. Free is deliberately thin: enough to see Labvia work,
+ * What a plan allows. Free is deliberately thin: enough to see LabLedger work,
  * not enough to run a lab on. When a paid plan lapses the workspace becomes
  * read-only, records stay visible and nothing is ever deleted, because a
  * research tool that destroys data on a timer is one nobody will trust.
@@ -162,7 +162,7 @@ export const PLAN_ORDER: PlanId[] = ['free', 'lab', 'group', 'department'];
 /** Only these can be bought; free is what you fall back to. */
 export const PAID_PLANS: PlanId[] = ['lab', 'group', 'department'];
 
-/** A new workspace gets this long to try Labvia before it needs a plan. */
+/** A new workspace gets this long to try LabLedger before it needs a plan. */
 export const TRIAL_DAYS = 14;
 
 export type SubscriptionState = {

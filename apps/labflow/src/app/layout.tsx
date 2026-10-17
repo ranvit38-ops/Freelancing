@@ -5,11 +5,11 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Labvia: turn experiments into a living research record',
-    template: '%s · Labvia',
+    default: 'LabLedger: turn experiments into a living research record',
+    template: '%s · LabLedger',
   },
   description:
-    'Labvia connects experiments, protocols, samples, data, results and research updates in ' +
+    'LabLedger connects experiments, protocols, samples, data, results and research updates in ' +
     'one place, with AI that helps researchers understand what happened and communicate it faster.',
 };
 

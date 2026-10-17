@@ -13,7 +13,7 @@ import {
  *
  * Nobody's first minute should be an empty screen. This is a small, real-
  * shaped project: two runs of the same protocol that differ in one condition
- * and one reagent lot, which is the thing Labvia exists to make visible.
+ * and one reagent lot, which is the thing LabLedger exists to make visible.
  *
  * It is deliberately marked rather than disguised. It carries isExample, the
  * name says what it is, and one button removes it. Seeding data that pretends

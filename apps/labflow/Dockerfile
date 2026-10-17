@@ -1,4 +1,4 @@
-# Labvia as one self-contained container.
+# LabLedger as one self-contained container.
 #
 #   docker build -t labvia apps/labflow
 #   docker run -p 3001:3001 -v labvia-uploads:/data/uploads \

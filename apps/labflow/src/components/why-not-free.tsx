@@ -52,7 +52,7 @@ export function WhyNotFree() {
             <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
               <th scope="col" className="px-4 py-3 font-medium">What you need</th>
               <th scope="col" className="px-4 py-3 font-medium">Shared folder and a template</th>
-              <th scope="col" className="px-4 py-3 font-medium text-accent">Labvia</th>
+              <th scope="col" className="px-4 py-3 font-medium text-accent">LabLedger</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line align-top">
@@ -69,7 +69,7 @@ export function WhyNotFree() {
       <p className="mt-4 max-w-3xl text-sm leading-6 text-muted">
         Free notebook apps exist too. eLabFTW is free and open source if your department will run a server for
         it, and Benchling and SciNote offer free tiers; check what they include for a whole lab. They are built
-        around the person writing the notebook. Labvia is built around the person running the lab: what is
+        around the person writing the notebook. LabLedger is built around the person running the lab: what is
         missing, who did what, and getting new people up to speed, priced per lab rather than per seat.
       </p>
     </div>

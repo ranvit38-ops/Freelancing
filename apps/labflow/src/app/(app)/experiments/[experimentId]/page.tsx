@@ -24,7 +24,7 @@ import {
 } from '@/components/ui';
 import { checkCompleteness } from '@/lib/completeness';
 import { experimentCode, experimentStatusLabel, formatBytes, formatDate } from '@/lib/display';
-import { embedUrl, providerLabel } from '@/lib/links';
+import { embedUrl, googleEditor, providerLabel } from '@/lib/links';
 import type { ExperimentStatus } from '@/db/schema';
 import {
   deleteExperimentAction,
@@ -326,6 +326,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
               <ul className="divide-y divide-line border-t border-line">
                 {files.map((f) => {
                   const embed = f.sourceUrl ? embedUrl(f.sourceUrl, f.provider ?? 'web') : null;
+                  const editor = f.sourceUrl ? googleEditor(f.sourceUrl) : null;
                   return (
                     <li key={f.id} className="px-5 py-3">
                       <div className="flex items-center gap-3">
@@ -354,6 +355,27 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                             className="h-full w-full"
                           />
                         </div>
+                      ) : null}
+                      {editor ? (
+                        <details className="mt-2" open={editor.kind === 'sheet'}>
+                          <summary className="cursor-pointer text-sm text-muted hover:text-fg">
+                            Edit here
+                          </summary>
+                          {/* Google's own editor, signed in as the viewer: their permissions, their edits. */}
+                          <iframe
+                            src={editor.editUrl}
+                            title={f.filename}
+                            loading="lazy"
+                            className="mt-2 h-[520px] w-full rounded-lg border border-line bg-surface"
+                          />
+                          <p className="mt-1.5 text-xs text-subtle">
+                            Edits save to the {editor.item} itself. If it asks you to sign in or shows nothing,{' '}
+                            <a href={editor.editUrl} target="_blank" rel="noreferrer noopener" className="underline">
+                              open it in {editor.label}
+                            </a>
+                            . Its sharing settings decide who in the lab can see or change it.
+                          </p>
+                        </details>
                       ) : null}
                       {!f.sourceUrl && f.contentType.startsWith('video/') ? (
                         <video
@@ -408,11 +430,10 @@ export default async function ExperimentPage({ params }: { params: { experimentI
         <div className="space-y-5">
           <CompletenessPanel report={report} />
 
-          <Card>
-            <CardHeader title="Samples" description={`${samples.length} used`} />
-            {samples.length === 0 ? (
-              <EmptyState title="No samples attached" />
-            ) : (
+          {/* Only older runs recorded sample IDs; new runs keep them in their sheet. */}
+          {samples.length > 0 ? (
+            <Card>
+              <CardHeader title="Samples" description={`${samples.length} used`} />
               <ul className="divide-y divide-line">
                 {samples.map((s) => (
                   <li key={s.id}>
@@ -427,8 +448,8 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                   </li>
                 ))}
               </ul>
-            )}
-          </Card>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader

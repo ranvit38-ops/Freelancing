@@ -89,7 +89,7 @@ export function feedbackEmail(
 ): { subject: string; text: string } {
   const notSaid = '(not answered)';
   return {
-    subject: `Labvia pilot: ${WOULD_PAY_LABEL[answers.wouldPay]} — ${from.workspace}`,
+    subject: `LabLedger pilot: ${WOULD_PAY_LABEL[answers.wouldPay]} — ${from.workspace}`,
     text: [
       `${from.name} <${from.email}> from ${from.workspace} answered the pilot question.`,
       '',

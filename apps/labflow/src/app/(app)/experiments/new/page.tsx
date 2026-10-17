@@ -88,7 +88,7 @@ export default async function RecordExperimentPage({
     <div className="mx-auto max-w-3xl">
       <PageHeader
         title="Record an experiment"
-        description="Drop the files you already have and Labvia fills in what it can read. Only the name is required."
+        description="Say what you did in your own words, or drop your files, and LabLedger fills in the form for you to check. Only the name is required."
       />
 
       {projects.length > 1 && !source ? (
@@ -120,6 +120,7 @@ export default async function RecordExperimentPage({
         projectName={project.name}
         nextNumber={number}
         protocolVersions={protocolVersions}
+        aiConfigured={Boolean(process.env.ANTHROPIC_API_KEY)}
         siblingExperiments={siblings.map((e) => ({ id: e.id, number: e.number, title: e.title }))}
         initialDraft={fromFile?.draft}
         storedFile={fromFile?.file}

@@ -7,7 +7,7 @@ import { WhyNotFree } from '@/components/why-not-free';
 
 export const metadata = {
   title: 'Pricing',
-  description: 'Labvia is priced per lab, not per person. Free to try, no card required.',
+  description: 'LabLedger is priced per lab, not per person. Free to try, no card required.',
 };
 
 const ROWS: { label: string; value: (id: PlanId) => string }[] = [
@@ -50,7 +50,7 @@ export default async function PricingPage() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            Labvia
+            LabLedger
           </Link>
           <ButtonLink href={session ? '/dashboard' : '/signup'} size="sm">
             {session ? 'Open your lab' : 'Start free'}
@@ -70,7 +70,7 @@ export default async function PricingPage() {
             <p className="mt-1">
               Every lab on this deployment gets the {PLANS[PILOT_PLAN].name} plan, the top one, for
               nothing. No card is asked for and nothing can be charged. The prices below are what
-              Labvia would cost if it were being sold, which is here so you can judge whether it
+              LabLedger would cost if it were being sold, which is here so you can judge whether it
               would be worth it.
             </p>
           </div>
@@ -152,7 +152,7 @@ export default async function PricingPage() {
         <h2 className="mt-16 text-2xl font-semibold tracking-tight">Compare plans</h2>
         <Card className="mt-6 overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
-            <caption className="sr-only">Feature comparison across Labvia plans</caption>
+            <caption className="sr-only">Feature comparison across LabLedger plans</caption>
             <thead>
               <tr className="border-b border-line text-left">
                 <th scope="col" className="w-56 px-5 py-3 text-xs font-medium uppercase tracking-wider text-subtle">

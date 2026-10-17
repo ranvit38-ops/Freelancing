@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: { token: strin
 
   const host = new URL(publicBaseUrl() ?? request.url).host;
   const body = buildIcs({
-    calendarName: `${feed.workspaceName} (Labvia)`,
+    calendarName: `${feed.workspaceName} (LabLedger)`,
     host,
     events: feed.events,
     deadlines: feed.deadlines,
@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: { params: { token: strin
   return new NextResponse(body, {
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',
-      'Content-Disposition': 'inline; filename="labvia.ics"',
+      'Content-Disposition': 'inline; filename="labledger.ics"',
       'Cache-Control': 'no-store',
     },
   });

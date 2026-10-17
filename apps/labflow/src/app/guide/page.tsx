@@ -5,7 +5,7 @@ import { getSession } from '@/server/auth';
 
 export const metadata = {
   title: 'Tutorial',
-  description: 'Every part of Labvia, page by page, with screenshots: for professors, students and new lab members.',
+  description: 'Every part of LabLedger, page by page, with screenshots: for professors, students and new lab members.',
 };
 
 type Who = 'Everyone' | 'Professors and admins' | 'New members';
@@ -50,12 +50,13 @@ const SECTIONS: Section[] = [
     who: 'Everyone',
     title: 'Record an experiment',
     image: 'record',
-    alt: 'The record an experiment form with basics, protocol, conditions, samples and original data',
+    alt: 'The record an experiment form with a box to describe the run, basics, protocol, conditions and original data',
     width: 1280,
     height: 800,
     steps: [
       'Press “Record an experiment” on Home. Only the name is required; fill in the rest as the run goes.',
-      'Drop the instrument’s CSV or Excel file at the top and Labvia fills in the conditions and samples it can read.',
+      'Quickest way: under “Describe it in your own words”, type what you did the way you would tell a labmate and press “Fill in the form”. AI fills the empty fields from what you wrote, never inventing values, and nothing is saved until you check it and press Save.',
+      'Or drop the instrument’s CSV or Excel file at the top and LabLedger fills in the conditions it can read.',
       'Under “Original data”, write exactly where the raw files live, for example “Plate reader PC, D:\\Data\\2026-10\\run12.xlsx”.',
       'Typing is kept on your device until you save. If the page closes, reopening it offers “Put it back”.',
     ],
@@ -83,9 +84,9 @@ const SECTIONS: Section[] = [
     image: 'completeness',
     alt: 'The record completeness checklist with documented, incomplete and missing items',
     width: 312,
-    height: 552,
+    height: 511,
     steps: [
-      'Every experiment checks itself against seven things only the person at the bench can write down: purpose, protocol and version, conditions, samples, raw data and notes.',
+      'Every experiment checks itself against six things only the person at the bench can write down: purpose, protocol and version, conditions, raw data and notes.',
       'Results and conclusions are optional and not checked: analysis usually happens in your own code and reports.',
       'Red is missing, amber is too thin to be useful, green is written down. Each gap says what to add.',
       'It checks that information is written down. It never claims the work is correct.',
@@ -101,7 +102,7 @@ const SECTIONS: Section[] = [
     height: 800,
     steps: [
       'On any experiment, press “Run again” to repeat it with one change.',
-      'The purpose, protocol, conditions and samples are copied, and the new run is linked to the old one.',
+      'The purpose, protocol and conditions are copied, and the new run is linked to the old one.',
       'The date is today; deviations, data location and results start empty because they belong to this run alone.',
     ],
   },
@@ -115,7 +116,7 @@ const SECTIONS: Section[] = [
     height: 800,
     steps: [
       '“Record check”, linked from Home, lists every started run that is missing something, grouped by who ran it, thinnest first.',
-      'Each line says exactly what to fill in, so the conversation with a student is specific: “EXP-003 needs the raw data location and the sample IDs.”',
+      'Each line says exactly what to fill in, so the conversation with a student is specific: “EXP-003 needs the raw data location and the conditions.”',
       'Catch thin records while the person who ran the experiment still remembers.',
     ],
     try: { href: '/experiments/record-check', label: 'Open Record check' },
@@ -219,8 +220,9 @@ const SECTIONS: Section[] = [
     height: 800,
     steps: [
       'Everything the lab has uploaded or written. Upload for the whole lab, for chosen people, or just for yourself.',
-      '“New document” writes a document inside Labvia that the lab can read and edit.',
+      '“New document” writes a document inside LabLedger that the lab can read and edit.',
       'A spreadsheet here can be turned into an experiment in one step.',
+      'Keep your data in Google Sheets? Paste the sheet’s link under “Files and data” on an experiment and edit it right there, in Google’s own editor with your own Google sign-in.',
     ],
     try: { href: '/files', label: 'Open Files' },
   },
@@ -234,7 +236,7 @@ const SECTIONS: Section[] = [
     height: 800,
     steps: [
       'In a project, open Compare and pick two to six runs.',
-      'The table highlights every field that differs: conditions, protocol version, samples, results. It answers “what did we change between run 12 and run 13?”.',
+      'The table highlights every field that differs: conditions, protocol version, results. It answers “what did we change between run 12 and run 13?”.',
     ],
   },
   {
@@ -269,7 +271,7 @@ export default async function GuidePage() {
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            Labvia
+            LabLedger
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link href="/pricing" className="rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
@@ -284,7 +286,7 @@ export default async function GuidePage() {
 
       <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-accent">Tutorial</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Labvia, page by page</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">LabLedger, page by page</h1>
         <p className="mt-3 max-w-2xl text-muted">
           Every part of the app, with screenshots from a demo lab. Each section says who it is for. About ten
           minutes to read; the first box is the two-minute version.

@@ -11,7 +11,7 @@ import { hasUnsavedWork, rememberBuild, reloadOnceForStaleDeploy, tabIsStale } f
  * rather than on a timer, so nobody is reloaded out from under their typing.
  *
  * A file dropped a little outside a drop zone would otherwise make the browser
- * open the file itself and leave Labvia. Drop zones handle their own drops
+ * open the file itself and leave LabLedger. Drop zones handle their own drops
  * first (React listens below the window), so this only catches the misses.
  */
 export function StaleTabGuard() {
