@@ -325,9 +325,9 @@ export async function requestPasswordResetAction(
   try {
     await sendEmail({
       to: email,
-      subject: 'Reset your LabLedger password',
+      subject: 'Reset your Labquill password',
       text: [
-        'Someone asked to reset the password for your LabLedger account.',
+        'Someone asked to reset the password for your Labquill account.',
         '',
         `Open this link to choose a new one (it expires in one hour):`,
         link,

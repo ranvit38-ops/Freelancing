@@ -63,7 +63,7 @@ export function ExperimentDropzone({
     <Card>
       <CardHeader
         title="Or start from your files"
-        description="Drop the data you already have. LabLedger fills in what it can read and you correct the rest — nothing is saved until you press the button at the bottom."
+        description="Drop the data you already have. Labquill fills in what it can read and you correct the rest — nothing is saved until you press the button at the bottom."
       />
       <div className="space-y-3 px-5 py-4">
         <div

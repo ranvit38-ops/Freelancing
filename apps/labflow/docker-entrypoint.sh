@@ -13,7 +13,7 @@ if [ -n "${DATABASE_URL+x}" ] && [ -z "$DATABASE_URL" ]; then
 fi
 
 if [ -z "${DATABASE_URL+x}" ]; then
-  echo "DATABASE_URL is not set. LabLedger stores everything in Postgres and cannot start without one." >&2
+  echo "DATABASE_URL is not set. Labquill stores everything in Postgres and cannot start without one." >&2
 
   # "Not set" alone sends people round the same loop: fix it, redeploy, same
   # line. Saying what the server *can* see tells a misspelled name apart from
@@ -49,5 +49,5 @@ rm -f "$UPLOADS/.write-test"
 echo "Applying migrations..."
 node scripts/migrate.mjs
 
-echo "Starting LabLedger on port ${PORT:-3001}"
+echo "Starting Labquill on port ${PORT:-3001}"
 exec "$@"

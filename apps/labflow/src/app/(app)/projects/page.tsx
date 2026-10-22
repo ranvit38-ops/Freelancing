@@ -15,7 +15,7 @@ export default async function ProjectsPage() {
     <>
       <PageHeader
         title="Projects"
-        description="Each project holds a research question and the experiments run against it."
+        description="A project is the study: its question and hypothesis, its files, and every experiment run toward answering it. Experiments are single runs of a protocol inside a project."
         actions={<ButtonLink href="/projects/new">New project</ButtonLink>}
       />
       {projects.length === 0 ? (

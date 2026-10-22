@@ -1,10 +1,10 @@
-# Putting LabLedger on the internet
+# Putting Labquill on the internet
 
 Nothing here depends on GitHub once the site is running. GitHub stores the
 source. A host runs it. Those are different jobs, and the site does not need a
 Codespace open to stay up.
 
-LabLedger needs three things from wherever it runs:
+Labquill needs three things from wherever it runs:
 
 1. A machine that runs a Node server continuously.
 2. A PostgreSQL database.
@@ -17,7 +17,7 @@ Anything providing those works. The rest of this page picks one and walks it.
 Vercel is the obvious choice for a Next.js app and it is the wrong one here,
 for two reasons that will not show up until a customer hits them.
 
-- Its serverless functions cap a request body at about 4.5 MB. LabLedger accepts
+- Its serverless functions cap a request body at about 4.5 MB. Labquill accepts
   25 MB files and 250 MB videos. Every meaningful upload would fail.
 - There is no persistent disk. Uploaded files would disappear on the next
   deploy.
@@ -56,7 +56,7 @@ the data matters enough to want backups on the same platform.
 lost at the next deploy, silently.
 
 A mounted disk carries its ownership from the host, not from the image, and
-LabLedger runs as a non-root user so that a bug in a file handler is not a bug
+Labquill runs as a non-root user so that a bug in a file handler is not a bug
 with root's privileges. If the host mounts that disk for root, the server
 cannot write to it. It refuses to start rather than serving a site whose
 uploads fail the first time a researcher tries one, and the deploy log says
@@ -106,7 +106,7 @@ cd apps/labflow
 docker compose up -d
 ```
 
-That starts LabLedger and a PostgreSQL beside it, applies migrations, and serves
+That starts Labquill and a PostgreSQL beside it, applies migrations, and serves
 on port 3001. The database and the uploaded files live in named volumes, so
 `docker compose down` and back up loses nothing.
 

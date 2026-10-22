@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 
 /**
- * A plain Word document from the little markdown LabLedger documents use:
+ * A plain Word document from the little markdown Labquill documents use:
  * headings, paragraphs, bullet and numbered lines, bold and italics.
  *
  * Deliberately minimal. Professors open Word; they do not open .md files, and

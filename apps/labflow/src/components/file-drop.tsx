@@ -15,10 +15,13 @@ import { DriveImport } from './drive-import';
 export function FileDrop({
   members,
   drive,
+  into,
 }: {
   members: Member[];
   /** Google Drive import settings; null when it is not switched on. */
   drive?: { clientId: string | null; apiKey: string | null; appId: string | null };
+  /** Upload straight into a project folder or a protocol; always shared with the lab. */
+  into?: { projectId?: string; protocolId?: string; folder?: string | null; label: string };
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -32,7 +35,7 @@ export function FileDrop({
     if (files.length === 0) return;
     setErrors([]);
     setNotice(null);
-    if (audience.value === 'people' && audience.chosen.length === 0) {
+    if (!into && audience.value === 'people' && audience.chosen.length === 0) {
       setErrors(['Pick at least one person to share with.']);
       return;
     }
@@ -42,10 +45,16 @@ export function FileDrop({
       setProgress(`Uploading ${file.name} (${i + 1} of ${files.length})…`);
       const body = new FormData();
       body.set('file', file);
-      body.set('audience', audience.value);
-      for (const id of audience.chosen) body.append('shareWith', id);
-      // Tell the people it is for: #lab for everyone, a DM for chosen people.
-      body.set('announce', '1');
+      if (into) {
+        if (into.projectId) body.set('projectId', into.projectId);
+        if (into.protocolId) body.set('protocolId', into.protocolId);
+        if (into.folder) body.set('folder', into.folder);
+      } else {
+        body.set('audience', audience.value);
+        for (const id of audience.chosen) body.append('shareWith', id);
+        // Tell the people it is for: #lab for everyone, a DM for chosen people.
+        body.set('announce', '1');
+      }
       try {
         const response = await fetch('/api/team/files', { method: 'POST', body });
         if (!response.ok) {
@@ -63,7 +72,9 @@ export function FileDrop({
     if (sent > 0) {
       const names = members.filter((m) => audience.chosen.includes(m.id)).map((m) => m.name || m.email);
       setNotice(
-        audience.value === 'everyone'
+        into
+          ? `Added to ${into.label}. Everyone in the lab can open it.`
+          : audience.value === 'everyone'
           ? `Shared with the lab and posted in #lab.`
           : audience.value === 'people'
             ? names.length === 1
@@ -111,14 +122,16 @@ export function FileDrop({
           onChange={(e) => void upload(Array.from(e.target.files ?? []))}
         />
       </div>
-      <AudiencePicker
-        members={members}
-        value={audience.value}
-        onChange={audience.setValue}
-        chosen={audience.chosen}
-        onChoose={audience.setChosen}
-      />
-      {drive ? <DriveImport {...drive} audience={audience} /> : null}
+      {into ? null : (
+        <AudiencePicker
+          members={members}
+          value={audience.value}
+          onChange={audience.setValue}
+          chosen={audience.chosen}
+          onChoose={audience.setChosen}
+        />
+      )}
+      {drive && !into ? <DriveImport {...drive} audience={audience} /> : null}
       {notice ? (
         <p role="status" className="rounded-lg bg-ok/10 px-3 py-2 text-sm text-ok">
           {notice}

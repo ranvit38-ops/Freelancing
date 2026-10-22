@@ -27,7 +27,7 @@ export default async function NewExperimentPage({ params }: { params: { projectI
         <PageHeader
           eyebrow={project.name}
           title="New experiment"
-          description="Say what you did in your own words, or drop your files, and LabLedger fills in the form for you to check. Everything except the name is optional either way."
+          description="Say what you did in your own words, or drop your files, and Labquill fills in the form for you to check. Everything except the name is optional either way."
         />
         <NewExperiment
           projectId={project.id}

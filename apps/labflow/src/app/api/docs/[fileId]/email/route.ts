@@ -22,7 +22,7 @@ export async function POST(request: Request, { params }: { params: { fileId: str
     const doc = await readDocument(session, params.fileId);
     const result = await emailToLab(session, {
       recipientIds: to,
-      subject: `${doc.title} (from ${session.userName} on LabLedger)`,
+      subject: `${doc.title} (from ${session.userName} on Labquill)`,
       text: [note, note ? '' : null, `${session.userName} sent you "${doc.title}" from ${session.workspaceName}. It is attached as a Word document.`, '', doc.body]
         .filter((line) => line !== null)
         .join('\n'),

@@ -5,7 +5,7 @@ import { getSession } from '@/server/auth';
 
 export const metadata = {
   title: 'Tutorial',
-  description: 'Every part of LabLedger, page by page, with screenshots: for professors, students and new lab members.',
+  description: 'Every part of Labquill, page by page, with screenshots: for professors, students and new lab members.',
 };
 
 type Who = 'Everyone' | 'Professors and admins' | 'New members';
@@ -56,7 +56,7 @@ const SECTIONS: Section[] = [
     steps: [
       'Press “Record an experiment” on Home. Only the name is required; fill in the rest as the run goes.',
       'Quickest way: under “Describe it in your own words”, type what you did the way you would tell a labmate and press “Fill in the form”. AI fills the empty fields from what you wrote, never inventing values, and nothing is saved until you check it and press Save.',
-      'Or drop the instrument’s CSV or Excel file at the top and LabLedger fills in the conditions it can read.',
+      'Or drop the instrument’s CSV or Excel file at the top and Labquill fills in the conditions it can read.',
       'Under “Original data”, write exactly where the raw files live, for example “Plate reader PC, D:\\Data\\2026-10\\run12.xlsx”.',
       'Typing is kept on your device until you save. If the page closes, reopening it offers “Put it back”.',
     ],
@@ -220,7 +220,9 @@ const SECTIONS: Section[] = [
     height: 800,
     steps: [
       'Everything the lab has uploaded or written. Upload for the whole lab, for chosen people, or just for yourself.',
-      '“New document” writes a document inside LabLedger that the lab can read and edit.',
+      'Uploaded something before its project existed? “File under…” puts any shared file in a project folder, with a protocol, or on an experiment.',
+      'A Word or PDF protocol becomes a protocol with “Use as a protocol”.',
+      '“New document” writes a document inside Labquill that the lab can read and edit.',
       'A spreadsheet here can be turned into an experiment in one step.',
       'Keep your data in Google Sheets? Paste the sheet’s link under “Files and data” on an experiment and edit it right there, in Google’s own editor with your own Google sign-in.',
     ],
@@ -255,6 +257,8 @@ const SECTIONS: Section[] = [
 
 const FIRST_WEEK = [
   'Sign up and name your lab. You are its owner.',
+  'Create a project for each study: its question and hypothesis. Its files go in its own folders (raw data, code, pictures…).',
+  'Add your protocols under Protocols: upload the Word or PDF, then its photos, instrument settings, manual and blank tables.',
   'People → “Create a join link”, and paste it in your lab group chat.',
   'Make your postdoc or senior student an admin from the menu beside their name.',
   'Ask everyone to record their next experiment here, with where the raw data lives.',
@@ -271,7 +275,7 @@ export default async function GuidePage() {
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            LabLedger
+            Labquill
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link href="/pricing" className="rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
@@ -286,7 +290,7 @@ export default async function GuidePage() {
 
       <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-accent">Tutorial</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">LabLedger, page by page</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Labquill, page by page</h1>
         <p className="mt-3 max-w-2xl text-muted">
           Every part of the app, with screenshots from a demo lab. Each section says who it is for. About ten
           minutes to read; the first box is the two-minute version.

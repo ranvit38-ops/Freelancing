@@ -67,7 +67,7 @@ export async function importDriveFiles(
           response.status === 401
             ? 'Google asked you to sign in again. Pick the file again.'
             : response.status === 403 || response.status === 404
-              ? 'Google Drive did not let LabLedger read this file.'
+              ? 'Google Drive did not let Labquill read this file.'
               : `Google Drive refused (${response.status}).`,
       });
       continue;

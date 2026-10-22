@@ -54,7 +54,7 @@ export function mailSetupProblem(): string | null {
   if (!from) return 'EMAIL_FROM is not set.';
   if (!key.startsWith('re_')) return 'RESEND_API_KEY does not look like a Resend key (they start with re_).';
   if (!senderAddress(from)) {
-    return 'EMAIL_FROM must be an address, like LabLedger <hello@yourdomain.com> or hello@yourdomain.com.';
+    return 'EMAIL_FROM must be an address, like Labquill <hello@yourdomain.com> or hello@yourdomain.com.';
   }
   return null;
 }
@@ -91,7 +91,7 @@ export function explainResendError(status: number, body: string): string {
     return `Resend did not accept RESEND_API_KEY. Create a new key with sending access at resend.com/api-keys and replace it on the server.${said}`;
   }
   if (/from/i.test(message) && (status === 422 || /invalid_from_address/i.test(name))) {
-    return `EMAIL_FROM is not in a form Resend accepts. Use LabLedger <hello@yourdomain.com> or hello@yourdomain.com.${said}`;
+    return `EMAIL_FROM is not in a form Resend accepts. Use Labquill <hello@yourdomain.com> or hello@yourdomain.com.${said}`;
   }
   if (status === 429) {
     return `Resend's sending limit was reached (the free plan allows 100 emails a day). Wait, or upgrade the Resend plan.${said}`;
@@ -212,7 +212,7 @@ export function absoluteUrl(path: string): string {
   if (!base) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
-        'NEXT_PUBLIC_APP_URL is not set. Set it to this deployment\'s public address, for example https://labledger.com, so payment redirects and email links point somewhere real.',
+        'NEXT_PUBLIC_APP_URL is not set. Set it to this deployment\'s public address, for example https://labquill.com, so payment redirects and email links point somewhere real.',
       );
     }
     return `http://localhost:3001${path}`;

@@ -358,7 +358,7 @@ export const files = pgTable(
     uploadedById: uuid('uploaded_by_id').references(() => users.id, { onDelete: 'set null' }),
     /** Visible only to its uploader. See migration 0014. */
     private: boolean('private').notNull().default(false),
-    /** Written and edited inside LabLedger rather than uploaded. See migration 0018. */
+    /** Written and edited inside Labquill rather than uploaded. See migration 0018. */
     isDocument: boolean('is_document').notNull().default(false),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
     updatedById: uuid('updated_by_id').references(() => users.id, { onDelete: 'set null' }),
@@ -379,6 +379,37 @@ export const experimentFiles = pgTable(
     createdAt: createdAt(),
   },
   (t) => ({ pk: primaryKey({ columns: [t.experimentId, t.fileId] }) }),
+);
+
+/** A file filed in a project's folder (raw data, code, pictures …). See migration 0021. */
+export const projectFiles = pgTable(
+  'project_files',
+  {
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    fileId: uuid('file_id')
+      .notNull()
+      .references(() => files.id, { onDelete: 'cascade' }),
+    folder: text('folder'),
+    createdAt: createdAt(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.projectId, t.fileId] }) }),
+);
+
+/** Everything that goes with a protocol: photos, settings, manual, blank tables. */
+export const protocolFiles = pgTable(
+  'protocol_files',
+  {
+    protocolId: uuid('protocol_id')
+      .notNull()
+      .references(() => protocols.id, { onDelete: 'cascade' }),
+    fileId: uuid('file_id')
+      .notNull()
+      .references(() => files.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.protocolId, t.fileId] }) }),
 );
 
 export const datasets = pgTable(

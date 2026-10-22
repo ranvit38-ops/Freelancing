@@ -8,7 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
  *
  * The browser's own back button works, but people do not trust it inside an
  * app and it can leave the site entirely. This goes back to the previous page
- * only when that page was inside LabLedger; arriving from an email link, it goes
+ * only when that page was inside Labquill; arriving from an email link, it goes
  * to Home instead of out of the app.
  */
 export function BackBar() {

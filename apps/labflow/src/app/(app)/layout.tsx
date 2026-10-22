@@ -13,21 +13,25 @@ import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
 
 /**
- * Seven places, each one a thing a lab does every week. Samples, inventory,
- * protocols, search and the literature tools still exist and are reached from
- * inside a project or experiment where they apply; they were crowding out the
- * things people open LabLedger for.
+ * The record first, in the order a lab sets it up: projects hold the
+ * question and their files, protocols hold the method and its folder, and
+ * every experiment is a run of a protocol inside a project. A first pilot
+ * user got lost because Files and Chat sat above Projects; the extras now
+ * sit in their own group below.
  */
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Home' },
   { href: '/start', label: 'Start here' },
+  { href: '/projects', label: 'Projects' },
+  { href: '/protocols', label: 'Protocols' },
+  { href: '/files', label: 'Files' },
+  { href: '/team', label: 'People' },
+];
+
+const togetherItems: NavItem[] = [
   { href: '/tasks', label: 'Tasks' },
   { href: '/chat', label: 'Chat' },
   { href: '/calendar', label: 'Calendar' },
-  { href: '/files', label: 'Files' },
-  { href: '/projects', label: 'Projects' },
-  { href: '/protocols', label: 'Protocols' },
-  { href: '/team', label: 'People' },
 ];
 
 const footerItems: NavItem[] = [
@@ -70,7 +74,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Unread direct messages, including files shared with just you, show on
   // Chat: a share nobody notices is a share nobody opens.
   const unreadDms = dmThreads.filter((t) => t.unread).length;
-  const items = navItems.map((item) => (item.href === '/chat' && unreadDms ? { ...item, badge: unreadDms } : item));
+  const items = navItems;
+  const together = togetherItems.map((item) =>
+    item.href === '/chat' && unreadDms ? { ...item, badge: unreadDms } : item,
+  );
 
   // Only worth showing once a user actually belongs to more than one lab.
   const workspacePicker =
@@ -120,13 +127,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <summary className="flex h-14 cursor-pointer list-none items-center justify-between px-4">
           <span className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            LabLedger
+            Labquill
           </span>
           <span className="text-sm text-muted group-open:hidden">Menu</span>
           <span className="hidden text-sm text-muted group-open:inline">Close</span>
         </summary>
         <nav aria-label="Main" className="px-3 pb-3">
           <NavList items={items} />
+          <p className="mt-3 border-t border-line px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-subtle">
+            Working together
+          </p>
+          <NavList items={together} />
           <NavList items={secondary} className="mt-3 border-t border-line pt-3" />
         </nav>
         {identity}
@@ -137,12 +148,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="px-6 py-5">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            LabLedger
+            Labquill
           </Link>
           {workspacePicker}
         </div>
         <nav aria-label="Main" className="flex-1 overflow-y-auto px-3">
           <NavList items={items} />
+          <p className="mt-4 border-t border-line px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-subtle">
+            Working together
+          </p>
+          <NavList items={together} />
           <NavList items={secondary} className="mt-4 border-t border-line pt-4" />
         </nav>
         {identity}

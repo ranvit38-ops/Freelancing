@@ -26,7 +26,7 @@ export default async function NewProtocolPage({ searchParams }: { searchParams: 
         description={
           file
             ? 'The file is the method. Experiments that follow it link to this exact version.'
-            : 'Version 1 is created automatically. Have it as a PDF or Word file? Upload it in Files and choose “Use as a protocol”.'
+            : 'Upload the Word or PDF your lab already uses, or write the method here. Version 1 is created automatically.'
         }
       />
       <ProtocolForm projects={projects.filter((p) => !p.isExample).map((p) => ({ id: p.id, name: p.name }))} file={file} />

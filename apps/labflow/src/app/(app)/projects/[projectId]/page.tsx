@@ -1,4 +1,5 @@
-import { deleteProjectAction } from '@/server/actions/records';
+import { deleteProjectAction, removeProjectFileAction } from '@/server/actions/records';
+import { ProjectFolderDrop } from '@/components/file-under';
 import { ConfirmSubmit } from '@/components/file-upload';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -14,9 +15,9 @@ import {
   PageHeader,
   Prose,
 } from '@/components/ui';
-import { formatDate, pluralise, projectStatusLabel } from '@/lib/display';
+import { formatBytes, formatDate, pluralise, projectStatusLabel } from '@/lib/display';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
-import { getProject, listExperiments, listSamples } from '@/server/queries';
+import { getProject, listExperiments, listProjectFiles, listSamples } from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,9 +61,10 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
     </Card>
   ) : null;
 
-  const [experiments, samples] = await Promise.all([
+  const [experiments, samples, projectFileRows] = await Promise.all([
     listExperiments(session, { projectId: project.id }),
     listSamples(session, { projectId: project.id }),
+    listProjectFiles(session, project.id),
   ]);
 
   const byStatus = experiments.reduce<Record<string, number>>((acc, e) => {
@@ -102,7 +104,7 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
           { label: 'Experiments', value: String(experiments.length) },
           { label: 'Completed', value: String(byStatus.completed ?? 0) },
           { label: 'Needs investigation', value: String(byStatus.needs_investigation ?? 0) },
-          { label: 'Samples', value: String(samples.length) },
+          { label: 'Files', value: String(projectFileRows.length) },
         ].map((stat) => (
           <Card key={stat.label} className="p-4">
             <div className="text-xs font-medium uppercase tracking-wider text-subtle">
@@ -116,7 +118,8 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
-        <Card className="lg:col-span-2">
+        <div className="space-y-5 lg:col-span-2">
+        <Card>
           <CardHeader
             title="Experiments"
             description={pluralise(experiments.length, 'experiment')}
@@ -145,6 +148,60 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
           />
         </Card>
 
+        <Card>
+          <CardHeader
+            title="Project files"
+            description="The project's folder: raw data, code, pictures, metadata. Organised however your lab likes."
+          />
+          {projectFileRows.length === 0 ? (
+            <p className="px-5 text-sm text-muted">
+              Nothing filed here yet. Upload below, or use “File under…” on anything already in{' '}
+              <Link href="/files" className="underline underline-offset-2">
+                Files
+              </Link>
+              .
+            </p>
+          ) : (
+            <div className="divide-y divide-line">
+              {[...new Set(projectFileRows.map((f) => f.folder ?? ''))].map((folder) => (
+                <section key={folder} className="px-5 py-3">
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">{folder || 'Unsorted'}</h3>
+                  <ul className="mt-1.5 space-y-1.5">
+                    {projectFileRows
+                      .filter((f) => (f.folder ?? '') === folder)
+                      .map((f) => (
+                        <li key={f.id} className="flex items-center gap-3 text-sm">
+                          <a
+                            href={f.isDocument ? `/docs/${f.id}` : (f.sourceUrl ?? `/api/files/${f.id}`)}
+                            className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
+                          >
+                            {f.filename}
+                          </a>
+                          <span className="shrink-0 text-xs text-subtle">
+                            {f.sourceUrl ? 'Link' : formatBytes(f.byteSize)}
+                          </span>
+                          {f.uploadedById === session.userId || session.role !== 'member' ? (
+                            <form action={removeProjectFileAction} className="shrink-0">
+                              <input type="hidden" name="projectId" value={project.id} />
+                              <input type="hidden" name="fileId" value={f.id} />
+                              <button type="submit" className="text-xs text-muted hover:text-fg">
+                                Take out
+                              </button>
+                            </form>
+                          ) : null}
+                        </li>
+                      ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+          <div className="border-t border-line px-5 py-4">
+            <ProjectFolderDrop projectId={project.id} projectName={project.name} />
+          </div>
+        </Card>
+        </div>
+
         <div className="space-y-5">
           <Card className="p-5">
             <h2 className="mb-4 text-sm font-semibold tracking-tight">Details</h2>
@@ -166,7 +223,7 @@ export default async function ProjectOverviewPage({ params }: { params: { projec
           </Card>
 
           <Card className="p-5">
-            <h2 className="mb-2 text-sm font-semibold tracking-tight">Research question</h2>
+            <h2 className="mb-2 text-sm font-semibold tracking-tight">Question and hypothesis</h2>
             <Prose text={project.researchQuestion} />
           </Card>
 

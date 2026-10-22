@@ -68,7 +68,7 @@ export default function PrivacyPage() {
             strokeLinejoin="round"
           />
         </svg>
-        LabLedger
+        Labquill
       </Link>
 
       <h1 className="text-2xl font-semibold tracking-tight">Privacy</h1>

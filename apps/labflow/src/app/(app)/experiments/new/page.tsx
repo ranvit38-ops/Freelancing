@@ -88,7 +88,7 @@ export default async function RecordExperimentPage({
     <div className="mx-auto max-w-3xl">
       <PageHeader
         title="Record an experiment"
-        description="Say what you did in your own words, or drop your files, and LabLedger fills in the form for you to check. Only the name is required."
+        description="Say what you did in your own words, or drop your files, and Labquill fills in the form for you to check. Only the name is required."
       />
 
       {projects.length > 1 && !source ? (

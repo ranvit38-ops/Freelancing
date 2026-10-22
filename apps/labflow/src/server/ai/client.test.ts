@@ -20,7 +20,7 @@ describe('callModel', () => {
   });
 });
 
-describe('the request LabLedger actually sends', () => {
+describe('the request Labquill actually sends', () => {
   it('sends no sampling parameters, which the current models reject outright', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
     let sent: Record<string, unknown> = {};

@@ -10,12 +10,21 @@ import { deleteFileAction } from '@/server/actions/records';
 import { requireSession } from '@/server/authz';
 import { fileStorage } from '@/lib/pilot';
 import { databaseStorageUse } from '@/server/storage';
-import { fileShareNames, listFiles, listWorkspaceMembers } from '@/server/queries';
+import {
+  fileHomes,
+  fileShareNames,
+  listExperiments,
+  listFiles,
+  listProjects,
+  listProtocols,
+  listWorkspaceMembers,
+} from '@/server/queries';
+import { FileUnder, type FilingTargets } from '@/components/file-under';
 
 export const metadata = { title: 'Files' };
 export const dynamic = 'force-dynamic';
 
-/** Spreadsheets LabLedger can read an experiment out of. */
+/** Spreadsheets Labquill can read an experiment out of. */
 const READABLE = /\.(csv|tsv|xlsx)$/i;
 /** What lab protocols are usually kept as. */
 const PROTOCOL_LIKE = /\.(pdf|docx?|odt|rtf)$/i;
@@ -35,11 +44,25 @@ export default async function FilesPage({
   const session = await requireSession();
   const view = searchParams.view === 'mine' ? 'mine' : searchParams.view === 'shared' ? 'shared' : 'lab';
   const mine = view === 'mine';
-  const [all, members, storage] = await Promise.all([
+  const [all, members, storage, homes, projects, protocols, experiments] = await Promise.all([
     listFiles(session),
     listWorkspaceMembers(session),
     fileStorage() === 'database' ? databaseStorageUse() : null,
+    fileHomes(session),
+    listProjects(session),
+    listProtocols(session),
+    listExperiments(session),
   ]);
+  // Where a file can be filed: real projects, protocols, and the newest runs.
+  const exampleProjects = new Set(projects.filter((p) => p.isExample).map((p) => p.id));
+  const targets: FilingTargets = {
+    projects: projects.filter((p) => !p.isExample).map((p) => ({ id: p.id, name: p.name })),
+    protocols: protocols.map((p) => ({ id: p.id, name: p.name })),
+    experiments: experiments
+      .filter((e) => !exampleProjects.has(e.projectId))
+      .slice(0, 60)
+      .map((e) => ({ id: e.id, label: `${experimentCode(e.number)} ${e.title} (${e.projectName})` })),
+  };
   const shares = await fileShareNames(session, [...new Set(all.filter((f) => f.private).map((f) => f.id))]);
   const others = members.filter((m) => m.id !== session.userId);
   const sharedIds = new Map([...shares].map(([fileId, people]) => [fileId, people.map((p) => p.id)]));
@@ -181,6 +204,7 @@ export default async function FilesPage({
                           Use as a protocol
                         </Link>
                       ) : null}
+                      {!f.private ? <FileUnder fileId={f.id} targets={targets} /> : null}
                       {f.uploadedById === session.userId || session.role !== 'member' ? (
                         <form action={deleteFileAction} className="shrink-0">
                           <input type="hidden" name="fileId" value={f.id} />
@@ -213,6 +237,14 @@ export default async function FilesPage({
                           </Link>
                         </>
                       ) : null}
+                      {(homes.get(f.id) ?? []).map((home) => (
+                        <span key={home.href}>
+                          {' · '}
+                          <Link href={home.href} className="underline underline-offset-2 hover:text-fg">
+                            {home.label}
+                          </Link>
+                        </span>
+                      ))}
                     </p>
                   </li>
                 ))}

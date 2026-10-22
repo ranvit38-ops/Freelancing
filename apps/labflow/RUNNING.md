@@ -1,4 +1,4 @@
-# Running LabLedger
+# Running Labquill
 
 ## The quickest way: run it in your browser, install nothing
 

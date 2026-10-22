@@ -26,7 +26,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
   }, [error]);
 
   if (reloading) {
-    return <p className="py-16 text-center text-sm text-muted">LabLedger was just updated. Loading the new version…</p>;
+    return <p className="py-16 text-center text-sm text-muted">Labquill was just updated. Loading the new version…</p>;
   }
 
   return (

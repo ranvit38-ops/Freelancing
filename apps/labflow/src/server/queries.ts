@@ -36,6 +36,8 @@ import {
   events,
   fileShares,
   chatReads,
+  projectFiles,
+  protocolFiles,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { dmParticipants } from '@/lib/dm';
@@ -146,7 +148,7 @@ export async function deleteProject(s: SessionContext, projectId: string) {
 /* ── activity ───────────────────────────────────────────────────────────── */
 
 type ActivityEntry = {
-  action: 'created' | 'edited' | 'deleted' | 'added' | 'uploaded' | 'changed' | 'removed';
+  action: 'created' | 'edited' | 'deleted' | 'added' | 'uploaded' | 'changed' | 'removed' | 'filed';
   subjectType: string;
   subjectId?: string | null;
   label: string;
@@ -889,7 +891,152 @@ export async function addProtocolVersion(
 
 /* ── files ──────────────────────────────────────────────────────────────── */
 
-/** Shared lab files that could be a protocol version: PDFs, Word files, LabLedger documents. */
+/** A file only its uploader can open cannot belong to something the whole lab reads. */
+export class PrivateFileError extends Error {
+  constructor(where: string) {
+    super(`This file is private. Share it with the lab first, so everyone working on the ${where} can open it.`);
+    this.name = 'PrivateFileError';
+  }
+}
+
+/** A file this person can see, refused when it is private to someone. */
+async function sharedFile(s: SessionContext, fileId: string, where: string) {
+  const file = await getFileForDownload(s, fileId);
+  if (file.private) throw new PrivateFileError(where);
+  return file;
+}
+
+/**
+ * Files a project's folder: raw data, code, pictures, metadata, whatever
+ * names the lab uses. Filing an already-filed file just moves its folder.
+ */
+export async function addFileToProject(s: SessionContext, projectId: string, fileId: string, folder: string | null) {
+  const project = await getProject(s, projectId);
+  const file = await sharedFile(s, fileId, 'project');
+  const name = folder?.trim().slice(0, 80) || null;
+  await db
+    .insert(projectFiles)
+    .values({ projectId: project.id, fileId: file.id, folder: name })
+    .onConflictDoUpdate({ target: [projectFiles.projectId, projectFiles.fileId], set: { folder: name } });
+  await logActivity(s, {
+    action: 'filed',
+    subjectType: 'file',
+    subjectId: file.id,
+    label: file.filename,
+    detail: `in ${project.name}${name ? ` / ${name}` : ''}`,
+    href: `/projects/${project.id}`,
+  });
+}
+
+export async function removeFileFromProject(s: SessionContext, projectId: string, fileId: string) {
+  const project = await getProject(s, projectId);
+  assertId(fileId, 'File');
+  await db.delete(projectFiles).where(and(eq(projectFiles.projectId, project.id), eq(projectFiles.fileId, fileId)));
+}
+
+/** A project's folder, as this person may see it, grouped by the folder names the lab chose. */
+export async function listProjectFiles(s: SessionContext, projectId: string) {
+  const project = await getProject(s, projectId);
+  return db
+    .select({
+      id: files.id,
+      filename: files.filename,
+      folder: projectFiles.folder,
+      byteSize: files.byteSize,
+      sourceUrl: files.sourceUrl,
+      isDocument: files.isDocument,
+      createdAt: files.createdAt,
+      uploadedById: files.uploadedById,
+      uploaderName: users.name,
+    })
+    .from(projectFiles)
+    .innerJoin(files, eq(files.id, projectFiles.fileId))
+    .leftJoin(users, eq(users.id, files.uploadedById))
+    .where(and(eq(projectFiles.projectId, project.id), fileVisibleTo(s)))
+    .orderBy(sql`${projectFiles.folder} nulls first`, files.filename);
+}
+
+/** Everything that goes with a protocol, beyond the method itself. */
+export async function addFileToProtocol(s: SessionContext, protocolId: string, fileId: string) {
+  const { protocol } = await getProtocolWithVersions(s, protocolId);
+  const file = await sharedFile(s, fileId, 'protocol');
+  await db.insert(protocolFiles).values({ protocolId: protocol.id, fileId: file.id }).onConflictDoNothing();
+  await logActivity(s, {
+    action: 'filed',
+    subjectType: 'file',
+    subjectId: file.id,
+    label: file.filename,
+    detail: `with protocol ${protocol.name}`,
+    href: `/protocols/${protocol.id}`,
+  });
+}
+
+export async function removeFileFromProtocol(s: SessionContext, protocolId: string, fileId: string) {
+  const { protocol } = await getProtocolWithVersions(s, protocolId);
+  assertId(fileId, 'File');
+  await db.delete(protocolFiles).where(and(eq(protocolFiles.protocolId, protocol.id), eq(protocolFiles.fileId, fileId)));
+}
+
+export async function listProtocolFiles(s: SessionContext, protocolId: string) {
+  const { protocol } = await getProtocolWithVersions(s, protocolId);
+  return db
+    .select({
+      id: files.id,
+      filename: files.filename,
+      byteSize: files.byteSize,
+      sourceUrl: files.sourceUrl,
+      isDocument: files.isDocument,
+      contentType: files.contentType,
+      createdAt: files.createdAt,
+      uploadedById: files.uploadedById,
+      uploaderName: users.name,
+    })
+    .from(protocolFiles)
+    .innerJoin(files, eq(files.id, protocolFiles.fileId))
+    .leftJoin(users, eq(users.id, files.uploadedById))
+    .where(and(eq(protocolFiles.protocolId, protocol.id), fileVisibleTo(s)))
+    .orderBy(files.filename);
+}
+
+/** Attaches a file already in the lab to a run, from Files. */
+export async function addFileToExperiment(s: SessionContext, experimentId: string, fileId: string) {
+  assertId(experimentId, 'Experiment');
+  const experiment = await getExperiment(s, experimentId);
+  const file = await sharedFile(s, fileId, 'experiment');
+  await db.insert(experimentFiles).values({ experimentId, fileId: file.id }).onConflictDoNothing();
+  await logActivity(s, {
+    action: 'filed',
+    subjectType: 'file',
+    subjectId: file.id,
+    label: file.filename,
+    detail: `on ${experimentLabel(experiment)}`,
+    href: `/experiments/${experimentId}`,
+  });
+}
+
+/** Where each shared file has been filed, for the Files page: projects and protocols. */
+export async function fileHomes(s: SessionContext) {
+  const [inProjects, inProtocols] = await Promise.all([
+    db
+      .select({ fileId: projectFiles.fileId, id: projects.id, name: projects.name, folder: projectFiles.folder })
+      .from(projectFiles)
+      .innerJoin(projects, eq(projects.id, projectFiles.projectId))
+      .where(eq(projects.workspaceId, s.workspaceId)),
+    db
+      .select({ fileId: protocolFiles.fileId, id: protocols.id, name: protocols.name })
+      .from(protocolFiles)
+      .innerJoin(protocols, eq(protocols.id, protocolFiles.protocolId))
+      .where(eq(protocols.workspaceId, s.workspaceId)),
+  ]);
+  const homes = new Map<string, { href: string; label: string }[]>();
+  const add = (fileId: string, home: { href: string; label: string }) =>
+    homes.set(fileId, [...(homes.get(fileId) ?? []), home]);
+  for (const r of inProjects) add(r.fileId, { href: `/projects/${r.id}`, label: r.folder ? `${r.name} / ${r.folder}` : r.name });
+  for (const r of inProtocols) add(r.fileId, { href: `/protocols/${r.id}`, label: `Protocol: ${r.name}` });
+  return homes;
+}
+
+/** Shared lab files that could be a protocol version: PDFs, Word files, Labquill documents. */
 export async function listProtocolFileOptions(s: SessionContext) {
   return db
     .select({ id: files.id, filename: files.filename })
@@ -3317,7 +3464,7 @@ export async function deleteFile(s: SessionContext, fileId: string) {
 /* ── pilot feedback ─────────────────────────────────────────────────────── */
 
 /**
- * Records what this person says about paying for LabLedger.
+ * Records what this person says about paying for Labquill.
  *
  * Keyed on the workspace and the person, so answering twice replaces the first
  * answer rather than stacking. Someone who changes their mind after two weeks

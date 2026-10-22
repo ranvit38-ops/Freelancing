@@ -15,7 +15,7 @@ export default async function LoginPage({
   if (await getSession()) redirect('/dashboard');
   return (
     <>
-      <h1 className="text-xl font-semibold tracking-tight">Log in to LabLedger</h1>
+      <h1 className="text-xl font-semibold tracking-tight">Log in to Labquill</h1>
       <p className="mt-1.5 text-sm text-muted">Pick up where your lab left off.</p>
       <Card className="mt-6 space-y-4 p-6">
         <GoogleButton

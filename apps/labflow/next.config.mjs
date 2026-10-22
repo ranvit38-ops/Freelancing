@@ -56,6 +56,9 @@ const nextConfig = {
     serverComponentsExternalPackages: ['pg'],
     serverActions: {
       allowedOrigins: [...codespace, ...deployed, ...proxyOrigins, ...extra],
+      // A protocol PDF or a run's files arrive with the form itself; the 1 MB
+      // default rejected an ordinary scanned protocol.
+      bodySizeLimit: '30mb',
     },
   },
 };

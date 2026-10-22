@@ -32,7 +32,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         }}
       >
         <div style={{ maxWidth: 420, textAlign: 'center' }}>
-          <h1 style={{ fontSize: 20, margin: 0 }}>LabLedger didn&rsquo;t load</h1>
+          <h1 style={{ fontSize: 20, margin: 0 }}>Labquill didn&rsquo;t load</h1>
           <p style={{ opacity: 0.7, fontSize: 14, lineHeight: 1.5 }}>
             Nothing you saved has been lost. If the site had been idle it may be waking up, which
             takes up to a minute. Try again in a moment.

@@ -82,7 +82,7 @@ export function planForPrice(priceId: string): PlanId | null {
   return null;
 }
 
-/** Stripe's subscription statuses, narrowed to the ones LabLedger acts on. */
+/** Stripe's subscription statuses, narrowed to the ones Labquill acts on. */
 export function mapStatus(
   status: Stripe.Subscription.Status,
 ): 'trialing' | 'active' | 'past_due' | 'canceled' | 'none' {

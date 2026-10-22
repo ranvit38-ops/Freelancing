@@ -8,7 +8,7 @@ import { displayTime } from '@/lib/calendar';
 import { greetingName, pluralise, projectStatusLabel } from '@/lib/display';
 import { byDeadline, dueLabel, todayIso } from '@/lib/tasks';
 import { requireSession } from '@/server/authz';
-import {
+import { listProtocols,
   dashboardData,
   labPulse,
   listCalendar,
@@ -33,12 +33,13 @@ export default async function HomePage() {
   const today = todayIso();
   const weekEnd = new Date(Date.parse(`${today}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
 
-  const [data, tasks, week, channel, usage] = await Promise.all([
+  const [data, tasks, week, channel, usage, protocols] = await Promise.all([
     dashboardData(session),
     listTasks(session),
     listCalendar(session, today, weekEnd),
     listDiscussion(session, { workspace: true }),
     usageCounts(session),
+    listProtocols(session),
   ]);
   // Whoever runs the lab sees the lab, not only their own plate.
   const runsLab = session.role !== 'member';
@@ -85,8 +86,9 @@ export default async function HomePage() {
       {isNew ? (
         <GettingStarted
           steps={[
-            { done: usage.experiments > 0, href: '/experiments/new', title: 'Record an experiment', text: 'Drop a spreadsheet from your instrument. LabLedger fills in the rest.' },
-            { done: tasks.length > 0, href: '/tasks', title: 'Hand out a task', text: 'Give someone a piece of work and a deadline.' },
+            { done: usage.projects > 0, href: '/projects/new', title: 'Create a project', text: 'The study: its question and hypothesis, and a folder for its files.' },
+            { done: protocols.length > 0, href: '/protocols', title: 'Add a protocol', text: 'Upload the Word or PDF, with its photos and manuals. Revisions become v2, v3.' },
+            { done: usage.experiments > 0, href: '/experiments/new', title: 'Record an experiment', text: 'One run of a protocol. Describe it in your own words and Labquill fills in the form.' },
             { done: false, href: '/team', title: 'Bring in your lab', text: 'Share one join link. New people land on Start here, with a reading path through your work.' },
           ]}
         />
@@ -226,7 +228,7 @@ export default async function HomePage() {
             empty={
               <EmptyState
                 title="No experiments yet"
-                description="Drop a spreadsheet from your instrument and LabLedger fills in the experiment for you."
+                description="Drop a spreadsheet from your instrument and Labquill fills in the experiment for you."
                 action={<ButtonLink href="/experiments/new" size="sm">Record an experiment</ButtonLink>}
               />
             }
@@ -245,12 +247,12 @@ function SeeAll({ href, label = 'See all' }: { href: string; label?: string }) {
   );
 }
 
-/** Three first steps for a brand-new lab. Gone once the lab is in use. */
+/** First steps for a brand-new lab, in setup order. Gone once the lab is in use. */
 function GettingStarted({ steps }: { steps: { done: boolean; href: string; title: string; text: string }[] }) {
   return (
     <section aria-label="Getting started" className="mb-5 rounded-xl border border-accent/20 bg-accent/5 p-5">
-      <h2 className="text-sm font-semibold">Three things to try first</h2>
-      <ol className="mt-3 grid gap-3 sm:grid-cols-3">
+      <h2 className="text-sm font-semibold">Set up your lab, in this order</h2>
+      <ol className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((step, i) => (
           <li key={step.href}>
             <Link

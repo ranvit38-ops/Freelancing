@@ -3,7 +3,7 @@ import * as q from './queries';
 import { getFile, putFile, removeFile } from './storage';
 
 /**
- * Documents written inside LabLedger: notes, protocols, plans, meeting minutes,
+ * Documents written inside Labquill: notes, protocols, plans, meeting minutes,
  * and anything LabBot drafts. Each is an ordinary file holding markdown, so it
  * is shared, searched, read by LabBot and listed exactly like an upload.
  */

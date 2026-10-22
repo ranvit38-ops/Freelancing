@@ -1,4 +1,4 @@
-# LabLedger and its database, on any machine with Docker.
+# Labquill and its database, on any machine with Docker.
 #
 #   docker compose up -d
 #

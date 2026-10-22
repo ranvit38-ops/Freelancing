@@ -1,6 +1,6 @@
 # Connecting Stripe
 
-LabLedger's payment code is already written. This is the account setup only, and
+Labquill's payment code is already written. This is the account setup only, and
 none of it can be done from the code, it needs someone with legal authority
 over the bank account.
 
@@ -22,9 +22,9 @@ monthly** price:
 
 | Product | Price | Notes |
 |---|---|---|
-| LabLedger Lab | 49.00 / month | |
-| LabLedger Group | 99.00 / month | |
-| LabLedger Department | 249.00 / month | |
+| Labquill Lab | 49.00 / month | |
+| Labquill Group | 99.00 / month | |
+| Labquill Department | 249.00 / month | |
 
 Open each price and copy its ID, it starts with `price_`.
 
@@ -59,7 +59,7 @@ page promises: right mode, recurring monthly, right amount, not archived. It
 only reads, and charges nothing. A price created with Test mode switched off is
 the most common mistake, and this is what catches it.
 
-## 4. Point the webhook at LabLedger
+## 4. Point the webhook at Labquill
 
 **Developers → Webhooks → Add endpoint.**
 
@@ -102,7 +102,7 @@ Leave `stripe listen` running in its own terminal while you test. Restart
 ## 5. Turn on the customer portal
 
 **Settings → Billing → Customer portal → Activate.** Allow customers to update
-their card, see invoices and cancel. LabLedger's "Manage billing" button opens
+their card, see invoices and cancel. Labquill's "Manage billing" button opens
 this; without it, that button errors.
 
 ## 6. Take a test payment

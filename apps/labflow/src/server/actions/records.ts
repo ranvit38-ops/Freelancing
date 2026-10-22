@@ -14,7 +14,7 @@ import {
 } from '@/lib/validation';
 import { requireSession, NotFoundInWorkspaceError } from '../authz';
 import { InUseError } from '../not-found';
-import { removeFile } from '../storage';
+import { StorageFullError, isAllowedUpload, maxBytesFor, putFile, removeFile } from '../storage';
 import { UploadRejected, attachStoredFile, storeExperimentFile } from '../uploads';
 import { blockedReason } from '../paywall';
 import * as q from '../queries';
@@ -280,6 +280,28 @@ export async function createProtocolAction(
   const parsed = protocolSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
+  // The protocol as the lab already has it: a Word or PDF file, uploaded here.
+  let fileId = parsed.data.fileId;
+  const upload = formData.get('protocolFile');
+  if (!fileId && upload instanceof File && upload.size > 0) {
+    if (!isAllowedUpload(upload.name)) return { error: `${upload.name} is not a supported file type.` };
+    if (upload.size > maxBytesFor(upload.name)) {
+      return { error: `${upload.name} is too large. The limit is ${maxBytesFor(upload.name) / (1024 * 1024)} MB.` };
+    }
+    try {
+      const bytes = Buffer.from(await upload.arrayBuffer());
+      const storageKey = await putFile(session.workspaceId, upload.name, bytes);
+      fileId = await q.recordFile(session, {
+        filename: upload.name,
+        contentType: upload.type || 'application/octet-stream',
+        byteSize: bytes.byteLength,
+        storageKey,
+      });
+    } catch (error) {
+      if (error instanceof StorageFullError) return { error: error.message };
+      throw error;
+    }
+  }
   let protocolId: string;
   try {
     protocolId = await q.createProtocol(session, {
@@ -287,7 +309,7 @@ export async function createProtocolAction(
       description: parsed.data.description,
       projectId: parsed.data.projectId,
       body: parsed.data.body,
-      fileId: parsed.data.fileId,
+      fileId,
     });
   } catch (error) {
     if (error instanceof NotFoundInWorkspaceError || error instanceof q.PrivateProtocolFileError) {
@@ -353,4 +375,46 @@ export async function deleteFileAction(formData: FormData): Promise<void> {
   }
   revalidatePath('/files');
   if (experimentId) revalidatePath(`/experiments/${experimentId}`);
+}
+
+/* ── filing: projects, protocols and runs ───────────────────────────────── */
+
+/**
+ * Files an existing lab file under a project folder, a protocol or a run.
+ * The target arrives as "project:<id>", "protocol:<id>" or "experiment:<id>".
+ */
+export async function fileUnderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { error: blocked };
+  const fileId = String(formData.get('fileId') ?? '');
+  const [kind, id] = String(formData.get('target') ?? '').split(':');
+  const folder = String(formData.get('folder') ?? '').trim() || null;
+  if (!id) return { error: 'Choose where it goes.' };
+  try {
+    if (kind === 'project') await q.addFileToProject(session, id, fileId, folder);
+    else if (kind === 'protocol') await q.addFileToProtocol(session, id, fileId);
+    else if (kind === 'experiment') await q.addFileToExperiment(session, id, fileId);
+    else return { error: 'Choose where it goes.' };
+  } catch (error) {
+    if (error instanceof NotFoundInWorkspaceError || error instanceof q.PrivateFileError) return { error: error.message };
+    throw error;
+  }
+  revalidatePath('/files');
+  revalidatePath(kind === 'experiment' ? `/experiments/${id}` : kind === 'protocol' ? `/protocols/${id}` : `/projects/${id}`);
+  return { ok: true, message: 'Filed.' };
+}
+
+export async function removeProjectFileAction(formData: FormData) {
+  const session = await requireSession();
+  const projectId = String(formData.get('projectId') ?? '');
+  await guard(() => q.removeFileFromProject(session, projectId, String(formData.get('fileId') ?? '')));
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function removeProtocolFileAction(formData: FormData) {
+  const session = await requireSession();
+  const protocolId = String(formData.get('protocolId') ?? '');
+  await guard(() => q.removeFileFromProtocol(session, protocolId, String(formData.get('fileId') ?? '')));
+  revalidatePath(`/protocols/${protocolId}`);
 }

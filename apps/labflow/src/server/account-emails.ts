@@ -16,13 +16,13 @@ export function welcomeEmail({
 }): Email {
   const first = name.trim().split(/\s+/)[0] || 'there';
   return {
-    subject: joined ? `You're in ${labName} on LabLedger` : 'Your LabLedger account is ready',
+    subject: joined ? `You're in ${labName} on Labquill` : 'Your Labquill account is ready',
     text: [
       `Hi ${first},`,
       '',
       joined
-        ? `Your LabLedger account is set up and you are now a member of ${labName}.`
-        : `Your LabLedger account is set up, along with a lab called ${labName}.`,
+        ? `Your Labquill account is set up and you are now a member of ${labName}.`
+        : `Your Labquill account is set up, along with a lab called ${labName}.`,
       '',
       joined
         ? 'Start here. It lists what to read first, in order, and who works on what:'
@@ -38,11 +38,11 @@ export function welcomeEmail({
 export function joinedLabEmail({ name, labName, link }: { name: string; labName: string; link: string }): Email {
   const first = name.trim().split(/\s+/)[0] || 'there';
   return {
-    subject: `You're in ${labName} on LabLedger`,
+    subject: `You're in ${labName} on Labquill`,
     text: [
       `Hi ${first},`,
       '',
-      `You are now a member of ${labName} on LabLedger.`,
+      `You are now a member of ${labName} on Labquill.`,
       '',
       'Start here. It lists what to read first, in order, and who works on what:',
       link,

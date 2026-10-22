@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { getSession } from '@/server/auth';
 import { blockedReason } from '@/server/paywall';
 import * as q from '@/server/queries';
+import { NotFoundInWorkspaceError } from '@/server/not-found';
 import { StorageFullError, isAllowedUpload, maxBytesFor, putFile } from '@/server/storage';
 import { audienceFrom, shareFile, type Audience } from '@/server/sharing';
 import { dmParticipants } from '@/lib/dm';
@@ -55,9 +56,24 @@ export async function POST(request: Request) {
   if (dm && !dmPeople?.includes(session.userId)) {
     return NextResponse.json({ error: 'That conversation does not exist.' }, { status: 400 });
   }
+  // Uploaded straight into a project's or protocol's folder: those are read by
+  // the whole lab, so the file is shared with everyone.
+  const projectId = String(form.get('projectId') ?? '');
+  const protocolId = String(form.get('protocolId') ?? '');
+  const folder = String(form.get('folder') ?? '').trim() || null;
+  const filed = Boolean(projectId || protocolId);
   const audience: Audience = dmPeople
     ? { kind: 'people', userIds: dmPeople }
-    : audienceFrom(form);
+    : filed
+      ? { kind: 'everyone' }
+      : audienceFrom(form);
+  try {
+    if (projectId) await q.getProject(session, projectId);
+    if (protocolId) await q.getProtocolWithVersions(session, protocolId);
+  } catch (error) {
+    if (error instanceof NotFoundInWorkspaceError) return NextResponse.json({ error: error.message }, { status: 404 });
+    throw error;
+  }
 
   const bytes = Buffer.from(await file.arrayBuffer());
   let storageKey: string;
@@ -74,6 +90,10 @@ export async function POST(request: Request) {
     storageKey,
     private: audience.kind !== 'everyone',
   });
+  if (projectId) await q.addFileToProject(session, projectId, fileId, folder);
+  if (protocolId) await q.addFileToProtocol(session, protocolId, fileId);
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+  if (protocolId) revalidatePath(`/protocols/${protocolId}`);
   const announce = form.get('announce') === '1' && !dmPeople;
   const shared = await shareFile(session, { id: fileId, filename: file.name }, audience, { announce });
 

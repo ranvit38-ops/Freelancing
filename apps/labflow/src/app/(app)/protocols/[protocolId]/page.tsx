@@ -2,9 +2,16 @@ import { notFound } from 'next/navigation';
 import { ProtocolVersionForm } from '@/components/simple-forms';
 import { Badge, Card, CardHeader, PageHeader, Prose } from '@/components/ui';
 import Link from 'next/link';
-import { experimentCode, formatDate, pluralise } from '@/lib/display';
+import { experimentCode, formatBytes, formatDate, pluralise } from '@/lib/display';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
-import { getProtocolWithVersions, listProtocolFileOptions, protocolVersionUsage } from '@/server/queries';
+import {
+  getProtocolWithVersions,
+  listProtocolFileOptions,
+  listProtocolFiles,
+  protocolVersionUsage,
+} from '@/server/queries';
+import { FileDrop } from '@/components/file-drop';
+import { removeProtocolFileAction } from '@/server/actions/records';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,9 +19,10 @@ export default async function ProtocolPage({ params }: { params: { protocolId: s
   const session = await requireSession();
   try {
     const { protocol, versions } = await getProtocolWithVersions(session, params.protocolId);
-    const [usage, fileOptions] = await Promise.all([
+    const [usage, fileOptions, folder] = await Promise.all([
       protocolVersionUsage(session, protocol.id),
       listProtocolFileOptions(session),
+      listProtocolFiles(session, protocol.id),
     ]);
 
     return (
@@ -25,6 +33,40 @@ export default async function ProtocolPage({ params }: { params: { protocolId: s
           description={protocol.description ?? undefined}
         />
         <div className="space-y-5">
+          <Card>
+            <CardHeader
+              title="Everything that goes with it"
+              description="Photos of the steps, instrument settings, the manual, blank tables for recording by hand. Anyone running it finds them here."
+            />
+            {folder.length > 0 ? (
+              <ul className="divide-y divide-line border-b border-line">
+                {folder.map((f) => (
+                  <li key={f.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+                    <a
+                      href={f.isDocument ? `/docs/${f.id}` : (f.sourceUrl ?? `/api/files/${f.id}`)}
+                      className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
+                    >
+                      {f.filename}
+                    </a>
+                    <span className="shrink-0 text-xs text-subtle">{f.sourceUrl ? 'Link' : formatBytes(f.byteSize)}</span>
+                    {f.uploadedById === session.userId || session.role !== 'member' ? (
+                      <form action={removeProtocolFileAction} className="shrink-0">
+                        <input type="hidden" name="protocolId" value={protocol.id} />
+                        <input type="hidden" name="fileId" value={f.id} />
+                        <button type="submit" className="text-xs text-muted hover:text-fg">
+                          Take out
+                        </button>
+                      </form>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="px-5 py-4">
+              <FileDrop members={[]} into={{ protocolId: protocol.id, label: protocol.name }} />
+            </div>
+          </Card>
+
           <Card>
             <CardHeader
               title="Add a version"

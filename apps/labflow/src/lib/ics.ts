@@ -56,7 +56,7 @@ export function buildIcs(input: {
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//LabLedger//Lab calendar//EN',
+    'PRODID:-//Labquill//Lab calendar//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeText(input.calendarName)}`,

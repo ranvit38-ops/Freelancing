@@ -74,7 +74,7 @@ const json = (status: number, body: unknown) => new Response(JSON.stringify(body
 describe('sendEmail against Resend', () => {
   const configure = () => {
     process.env.RESEND_API_KEY = 're_test';
-    process.env.EMAIL_FROM = 'LabLedger <hello@example.com>';
+    process.env.EMAIL_FROM = 'Labquill <hello@example.com>';
   };
   const message = { to: 'a@uni.edu', subject: 's', text: 't' };
 
@@ -145,9 +145,9 @@ describe('explainResendError', () => {
 
 describe('email setup checks', () => {
   it('reads the address out of either sender form', () => {
-    expect(senderAddress('LabLedger <Hello@Lab.org>')).toBe('hello@lab.org');
+    expect(senderAddress('Labquill <Hello@Lab.org>')).toBe('hello@lab.org');
     expect(senderAddress('hello@lab.org')).toBe('hello@lab.org');
-    expect(senderAddress('LabLedger')).toBeNull();
+    expect(senderAddress('Labquill')).toBeNull();
   });
 
   it('says what is missing, and spots a key that is not a Resend key', () => {
@@ -161,7 +161,7 @@ describe('email setup checks', () => {
   });
 
   it("recognises Resend's shared test sender", () => {
-    process.env.EMAIL_FROM = 'LabLedger <onboarding@resend.dev>';
+    process.env.EMAIL_FROM = 'Labquill <onboarding@resend.dev>';
     expect(usingResendTestSender()).toBe(true);
     process.env.EMAIL_FROM = 'hello@lab.org';
     expect(usingResendTestSender()).toBe(false);

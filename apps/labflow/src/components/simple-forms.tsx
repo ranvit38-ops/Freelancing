@@ -118,7 +118,23 @@ export function ProtocolForm({
             ))}
           </Select>
         </Field>
-        <Field label={file ? 'Notes on this version' : 'Method (version 1)'} htmlFor="body" optional>
+        {file ? null : (
+          <Field
+            label="The protocol file"
+            htmlFor="protocolFile"
+            optional
+            hint="The Word or PDF your lab already uses. Add photos, manuals and blank tables on the next page."
+          >
+            <input
+              id="protocolFile"
+              name="protocolFile"
+              type="file"
+              accept=".pdf,.docx,.txt,.md"
+              className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm"
+            />
+          </Field>
+        )}
+        <Field label={file ? 'Notes on this version' : 'Method, or notes on it'} htmlFor="body" optional>
           <Textarea id="body" name="body" className="min-h-[180px]" placeholder="Steps, reagents, instrument settings…" />
         </Field>
       </Card>

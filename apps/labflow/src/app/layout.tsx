@@ -5,11 +5,11 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'LabLedger: turn experiments into a living research record',
-    template: '%s · LabLedger',
+    default: 'Labquill: turn experiments into a living research record',
+    template: '%s · Labquill',
   },
   description:
-    'LabLedger connects experiments, protocols, samples, data, results and research updates in ' +
+    'Labquill connects experiments, protocols, samples, data, results and research updates in ' +
     'one place, with AI that helps researchers understand what happened and communicate it faster.',
 };
 

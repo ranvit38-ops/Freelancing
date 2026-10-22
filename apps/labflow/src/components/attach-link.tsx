@@ -9,7 +9,7 @@ import { noState } from '@/server/actions/types';
 /**
  * Paste any URL: Drive, Dropbox, SharePoint, a DOI, a raw file.
  *
- * LabLedger records the link; it does not copy the file. Reading a private Drive
+ * Labquill records the link; it does not copy the file. Reading a private Drive
  * document needs OAuth per deployment, and almost every lab file is private.
  */
 export function AttachLink({ experimentId }: { experimentId: string }) {

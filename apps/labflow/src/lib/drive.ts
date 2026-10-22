@@ -3,7 +3,7 @@
  *
  * Google's own formats (Docs, Sheets, Slides) have no file behind them, so
  * they are exported to the Office equivalent on the way in: a Sheet becomes an
- * .xlsx LabLedger can chart, a Doc a .docx LabBot can read.
+ * .xlsx Labquill can chart, a Doc a .docx LabBot can read.
  */
 
 const EXPORTS: Record<string, { mime: string; ext: string }> = {

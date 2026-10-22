@@ -533,6 +533,44 @@ suite('private files', () => {
       ctx.q.postMessage(ctx.sessionA, { workspace: true, parentId: null, body: 'see this', fileId: privateId }),
     ).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
   });
+  it('files a shared file into a project folder, a protocol and a run, never a private one', async () => {
+    const projectId = await ctx.q.createProject(ctx.sessionA, {
+      name: 'Infiltration', description: null, researchQuestion: null, status: 'active', tags: [],
+    });
+    const runId = await ctx.q.createExperiment(ctx.sessionA, projectId, {
+      title: 'Run 1', objective: null, hypothesis: null, performedOn: null, status: 'in_progress',
+      protocolVersionId: null, protocolNotes: null, repeatsExperimentId: null,
+    });
+    const protocolId = await ctx.q.createProtocol(ctx.sessionA, {
+      name: 'Particle size', description: null, projectId: null, body: null,
+    });
+
+    await ctx.q.addFileToProject(colleague, projectId, sharedId, 'Raw data');
+    expect((await ctx.q.listProjectFiles(colleague, projectId)).map((f) => [f.filename, f.folder])).toEqual([
+      ['slides.txt', 'Raw data'],
+    ]);
+    // Filing it again moves it between folders rather than duplicating it.
+    await ctx.q.addFileToProject(colleague, projectId, sharedId, 'Pictures');
+    expect((await ctx.q.listProjectFiles(colleague, projectId)).map((f) => f.folder)).toEqual(['Pictures']);
+
+    await ctx.q.addFileToProtocol(colleague, protocolId, sharedId);
+    expect((await ctx.q.listProtocolFiles(ctx.sessionA, protocolId)).map((f) => f.filename)).toEqual(['slides.txt']);
+    await ctx.q.addFileToExperiment(colleague, runId, sharedId);
+    const homes = await ctx.q.fileHomes(ctx.sessionA);
+    expect(homes.get(sharedId)?.map((h) => h.label)).toEqual(['Infiltration / Pictures', 'Protocol: Particle size']);
+
+    await expect(ctx.q.addFileToProject(ctx.sessionA, projectId, privateId, null)).rejects.toBeInstanceOf(
+      ctx.q.PrivateFileError,
+    );
+    await expect(ctx.q.addFileToExperiment(ctx.sessionB, runId, sharedId)).rejects.toBeInstanceOf(
+      ctx.NotFoundInWorkspaceError,
+    );
+    await expect(ctx.q.listProjectFiles(ctx.sessionB, projectId)).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+
+    await ctx.q.removeFileFromProject(ctx.sessionA, projectId, sharedId);
+    expect(await ctx.q.listProjectFiles(ctx.sessionA, projectId)).toEqual([]);
+  });
+
   it('turns a shared PDF into a protocol, and a revised file into v2, but never a private one', async () => {
     const id = await ctx.q.createProtocol(ctx.sessionA, {
       name: 'Tensiometer', description: null, projectId: null, body: null, fileId: sharedId,
@@ -772,7 +810,7 @@ suite('importing from Google Drive', () => {
 
     expect(results[0]).toMatchObject({ name: 'Plate run 4.xlsx' });
     expect(results[0]!.fileId).toBeTruthy();
-    expect(results[1]!.error).toMatch(/did not let LabLedger read/);
+    expect(results[1]!.error).toMatch(/did not let Labquill read/);
     expect(results[2]!.error).toMatch(/Folders/);
     expect(requested[0]).toContain('/export?mimeType=application%2Fvnd.openxmlformats-officedocument.spreadsheetml.sheet');
     expect(requested[0]).toContain('Bearer token-abc');

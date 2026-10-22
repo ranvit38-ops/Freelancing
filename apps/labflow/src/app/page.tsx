@@ -88,7 +88,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
-            LabLedger
+            Labquill
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link
@@ -124,7 +124,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
       <main>
         {searchParams?.account === 'deleted' ? (
           <p role="status" className="mx-auto mt-4 max-w-3xl rounded-lg border border-line bg-raised px-4 py-2 text-center text-sm text-muted">
-            Your account has been deleted. Thank you for trying LabLedger.
+            Your account has been deleted. Thank you for trying Labquill.
           </p>
         ) : null}
         {/* Hero */}
@@ -186,7 +186,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
 
         {/* How it works */}
         <section id="how-it-works" className="mx-auto max-w-6xl scroll-mt-16 px-6 py-20">
-          <h2 className="text-2xl font-semibold tracking-tight">How LabLedger works</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">How Labquill works</h2>
           <ol className="mt-8 grid gap-4 sm:grid-cols-2">
             {steps.map((step) => (
               <li
@@ -229,7 +229,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
                 The researcher stays in control
               </h2>
               <p className="mt-4 text-sm leading-6 text-muted">
-                LabLedger structures your record and helps you read it. It does not decide what your
+                Labquill structures your record and helps you read it. It does not decide what your
                 results mean.
               </p>
             </div>
@@ -279,7 +279,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <span>LabLedger. A research workflow system for labs.</span>
+          <span>Labquill. A research workflow system for labs.</span>
           <span className="flex items-center gap-4 text-subtle">
             <Link href="/privacy" className="underline underline-offset-2 hover:text-fg">
               Privacy

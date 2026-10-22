@@ -1,7 +1,7 @@
 /**
  * What a newcomer should look at, and in what order.
  *
- * The point of LabLedger for a new student is not having to ask five people
+ * The point of Labquill for a new student is not having to ask five people
  * where to start. This turns what the lab has already recorded into a
  * sequence: why each project exists, what is already known, how the work is
  * done, the first run everything is compared to, where it stands now, the
@@ -35,7 +35,7 @@ export type PathFile = {
   filename: string;
   createdAt: Date | string;
   attached: boolean;
-  /** Written inside LabLedger: opens in the editor rather than downloading. */
+  /** Written inside Labquill: opens in the editor rather than downloading. */
   isDocument?: boolean;
 };
 
@@ -182,7 +182,7 @@ export function buildReadingPath(input: {
     steps.push({
       key: `file:${f.id}`,
       title: f.isDocument ? f.filename.replace(/\.md$/i, '') : f.filename,
-      why: f.isDocument && rank === 5 ? 'Written in LabLedger by someone in the lab.' : FILE_WHY[rank]!,
+      why: f.isDocument && rank === 5 ? 'Written in Labquill by someone in the lab.' : FILE_WHY[rank]!,
       href: f.isDocument ? `/docs/${f.id}` : `/api/files/${f.id}`,
       group: 'Lab files',
     });
