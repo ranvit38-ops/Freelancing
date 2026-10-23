@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { randomBytes } from 'node:crypto';
 import { db } from '@/db';
 import { workspaceMembers, workspaces } from '@/db/schema';
-import { sameSitePath, slugify } from '@/lib/normalise';
+import { slugify } from '@/lib/normalise';
 import { TRIAL_DAYS } from '@/lib/plans';
 import { startTrial } from '../queries';
 import { listMyWorkspaces, selectWorkspace } from '../auth';
@@ -24,7 +24,7 @@ export async function switchWorkspaceAction(formData: FormData) {
 
   selectWorkspace(target);
   revalidatePath('/', 'layout');
-  redirect(sameSitePath(String(formData.get('then') ?? '')) ?? '/dashboard');
+  redirect('/dashboard');
 }
 
 export async function createWorkspaceAction(

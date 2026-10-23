@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { getSession } from '@/server/auth';
 import { findLinkInMyOtherLabs } from '@/server/queries';
-import { switchWorkspaceAction } from '@/server/actions/workspace';
 
 export const metadata = { title: 'Not found' };
 
@@ -30,7 +29,7 @@ export default async function NotFound() {
             : 'It may have been deleted, or it belongs to a lab you are not in.'}
         </p>
         {other ? (
-          <form action={switchWorkspaceAction} className="mt-6">
+          <form action="/api/workspace/switch" method="post" className="mt-6">
             <input type="hidden" name="workspaceId" value={other.workspaceId} />
             <input type="hidden" name="then" value={path} />
             <button
