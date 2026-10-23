@@ -189,6 +189,17 @@ for (const path of ['/', '/pricing', '/privacy', '/guide', '/login', '/signup', 
     assert((await bodyText(pi.page)).includes('Labquill'), 'brand name missing');
   });
 }
+await step('security headers: no framing by other sites, no referrer leaks, no sniffing', async () => {
+  for (const path of ['/', '/login', '/dashboard', '/api/version']) {
+    const r = await fetch(BASE + path, { redirect: 'manual' });
+    const h = Object.fromEntries(r.headers);
+    assert(h['x-frame-options'] === 'SAMEORIGIN', `${path}: x-frame-options ${h['x-frame-options']}`);
+    assert(/frame-ancestors 'self'/.test(h['content-security-policy'] ?? ''), `${path}: no frame-ancestors`);
+    assert(h['x-content-type-options'] === 'nosniff', `${path}: no nosniff`);
+    assert(h['referrer-policy'] === 'strict-origin-when-cross-origin', `${path}: referrer-policy ${h['referrer-policy']}`);
+    assert(!h['x-powered-by'], `${path}: still says x-powered-by`);
+  }
+});
 await step('signed-out visitor is sent to log in', async () => {
   await pi.page.goto(`${BASE}/dashboard`);
   assert(pi.page.url().includes('/login'), `ended at ${pi.page.url()}`);

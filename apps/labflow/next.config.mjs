@@ -21,10 +21,28 @@ const codespace =
 const proxyOrigins = [
   'localhost:3001',
   '127.0.0.1:3001',
-  '*.app.github.dev',
-  '*.github.dev',
-  '*.gitpod.io',
-  '*.repl.co',
+  // Anyone can host a page on these, so they are trusted in development only.
+  // A deployment names its own domain through NEXT_PUBLIC_APP_URL below.
+  ...(process.env.NODE_ENV === 'production' ? [] : ['*.app.github.dev', '*.github.dev', '*.gitpod.io', '*.repl.co']),
+];
+
+/**
+ * Sent with every response. No other site may frame Labquill, so a page
+ * cannot lay it under an invisible layer and steer a click onto "Delete this
+ * lab". Links out carry only the site's origin, never a full address, so a
+ * reset or calendar token in a URL cannot leak through a Referer. Browsers
+ * may not guess a file's type, and the site is HTTPS-only once visited.
+ * A full Content-Security-Policy would also have to allow Google Sheets,
+ * Drive, YouTube and Stripe, and is left until it can be tested against all
+ * of them; frame-ancestors is the part that guards against clickjacking.
+ */
+const securityHeaders = [
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
 ];
 
 const extra = (process.env.LABFLOW_ALLOWED_ORIGINS ?? '')
@@ -48,6 +66,10 @@ const deployed = (() => {
 
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: '/:path*', headers: securityHeaders }];
+  },
   eslint: { dirs: ['src'] },
   // Bundles the server and only the dependencies it actually reaches, so the
   // container does not need node_modules or a package manager to boot.
