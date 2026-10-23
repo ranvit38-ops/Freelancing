@@ -45,6 +45,12 @@ export function LabBotPanel({
 
   useEffect(() => {
     if (open) box.current?.focus();
+    // On a wide screen the page makes room for the panel (globals.css), so it
+    // never sits over a button someone needs. It stays open across pages, and
+    // covering half of every page it followed you to hid "Send invite" and
+    // "Create a join link" behind it.
+    document.documentElement.toggleAttribute('data-labbot-open', open);
+    return () => document.documentElement.removeAttribute('data-labbot-open');
   }, [open]);
 
   // Keep the newest words in view as they arrive.

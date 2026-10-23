@@ -72,7 +72,17 @@ export default async function ProtocolPage({ params }: { params: { protocolId: s
               title="Add a version"
               description="Never edit an old version, experiments point at it."
             />
-            <ProtocolVersionForm protocolId={protocol.id} files={fileOptions} />
+            <ProtocolVersionForm
+              protocolId={protocol.id}
+              files={
+                // The current file is always offered, even when it is older
+                // than the newest fifty, or the form would silently drop it.
+                versions[0]?.fileId && !fileOptions.some((f) => f.id === versions[0]!.fileId)
+                  ? [{ id: versions[0].fileId, filename: versions[0].filename ?? 'Current file' }, ...fileOptions]
+                  : fileOptions
+              }
+              current={{ body: versions[0]?.body ?? null, fileId: versions[0]?.fileId ?? null }}
+            />
           </Card>
 
           <Card>

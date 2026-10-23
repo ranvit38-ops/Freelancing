@@ -55,6 +55,7 @@ async function setup() {
     userId: userA.id,
     userName: 'Ada A',
     userEmail: `a-${suffix}@test.local`,
+    emailVerified: true,
     workspaceId: wsA.id,
     workspaceName: 'Lab A',
     workspaceSlug: `lab-a-${suffix}`,
@@ -484,7 +485,7 @@ suite('tasks', () => {
  */
 suite('private files', () => {
   let ctx: Ctx;
-  let colleague: { userId: string; userName: string; userEmail: string; workspaceId: string; workspaceName: string; workspaceSlug: string; role: 'member' };
+  let colleague: { userId: string; userName: string; userEmail: string; emailVerified: boolean; workspaceId: string; workspaceName: string; workspaceSlug: string; role: 'member' };
   let privateId: string;
   let sharedId: string;
 
@@ -906,5 +907,50 @@ suite('activity log', () => {
     expect(await ctx.q.listActivity({ ...ctx.sessionA, role: 'admin' as const })).not.toHaveLength(0);
     expect(await ctx.q.listActivity(ctx.sessionB)).toHaveLength(0);
     expect(await ctx.q.listActivity(ctx.sessionA, { actorId: ctx.sessionB.userId })).toHaveLength(0);
+  });
+});
+
+/**
+ * A link into another of your labs. The lookup crosses workspaces on purpose,
+ * so what it must never do matters more than what it does.
+ */
+suite('links into another of your labs', () => {
+  let ctx: Ctx;
+  let projectA: string;
+
+  beforeAll(async () => {
+    ctx = await setup();
+    projectA = await ctx.q.createProject(ctx.sessionA, {
+      name: 'Sediment cores',
+      description: null,
+      researchQuestion: null,
+      status: 'active',
+      tags: [],
+    });
+  });
+
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.schema.workspaces).where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db
+      .delete(ctx.schema.users)
+      .where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId]));
+  });
+
+  it('names nothing to someone who is not in the lab that holds the record', async () => {
+    expect(await ctx.q.findLinkInMyOtherLabs(ctx.sessionB, `/projects/${projectA}`)).toBeNull();
+  });
+
+  it('names the lab when the reader is a member of it but looking at another', async () => {
+    await ctx.db.insert(ctx.schema.workspaceMembers).values({ workspaceId: ctx.wsA.id, userId: ctx.sessionB.userId, role: 'member' });
+    expect(await ctx.q.findLinkInMyOtherLabs(ctx.sessionB, `/projects/${projectA}/timeline`)).toEqual({
+      workspaceId: ctx.wsA.id,
+      workspaceName: 'Lab A',
+    });
+  });
+
+  it('says nothing when the record is in the lab already open, or the link has no id', async () => {
+    expect(await ctx.q.findLinkInMyOtherLabs(ctx.sessionA, `/projects/${projectA}`)).toBeNull();
+    expect(await ctx.q.findLinkInMyOtherLabs(ctx.sessionB, '/projects/not-an-id')).toBeNull();
   });
 });

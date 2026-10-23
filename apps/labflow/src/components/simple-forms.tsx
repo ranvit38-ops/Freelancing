@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 import { useFormState } from 'react-dom';
 import { Card, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
@@ -151,16 +152,30 @@ export function ProtocolForm({
 export function ProtocolVersionForm({
   protocolId,
   files = [],
+  current,
 }: {
   protocolId: string;
   /** Shared PDFs and Word files, newest first, to pick the revised protocol from. */
   files?: { id: string; filename: string }[];
+  /** The latest version, which the next one starts from. */
+  current?: { body: string | null; fileId: string | null };
 }) {
   const [state, action] = useFormState(addProtocolVersionAction, noState);
+  const form = useRef<HTMLFormElement>(null);
+  // After a save the page re-renders with the new version as "current", and
+  // the form starts again from it rather than from the old text.
+  useEffect(() => {
+    if (state.ok) form.current?.reset();
+  }, [state]);
   return (
-    <form action={action} className="space-y-4 px-5 py-4">
+    <form ref={form} action={action} className="space-y-4 px-5 py-4">
       <input type="hidden" name="protocolId" value={protocolId} />
       <FormError>{state.error}</FormError>
+      {state.ok && state.message ? (
+        <p role="status" className="rounded-lg border border-ok/25 bg-ok/5 px-3 py-2 text-sm text-ok">
+          {state.message}
+        </p>
+      ) : null}
       <Field
         label="What changed"
         htmlFor="changeNote"
@@ -169,25 +184,42 @@ export function ProtocolVersionForm({
       >
         <Input id="changeNote" name="changeNote" required placeholder="Increased rinse volume to 10 mL" />
       </Field>
+      <Field
+        label="Revised file"
+        htmlFor="protocolFile"
+        optional
+        hint="Upload the new Word or PDF. Leave it empty to keep the file below."
+      >
+        <input
+          id="protocolFile"
+          name="protocolFile"
+          type="file"
+          accept=".pdf,.docx,.txt,.md"
+          className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm"
+        />
+      </Field>
       {files.length > 0 ? (
-        <Field
-          label="Revised file"
-          htmlFor="fileId"
-          optional
-          hint="Upload the new PDF or Word file in Files first, then pick it here."
-        >
-          <Select id="fileId" name="fileId" defaultValue="">
+        <Field label="File for this version" htmlFor="fileId" optional>
+          {/* Keyed on the current file so a re-render after saving picks the new default. */}
+          <Select key={current?.fileId ?? 'none'} id="fileId" name="fileId" defaultValue={current?.fileId ?? ''}>
             <option value="">No file</option>
             {files.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.filename}
+                {f.id === current?.fileId ? ' (current)' : ''}
               </option>
             ))}
           </Select>
         </Field>
       ) : null}
-      <Field label="Method" htmlFor="body" optional>
-        <Textarea id="body" name="body" className="min-h-[160px]" />
+      <Field label="Method" htmlFor="body" optional hint="Starts from the current version. Change what changed.">
+        <Textarea
+          key={current?.body ?? ''}
+          id="body"
+          name="body"
+          className="min-h-[160px]"
+          defaultValue={current?.body ?? ''}
+        />
       </Field>
       <SubmitButton tone="secondary" size="sm" pendingLabel="Saving…">
         Save new version

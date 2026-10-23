@@ -48,7 +48,9 @@ export async function exchangeGoogleCode(
 
   let response: Response;
   try {
-    response = await fetchImpl('https://oauth2.googleapis.com/token', {
+    // Overridable only so the whole sign-in can be exercised against a
+    // stand-in, the same as RESEND_BASE_URL for email.
+    response = await fetchImpl(process.env.GOOGLE_OAUTH_TOKEN_URL || 'https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({

@@ -20,6 +20,23 @@ describe('callModel', () => {
   });
 });
 
+describe('answers that stop early', () => {
+  const answering = (payload: Record<string, unknown>) =>
+    (async () => ({ ok: true, json: async () => payload })) as unknown as typeof fetch;
+
+  it('says an answer was cut off instead of calling it malformed', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const cut = answering({ stop_reason: 'max_tokens', content: [{ type: 'text', text: '{"summary": "half' }] });
+    await expect(callModel({ system: 's', prompt: 'p' }, cut)).rejects.toThrow(/cut off/);
+  });
+
+  it('says the model declined rather than returning nothing', async () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const declined = answering({ stop_reason: 'refusal', content: [] });
+    await expect(callModel({ system: 's', prompt: 'p' }, declined)).rejects.toThrow(/declined/);
+  });
+});
+
 describe('the request Labquill actually sends', () => {
   it('sends no sampling parameters, which the current models reject outright', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
@@ -100,6 +117,8 @@ describe('how long LabBot is allowed to think', () => {
 
   it('leaves effort off for models that reject it', () => {
     expect(acceptsEffort('claude-haiku-4-5')).toBe(false);
+    expect(acceptsEffort('claude-sonnet-4-5')).toBe(false);
+    expect(acceptsEffort('claude-haiku-5-5')).toBe(true);
     expect(acceptsEffort('claude-opus-5')).toBe(true);
     expect(acceptsEffort('claude-sonnet-5')).toBe(true);
   });

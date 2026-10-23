@@ -107,3 +107,13 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* LabBot's side panel is 28rem wide from sm up. On a screen wide enough to
+   keep both readable, the page narrows to make room instead of hiding under
+   it; below that the panel is a sheet with its own Close button. */
+@media (min-width: 1024px) {
+  html[data-labbot-open] [data-app-main] {
+    padding-right: 28rem;
+  }
+}
+

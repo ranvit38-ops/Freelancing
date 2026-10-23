@@ -60,16 +60,19 @@ services:
       # pretending to work.
       - key: ANTHROPIC_API_KEY
         sync: false
-      # Which model LabBot uses. Opus is the strongest and the most expensive;
-      # a pilot where six labs ask questions all week is real money out of your
-      # own pocket. claude-sonnet-5 costs a fraction and is more than good
-      # enough for "explain this result to me". Change it here, redeploy, done.
+      # The model for analysis, the project assistant and filling in the
+      # experiment form. claude-opus-5-5 is the strongest and costs less than
+      # the older claude-opus-5 it replaces; claude-sonnet-5-5 is half that
+      # again and good enough for "explain this result to me". LabBot chat and
+      # "Catch me up" use LABFLOW_LABBOT_MODEL (default claude-haiku-5-5, the
+      # fast one). Change it here, redeploy, done.
       - key: LABFLOW_AI_MODEL
-        value: claude-opus-5
+        value: claude-opus-5-5
       # Your own address. Every pilot answer is emailed here, with the
       # researcher in reply-to so you can answer them straight from your inbox.
       # Signing in with it also comps your workspace and unlocks the owner
-      # dashboard.
+      # dashboard, once the account has proved it owns the address: sign in
+      # with Google, or use "Forgot password" once.
       - key: LABFLOW_OWNER_EMAIL
         sync: false
       # Google sign-in. Leave both blank and the button is hidden rather than

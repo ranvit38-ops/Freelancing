@@ -32,7 +32,12 @@ export default async function CalendarPage({
 }) {
   const session = await requireSession();
   const today = todayIso();
-  const month = parseMonth(searchParams.m, today);
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.d ?? '') ? searchParams.d! : null;
+  // A link to a day (the dashboard's "This week" uses them) opens that day's
+  // month. Taking the month from today instead showed the wrong month, and
+  // "Nothing on this day" for a day that had events, because only the shown
+  // month's events were loaded.
+  const month = parseMonth(searchParams.m, day ?? today);
   const days = monthGrid(month);
   const [{ events, deadlines }, calendarToken] = await Promise.all([
     listCalendar(session, days[0]!, days.at(-1)!),
@@ -57,7 +62,7 @@ export default async function CalendarPage({
   }
 
   const key = monthKey(month);
-  const selected = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.d ?? '') ? searchParams.d! : today;
+  const selected = day ?? today;
   const inMonth = (day: string) => day.startsWith(key);
   const agenda = days.filter((d) => inMonth(d) && byDay.has(d));
 

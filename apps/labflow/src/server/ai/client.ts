@@ -31,7 +31,8 @@ export const MODEL_TIMEOUT_MS = 60_000;
 export type Effort = 'low' | 'medium' | 'high';
 
 export function acceptsEffort(model: string): boolean {
-  return !/haiku|sonnet-4-5|claude-3/.test(model);
+  // Haiku 4.5 and Sonnet 4.5 reject it; Haiku 5.5 and every newer model take it.
+  return !/haiku-4|sonnet-4-5|claude-3/.test(model);
 }
 
 /**
@@ -130,6 +131,11 @@ export async function callModel(
     .join('')
     .trim();
 
+  if (payload.stop_reason === 'max_tokens') {
+    // A structured answer cut off half-way is not JSON; say what happened
+    // instead of letting it surface as "malformed".
+    throw new AiRequestError('The answer was too long and got cut off. Try a narrower question.');
+  }
   if (payload.stop_reason === 'refusal') {
     throw new AiRequestError('The model declined to answer this one. Rephrase it, or leave out anything unrelated to the lab work.');
   }

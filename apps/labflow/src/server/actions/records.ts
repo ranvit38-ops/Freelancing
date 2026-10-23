@@ -13,6 +13,7 @@ import {
   zipConditions,
 } from '@/lib/validation';
 import { requireSession, NotFoundInWorkspaceError } from '../authz';
+import type { SessionContext } from '../auth';
 import { InUseError } from '../not-found';
 import { StorageFullError, isAllowedUpload, maxBytesFor, putFile, removeFile } from '../storage';
 import { UploadRejected, attachStoredFile, storeExperimentFile } from '../uploads';
@@ -270,6 +271,37 @@ export async function createSampleAction(
 
 /* ── protocols ──────────────────────────────────────────────────────────── */
 
+/**
+ * The Word or PDF that is the protocol, when one was chosen in the form's
+ * file input. Stored like any other upload and shared with the lab, because
+ * everyone running the protocol needs to open it.
+ */
+async function storeProtocolUpload(
+  session: SessionContext,
+  formData: FormData,
+): Promise<{ fileId: string | null } | { error: string }> {
+  const upload = formData.get('protocolFile');
+  if (!(upload instanceof File) || upload.size === 0) return { fileId: null };
+  if (!isAllowedUpload(upload.name)) return { error: `${upload.name} is not a supported file type.` };
+  if (upload.size > maxBytesFor(upload.name)) {
+    return { error: `${upload.name} is too large. The limit is ${maxBytesFor(upload.name) / (1024 * 1024)} MB.` };
+  }
+  try {
+    const bytes = Buffer.from(await upload.arrayBuffer());
+    const storageKey = await putFile(session.workspaceId, upload.name, bytes);
+    const fileId = await q.recordFile(session, {
+      filename: upload.name,
+      contentType: upload.type || 'application/octet-stream',
+      byteSize: bytes.byteLength,
+      storageKey,
+    });
+    return { fileId };
+  } catch (error) {
+    if (error instanceof StorageFullError) return { error: error.message };
+    throw error;
+  }
+}
+
 export async function createProtocolAction(
   _prev: ActionState,
   formData: FormData,
@@ -281,27 +313,9 @@ export async function createProtocolAction(
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
   // The protocol as the lab already has it: a Word or PDF file, uploaded here.
-  let fileId = parsed.data.fileId;
-  const upload = formData.get('protocolFile');
-  if (!fileId && upload instanceof File && upload.size > 0) {
-    if (!isAllowedUpload(upload.name)) return { error: `${upload.name} is not a supported file type.` };
-    if (upload.size > maxBytesFor(upload.name)) {
-      return { error: `${upload.name} is too large. The limit is ${maxBytesFor(upload.name) / (1024 * 1024)} MB.` };
-    }
-    try {
-      const bytes = Buffer.from(await upload.arrayBuffer());
-      const storageKey = await putFile(session.workspaceId, upload.name, bytes);
-      fileId = await q.recordFile(session, {
-        filename: upload.name,
-        contentType: upload.type || 'application/octet-stream',
-        byteSize: bytes.byteLength,
-        storageKey,
-      });
-    } catch (error) {
-      if (error instanceof StorageFullError) return { error: error.message };
-      throw error;
-    }
-  }
+  const uploaded = await storeProtocolUpload(session, formData);
+  if ('error' in uploaded) return uploaded;
+  const fileId = parsed.data.fileId ?? uploaded.fileId;
   let protocolId: string;
   try {
     protocolId = await q.createProtocol(session, {
@@ -332,19 +346,28 @@ export async function addProtocolVersionAction(
   const parsed = protocolVersionSchema.safeParse(formObject(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
 
-  const result = await guard(() =>
+  // A new file uploaded here wins over one picked from the list.
+  const uploaded = await storeProtocolUpload(session, formData);
+  if ('error' in uploaded) return uploaded;
+  const fileId = uploaded.fileId ?? parsed.data.fileId;
+
+  const version = await guard(() =>
     q.addProtocolVersion(session, protocolId, {
       body: parsed.data.body,
       changeNote: parsed.data.changeNote,
-      fileId: parsed.data.fileId,
+      fileId,
     }),
   ).catch((error) => {
     if (error instanceof q.PrivateProtocolFileError) return { error: error.message };
     throw error;
   });
-  if (result && typeof result === 'object' && 'error' in result) return result;
+  if (typeof version !== 'number') return version;
   revalidatePath(`/protocols/${protocolId}`);
-  redirect(`/protocols/${protocolId}`);
+  // Not a redirect: this form lives on the page it would redirect to, and a
+  // redirect to the current page leaves the form with no state, which threw
+  // in the browser after the version had already saved. People then saved
+  // it again, and again.
+  return { ok: true, message: `Saved as v${version}.` };
 }
 
 /* ── deletions ──────────────────────────────────────────────────────────── */

@@ -3499,3 +3499,49 @@ export async function myPilotFeedback(s: SessionContext) {
     .limit(1);
   return rows[0] ?? null;
 }
+
+/* ── links into another of your labs ───────────────────────────────────── */
+
+const UUID_IN_PATH = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+/**
+ * Which other lab of this person's holds the record a link points at.
+ *
+ * Someone in two labs opens a link from the one they are not looking at, a
+ * pasted URL or an email, and every page answers "not in this lab", which is
+ * true and useless: they are in that lab. This finds it so the not-found page
+ * can offer to switch.
+ *
+ * The one read here that is not scoped to session.workspaceId, and it is
+ * scoped tighter instead: only labs the person is a member of, and only the
+ * lab's id and name come back. Nothing of the record itself is read.
+ */
+export async function findLinkInMyOtherLabs(
+  s: Pick<SessionContext, 'userId' | 'workspaceId'>,
+  path: string,
+): Promise<{ workspaceId: string; workspaceName: string } | null> {
+  const ids = [...new Set(path.match(UUID_IN_PATH) ?? [])].slice(0, 3);
+  if (ids.length === 0) return null;
+  const list = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
+  const rows = await db.execute<{ workspace_id: string; name: string }>(sql`
+    select w.id as workspace_id, w.name
+    from (
+      select workspace_id from projects where id in (${list})
+      union all select workspace_id from experiments where id in (${list})
+      union all select workspace_id from protocols where id in (${list})
+      union all select workspace_id from samples where id in (${list})
+      union all select workspace_id from tasks where id in (${list})
+      union all select workspace_id from files where id in (${list})
+      union all select workspace_id from datasets where id in (${list})
+      union all select workspace_id from research_updates where id in (${list})
+      union all select workspace_id from inventory_items where id in (${list})
+    ) found
+    join workspace_members m on m.workspace_id = found.workspace_id and m.user_id = ${s.userId}
+    join workspaces w on w.id = found.workspace_id
+    where found.workspace_id <> ${s.workspaceId}
+    limit 1
+  `);
+  const row = rows.rows[0];
+  return row ? { workspaceId: row.workspace_id, workspaceName: row.name } : null;
+}
+

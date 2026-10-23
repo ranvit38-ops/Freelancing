@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { sessions, users, workspaceMembers, workspaces } from '@/db/schema';
 import { env } from '@/lib/env';
@@ -23,6 +23,8 @@ export type SessionContext = {
   userId: string;
   userName: string;
   userEmail: string;
+  /** Whether this person has proved they own userEmail. See migration 0022. */
+  emailVerified: boolean;
   workspaceId: string;
   workspaceName: string;
   workspaceSlug: string;
@@ -85,6 +87,7 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
       userId: users.id,
       userName: users.name,
       userEmail: users.email,
+      emailVerifiedAt: users.emailVerifiedAt,
       workspaceId: workspaces.id,
       workspaceName: workspaces.name,
       workspaceSlug: workspaces.slug,
@@ -102,7 +105,8 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
   // Honour the selected workspace only if the user is still a member of it,
   // so a stale or forged cookie cannot reach another lab's records.
   const selected = cookies().get(WORKSPACE_COOKIE)?.value;
-  return rows.find((row) => row.workspaceId === selected) ?? rows[0]!;
+  const { emailVerifiedAt, ...row } = rows.find((r) => r.workspaceId === selected) ?? rows[0]!;
+  return { ...row, emailVerified: emailVerifiedAt !== null };
 });
 
 /** Every workspace the signed-in user belongs to, for the switcher. */
@@ -123,3 +127,47 @@ export const listMyWorkspaces = cache(
       .orderBy(workspaceMembers.createdAt);
   },
 );
+
+/**
+ * Records that this account has proved it owns its address. Called where a
+ * message sent to that address was followed: an emailed invite, a reset link,
+ * or Google, which verified it. See migration 0022 for why it matters.
+ */
+export async function markEmailVerified(userId: string): Promise<void> {
+  await db
+    .update(users)
+    .set({ emailVerifiedAt: new Date() })
+    .where(and(eq(users.id, userId), isNull(users.emailVerifiedAt)));
+}
+
+/** Stored for accounts with no password, so no password can ever match it. */
+export const NO_PASSWORD = 'google-oauth-no-password';
+
+/**
+ * Google has just verified that the person signing in owns this address.
+ *
+ * If the account was registered with a password and never verified, whoever
+ * chose that password may not be this person: anyone can sign up with someone
+ * else's address and wait for them to arrive. So the password is cleared and
+ * every other session ended before the real owner is let in. They can set a
+ * password again with "Forgot password", which goes to their own inbox.
+ *
+ * Returns true when it did that, so the caller can say so.
+ */
+export async function claimWithVerifiedEmail(userId: string): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ verifiedAt: users.emailVerifiedAt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!row || row.verifiedAt) return false;
+    await tx
+      .update(users)
+      .set({ passwordHash: NO_PASSWORD, emailVerifiedAt: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, userId));
+    await tx.delete(sessions).where(eq(sessions.userId, userId));
+    return true;
+  });
+}
+

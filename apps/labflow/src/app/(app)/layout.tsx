@@ -5,7 +5,7 @@ import { logoutAction } from '@/server/actions/auth';
 import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
 import { listDmThreads, listWorkspaceMembers } from '@/server/queries';
-import { isOwnerEmail } from '@/server/google';
+import { isOwner } from '@/server/owner';
 import { ephemeralUploads, ephemeralUploadsWarning, pilotBanner, pilotMode } from '@/lib/pilot';
 import { LabBotPanel } from '@/components/labbot-panel';
 import { BackBar } from '@/components/back-bar';
@@ -68,7 +68,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     session.role === 'member'
       ? navFor(pilotMode())
       : [{ href: '/activity', label: 'Activity' }, ...navFor(pilotMode())];
-  const secondary = isOwnerEmail(session.userEmail)
+  const secondary = isOwner(session)
     ? [...footer, { href: '/owner', label: 'Owner' }]
     : footer;
   // Unread direct messages, including files shared with just you, show on
@@ -163,7 +163,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {identity}
       </aside>
 
-      <main className="min-w-0 flex-1">
+      <main data-app-main className="min-w-0 flex-1">
         {pilotMode() ? (
           <div className="border-b border-accent/25 bg-accent/5 px-5 py-2.5 text-sm text-accent sm:px-8">
             {pilotBanner()}{' '}

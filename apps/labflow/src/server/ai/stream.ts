@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
+import { acceptsEffort } from './client';
 
 /**
  * Streams a model's answer to the browser as plain text, word by word.
@@ -29,6 +30,9 @@ export async function streamAnswer(input: {
     max_tokens: input.maxTokens ?? 4096,
     system: input.system,
     messages: input.messages,
+    // A chat answer about the lab's own records is a lookup, not a proof, and
+    // someone is watching the cursor. Low effort starts it in about a second.
+    ...(acceptsEffort(input.model) ? { output_config: { effort: 'low' as const } } : {}),
   });
 
   const events = stream[Symbol.asyncIterator]();

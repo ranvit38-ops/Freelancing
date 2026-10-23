@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { randomBytes, createHash } from 'node:crypto';
 import { and, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
 import { db } from '@/db';
-import { passwordResetTokens, users, workspaceMembers, workspaces } from '@/db/schema';
+import { passwordResetTokens, sessions, users, workspaceMembers, workspaces } from '@/db/schema';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { normaliseEmail, slugify } from '@/lib/normalise';
 import { isValidEmail, loginSchema, signupSchema } from '@/lib/validation';
@@ -14,7 +14,7 @@ import { TRIAL_DAYS } from '@/lib/plans';
 import { isDisposableEmail } from '@/lib/trial-eligibility';
 import { seedExampleProject } from '../example-project';
 import { acceptInvite, findInviteByToken, findWorkspaceByJoinCode, startTrial } from '../queries';
-import { createSession, destroySession, getSession, selectWorkspace } from '../auth';
+import { createSession, destroySession, getSession, markEmailVerified, selectWorkspace } from '../auth';
 import { removeWorkspaceFiles } from '../storage';
 import { joinedLabEmail, sendConfirmation, welcomeEmail } from '../account-emails';
 import { MailNotConfiguredError, absoluteUrl, mailConfigured, publicBaseUrl, sendEmail } from '../mailer';
@@ -103,9 +103,12 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
   const passwordHash = await hashPassword(parsed.data.password);
   let workspaceIdCreated = '';
   const userId = await db.transaction(async (tx) => {
+    // An invite is emailed to one address; arriving through it with that
+    // same address proves the inbox. A password alone proves nothing.
+    const provedInbox = Boolean(invite && normaliseEmail(invite.email) === email);
     const [user] = await tx
       .insert(users)
-      .values({ email, name: parsed.data.name, passwordHash })
+      .values({ email, name: parsed.data.name, passwordHash, emailVerifiedAt: provedInbox ? new Date() : null })
       .returning({ id: users.id });
     if (!user) throw new Error('Could not create the account');
     if (invite || joinTarget) return user.id;
@@ -177,7 +180,11 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   // does not reveal which addresses are registered.
   const user = rows[0];
   const ok = await verifyPassword(parsed.data.password, user?.passwordHash ?? (await decoyHash));
-  if (!user || !ok) return { error: 'Email or password is incorrect' };
+  // The same words for every failure, so they reveal nothing about which
+  // addresses have accounts, but they name the two ways back in.
+  if (!user || !ok) {
+    return { error: 'Email or password is incorrect. If you usually continue with Google, do that, or reset your password.' };
+  }
 
   const membership = await db
     .select({ workspaceId: workspaceMembers.workspaceId })
@@ -198,6 +205,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     );
     if (invite) {
       await acceptInvite(invite.id, invite.workspaceId, user.id, invite.role);
+      if (normaliseEmail(invite.email) === email) await markEmailVerified(user.id);
       selectWorkspace(invite.workspaceId);
       joined = true;
       confirmJoined(email, user.name, invite.workspaceName);
@@ -240,6 +248,7 @@ export async function joinLabAction(_prev: ActionState, formData: FormData): Pro
     const invite = await findInviteByToken(createHash('sha256').update(inviteToken).digest('hex'));
     if (!invite) return { error: 'That invitation has already been used or has expired.' };
     await acceptInvite(invite.id, invite.workspaceId, session.userId, invite.role);
+    if (normaliseEmail(invite.email) === normaliseEmail(session.userEmail)) await markEmailVerified(session.userId);
     selectWorkspace(invite.workspaceId);
     confirmJoined(session.userEmail, session.userName, invite.workspaceName);
   } else {
@@ -375,14 +384,18 @@ export async function resetPasswordAction(
   const reset = rows[0];
   if (!reset) return { error: 'This reset link is invalid or has expired. Request a new one.' };
 
-  await db
-    .update(users)
-    .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
-    .where(eq(users.id, reset.userId));
-  await db
-    .update(passwordResetTokens)
-    .set({ usedAt: new Date() })
-    .where(eq(passwordResetTokens.id, reset.id));
+  // The link went to the inbox, so following it proves the address. And a
+  // reset is what someone does when they think their account is not theirs
+  // alone: every signed-in session ends, including any they did not start.
+  const passwordHash = await hashPassword(password);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({ passwordHash, emailVerifiedAt: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, reset.userId));
+    await tx.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, reset.id));
+    await tx.delete(sessions).where(eq(sessions.userId, reset.userId));
+  });
 
   return { ok: true, message: 'Password updated. You can log in now.' };
 }

@@ -20,3 +20,13 @@ export function slugify(value: string): string {
 export function normaliseSampleCode(code: string): string {
   return code.trim().toUpperCase().replace(/\s+/g, '-');
 }
+
+/**
+ * A path on this site, or null. For "go here afterwards" values that arrive in
+ * a form: "//evil.com" and "/\\evil.com" are other sites to a browser, and a
+ * redirect after a button press must never become a way off the site.
+ */
+export function sameSitePath(value: string): string | null {
+  return /^\/(?![/\\])[^\s]*$/.test(value) ? value : null;
+}
+

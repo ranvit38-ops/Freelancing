@@ -115,6 +115,30 @@ To see what a customer sees instead, set it to `""` and restart. Then:
 Run those with `psql "$DATABASE_URL"`. Read-only never deletes anything -
 pages stay readable and only writing is refused.
 
+## Checking every pipeline
+
+One command drives the whole product in a real browser: signing up and
+resetting a password, Google sign-in, projects, protocols and their files,
+experiments and datasets, tasks, the calendar feed, chat, documents, research
+updates, inviting people and changing roles, two labs that must never see each
+other's records, the owner page, and every page on a laptop and a phone. AI,
+email and Google run against stand-ins, so no keys or money are involved.
+
+```bash
+npm run e2e:fakes &
+NEXT_PUBLIC_APP_URL=http://127.0.0.1:3001 npm run build
+NEXT_PUBLIC_APP_URL=http://127.0.0.1:3001 LABFLOW_PILOT_MODE=1 \
+  ANTHROPIC_API_KEY=sk-ant-fake ANTHROPIC_BASE_URL=http://127.0.0.1:4555 \
+  RESEND_API_KEY=re_fake RESEND_BASE_URL=http://127.0.0.1:4556 \
+  EMAIL_FROM="Labquill <hello@labquill.test>" LABFLOW_OWNER_EMAIL=owner@labquill.test \
+  GOOGLE_CLIENT_ID=fake GOOGLE_CLIENT_SECRET=fake GOOGLE_OAUTH_TOKEN_URL=http://127.0.0.1:4557/token \
+  npx next start -p 3001 &
+npm run e2e
+```
+
+It prints one line per step and a count at the end. CI runs the same thing on
+every push.
+
 ## If something goes wrong
 
 **`npm run setup` says no Postgres and no Docker**, install Docker Desktop and

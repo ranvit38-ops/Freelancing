@@ -16,6 +16,16 @@ export class NotTheOwnerError extends Error {
   }
 }
 
+/**
+ * The address alone is not enough: anyone can sign up with a password using
+ * any address, so before verification a match proves nothing. A verified
+ * account has signed in with Google, finished a password reset, or joined
+ * from an invite sent to that inbox.
+ */
+export function isOwner(session: Pick<SessionContext, 'userEmail' | 'emailVerified'>): boolean {
+  return session.emailVerified && isOwnerEmail(session.userEmail);
+}
+
 export function requireOwner(session: SessionContext): void {
-  if (!isOwnerEmail(session.userEmail)) throw new NotTheOwnerError();
+  if (!isOwner(session)) throw new NotTheOwnerError();
 }

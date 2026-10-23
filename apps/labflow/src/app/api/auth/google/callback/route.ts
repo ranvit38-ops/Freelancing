@@ -9,7 +9,7 @@ import { statesMatch } from '@/lib/oauth';
 import { normaliseEmail, slugify } from '@/lib/normalise';
 import { randomToken } from '@/lib/oauth';
 import { TRIAL_DAYS } from '@/lib/plans';
-import { createSession, selectWorkspace } from '@/server/auth';
+import { NO_PASSWORD, claimWithVerifiedEmail, createSession, selectWorkspace } from '@/server/auth';
 import { absoluteUrl } from '@/server/mailer';
 import { joinedLabEmail, sendConfirmation, welcomeEmail } from '@/server/account-emails';
 import { joinByCode, joinWouldBeRefused } from '@/server/join';
@@ -91,6 +91,9 @@ export async function GET(request: Request) {
 
   let userId = existing[0]?.id;
   const isNewAccount = !userId;
+  if (userId && (await claimWithVerifiedEmail(userId))) {
+    console.info(`[labflow] Google sign-in claimed an unverified account; its password was cleared: ${email}`);
+  }
   let ownLabName = '';
   if (!userId) {
     // No password is set: this account signs in with Google until it sets one
@@ -99,7 +102,7 @@ export async function GET(request: Request) {
     const created = await db.transaction(async (tx) => {
       const [user] = await tx
         .insert(users)
-        .values({ email, name: profile.name, passwordHash: 'google-oauth-no-password' })
+        .values({ email, name: profile.name, passwordHash: NO_PASSWORD, emailVerifiedAt: new Date() })
         .returning({ id: users.id });
       if (!user) throw new Error('Could not create the account');
 
