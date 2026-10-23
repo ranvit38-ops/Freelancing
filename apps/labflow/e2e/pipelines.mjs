@@ -38,10 +38,17 @@ const browser = await chromium.launch(process.env.E2E_CHROMIUM ? { executablePat
 
 async function person(label) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
+  // Nothing outside the app is loaded, so a run means the same thing with or
+  // without internet. An embedded Google Sheet is the app's job to show; what
+  // Google's own page then does inside the frame is not this test's business.
+  await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => route.abort());
   const page = await context.newPage();
   page.on('pageerror', (e) => stepErrors.push(`[${label}] pageerror: ${e.message}`));
   page.on('console', (m) => {
     const text = m.text();
+    // Only the app's own messages: an embedded third-party frame logs its own.
+    const from = m.location()?.url ?? '';
+    if (from && !from.startsWith(BASE)) return;
     // Prefetches abort when the driver navigates mid-flight: a race in the
     // driver, not the app. Real failures still show as 5xx or page errors.
     // A 404 the test asked for is asserted on its own, not as a console error.
@@ -1060,6 +1067,7 @@ for (const [who, page] of [['PI', P], ['admin (the student)', S]]) {
 }
 await step('every page fits a phone screen without sideways scrolling', async () => {
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await phone.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => route.abort());
   await phone.addCookies(await S.context().cookies());
   const page = await phone.newPage();
   page.on('pageerror', (e) => stepErrors.push(`[phone] pageerror: ${e.message}`));
