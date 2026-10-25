@@ -189,6 +189,15 @@ for (const path of ['/', '/pricing', '/privacy', '/guide', '/login', '/signup', 
     assert((await bodyText(pi.page)).includes('Labquill'), 'brand name missing');
   });
 }
+await step('tab icon is served and robots.txt keeps crawlers out of lab records', async () => {
+  const html = await fetch(BASE + '/').then((r) => r.text());
+  const icon = html.match(/<link rel="icon" href="([^"]+)"/)?.[1];
+  assert(icon, 'no icon link on the home page');
+  const r = await fetch(BASE + icon);
+  assert(r.status === 200 && r.headers.get('content-type') === 'image/svg+xml', `icon ${r.status}`);
+  const robots = await fetch(BASE + '/robots.txt').then((x) => x.text());
+  assert(/Disallow: \/\n/.test(robots) && robots.includes('Allow: /pricing'), robots);
+});
 await step('security headers: no framing by other sites, no referrer leaks, no sniffing', async () => {
   for (const path of ['/', '/login', '/dashboard', '/api/version']) {
     const r = await fetch(BASE + path, { redirect: 'manual' });
@@ -820,10 +829,11 @@ await step('a file over the size limit is refused with the limit named', async (
   const big = Buffer.alloc(26 * 1024 * 1024, 65);
   await P.setInputFiles(`#upload-${ids.experiment}`, file('huge.csv', 'text/csv', big));
   await expectText(P, 'MB', 30_000);
-  await P.waitForTimeout(1500);
-  stepErrors = stepErrors.filter((e) => !/status of 413/.test(e));
   await P.reload();
   assert(!(await P.locator('main a', { hasText: 'huge.csv' }).count()), 'an oversized file was accepted');
+  // The browser logs the expected 413 whenever it gets round to it; on a slow
+  // machine that is after the message shows, so filter last.
+  stepErrors = stepErrors.filter((e) => !/status of 413/.test(e));
 });
 await step('the student’s chat message reaches the PI', async () => {
   await S.goto(`${BASE}/chat`);
