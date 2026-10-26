@@ -71,6 +71,10 @@ const nextConfig = {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
   eslint: { dirs: ['src'] },
+  // The guide's screenshots are already sized, and nothing else goes through
+  // next/image. Unused, the optimizer endpoint is only attack surface: Next 14
+  // carries open advisories against it, remote code execution among them.
+  images: { unoptimized: true },
   // Bundles the server and only the dependencies it actually reaches, so the
   // container does not need node_modules or a package manager to boot.
   output: 'standalone',

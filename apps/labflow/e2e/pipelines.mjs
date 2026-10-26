@@ -198,6 +198,10 @@ await step('tab icon is served and robots.txt keeps crawlers out of lab records'
   const robots = await fetch(BASE + '/robots.txt').then((x) => x.text());
   assert(/Disallow: \/\n/.test(robots) && robots.includes('Allow: /pricing'), robots);
 });
+await step('the unused image optimizer is switched off (open Next 14 advisories)', async () => {
+  const r = await fetch(`${BASE}/_next/image?url=%2Fguide%2Fcompare.jpg&w=64&q=75`);
+  assert(r.status === 404, `optimizer answered ${r.status}`);
+});
 await step('security headers: no framing by other sites, no referrer leaks, no sniffing', async () => {
   for (const path of ['/', '/login', '/dashboard', '/api/version']) {
     const r = await fetch(BASE + path, { redirect: 'manual' });
