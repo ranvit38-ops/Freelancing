@@ -31,6 +31,11 @@ describe('clientIp', () => {
     expect(clientIp(new Headers({ 'x-forwarded-for': '203.0.113.9, 10.0.0.1' }))).toBe('203.0.113.9');
   });
 
+  it('prefers the address the Cloudflare edge saw over a client-supplied forwarded-for', () => {
+    const h = new Headers({ 'cf-connecting-ip': '198.51.100.7', 'x-forwarded-for': '1.2.3.4, 198.51.100.7' });
+    expect(clientIp(h)).toBe('198.51.100.7');
+  });
+
   it('falls back to x-real-ip then unknown', () => {
     expect(clientIp(new Headers({ 'x-real-ip': '198.51.100.4' }))).toBe('198.51.100.4');
     expect(clientIp(new Headers())).toBe('unknown');

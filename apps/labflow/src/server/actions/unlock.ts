@@ -32,12 +32,19 @@ export async function redeemOwnerCodeAction(
     return { error: 'No owner code is configured on this deployment.' };
   }
 
-  const { ok, retryAfterSec } = rateLimit(`unlock:${clientIp(headers())}`, {
-    limit: 5,
-    windowMs: 600_000,
-  });
-  if (!ok) {
-    return { error: `Too many attempts. Try again in ${retryAfterSec} seconds.` };
+  // The IP alone is not enough: some hosts pass a client-supplied
+  // X-Forwarded-For through, and a fresh fake address per guess would reset
+  // the count. The account and the whole server are limited too, so guessing
+  // stays slow however the address is dressed up. The server-wide cap means a
+  // determined guesser can make the owner wait ten minutes, never get in.
+  const window = { windowMs: 600_000 };
+  const blocked = [
+    rateLimit(`unlock:user:${session.userId}`, { limit: 5, ...window }),
+    rateLimit(`unlock:ip:${clientIp(headers())}`, { limit: 5, ...window }),
+    rateLimit('unlock:all', { limit: 30, ...window }),
+  ].find((check) => !check.ok);
+  if (blocked) {
+    return { error: `Too many attempts. Try again in ${blocked.retryAfterSec} seconds.` };
   }
 
   const supplied = String(formData.get('code') ?? '');

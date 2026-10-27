@@ -37,8 +37,20 @@ export function rateLimit(
   return { ok: true, remaining: limit - bucket.count, retryAfterSec: 0 };
 }
 
-/** Best-effort client IP from the usual proxy headers. */
+/**
+ * Best-effort client IP from the usual proxy headers.
+ *
+ * Behind Cloudflare (Render's edge, by its users' reports; Render does not
+ * document it), CF-Connecting-IP is overwritten with the address Cloudflare
+ * actually saw, so a client cannot choose it. Anywhere else it is no more
+ * trustworthy than the fallback. The first X-Forwarded-For hop is only a
+ * fallback: Render and most proxies append to that
+ * header rather than replace it, so its first entry is whatever the client
+ * sent. Limits that guard something valuable must not rest on the IP alone.
+ */
 export function clientIp(headers: Headers): string {
+  const edge = headers.get('cf-connecting-ip')?.trim();
+  if (edge) return edge;
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0]!.trim();
   return headers.get('x-real-ip') ?? 'unknown';
