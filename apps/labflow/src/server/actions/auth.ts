@@ -31,20 +31,47 @@ import { fieldErrorsFrom, formObject, type ActionState } from './types';
  * address, so an IP-only limit would let ten wrong guesses lock out the whole
  * campus; the per-IP cap is therefore loose and only catches spraying across
  * many accounts.
+ *
+ * The IP is also the weakest key: it comes from a header the client can
+ * partly write (see clientIp), so a bot can claim a new address per request.
+ * Anything that sends email therefore has caps no address can dodge too: per
+ * account per hour, so one inbox cannot be flooded with reset links, and
+ * server-wide per hour, so a bot cannot mint labs and spend the sending
+ * domain's reputation on welcome emails to strangers.
  */
 function throttle(
   bucket: string,
-  { perAccount, perIp, account }: { perAccount: number; perIp: number; account?: string },
+  {
+    perAccount,
+    perIp,
+    account,
+    perAccountHourly,
+    serverHourly,
+  }: {
+    perAccount: number;
+    perIp: number;
+    account?: string;
+    perAccountHourly?: number;
+    serverHourly?: number;
+  },
 ): ActionState | null {
   const ip = clientIp(headers());
+  const hour = 3_600_000;
   const checks = [
     account ? rateLimit(`${bucket}:acct:${account}`, { limit: perAccount, windowMs: 60_000 }) : null,
+    account && perAccountHourly
+      ? rateLimit(`${bucket}:acct-hour:${account}`, { limit: perAccountHourly, windowMs: hour })
+      : null,
     rateLimit(`${bucket}:ip:${ip}`, { limit: perIp, windowMs: 60_000 }),
+    serverHourly ? rateLimit(`${bucket}:all`, { limit: serverHourly, windowMs: hour }) : null,
   ].filter(Boolean);
 
   const blocked = checks.find((c) => !c!.ok);
   if (!blocked) return null;
-  return { error: `Too many attempts. Try again in ${blocked!.retryAfterSec} seconds.` };
+  const wait = blocked!.retryAfterSec;
+  return {
+    error: `Too many attempts. Try again in ${wait > 90 ? `${Math.ceil(wait / 60)} minutes` : `${wait} seconds`}.`,
+  };
 }
 
 /** A new lab for an account that already existed: tell them where it is. */
@@ -56,7 +83,8 @@ function confirmJoined(email: string, name: string, labName: string) {
 const decoyHash = hashPassword('labflow-decoy-password-never-matches');
 
 export async function signupAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const limited = throttle('signup', { perAccount: 5, perIp: 20 });
+  const attempted = normaliseEmail(String(formData.get('email') ?? ''));
+  const limited = throttle('signup', { perAccount: 5, perIp: 20, account: attempted, serverHourly: 60 });
   if (limited) return limited;
 
   const parsed = signupSchema.safeParse(formObject(formData));
@@ -291,7 +319,13 @@ export async function requestPasswordResetAction(
   formData: FormData,
 ): Promise<ActionState> {
   const email = normaliseEmail(String(formData.get('email') ?? ''));
-  const limited = throttle('reset', { perAccount: 5, perIp: 30, account: email });
+  const limited = throttle('reset', {
+    perAccount: 5,
+    perIp: 30,
+    account: email,
+    perAccountHourly: 5,
+    serverHourly: 200,
+  });
   if (limited) return limited;
 
   const confirmation = {
