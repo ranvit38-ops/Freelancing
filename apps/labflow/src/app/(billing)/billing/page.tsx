@@ -163,7 +163,11 @@ export default async function BillingPage({
       </div>
 
       <h2 className="mb-3 text-sm font-semibold tracking-tight">Plans</h2>
-      <PlanPicker currentPlan={sub?.plan ?? null} canManage={canManage} />
+      <PlanPicker
+        currentPlan={sub?.plan ?? null}
+        currentInterval={row?.paypalSubscriptionId && row.status !== 'canceled' ? (row.billingInterval ?? null) : null}
+        canManage={canManage}
+      />
 
       {process.env.LABFLOW_OWNER_UNLOCK && canManage ? (
         <div className="mt-6 max-w-md">

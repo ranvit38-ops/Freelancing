@@ -11,9 +11,12 @@ import { PLANS, PLAN_ORDER, RENEWAL_TERMS, type PlanId } from '@/lib/plans';
 /** The plan cards. Choosing one opens PayPal to approve the subscription. */
 export function PlanPicker({
   currentPlan,
+  currentInterval,
   canManage,
 }: {
   currentPlan: PlanId | null;
+  /** Set only while a PayPal subscription is live, so its own button can say so. */
+  currentInterval: 'month' | 'year' | null;
   canManage: boolean;
 }) {
   const [state, action] = useFormState(startCheckoutAction, noState);
@@ -74,26 +77,25 @@ export function PlanPicker({
               ) : (
                 <form action={action} className="mt-5 space-y-2">
                   <input type="hidden" name="plan" value={id} />
-                  <SubmitButton
-                    name="interval"
-                    value="month"
-                    tone={current ? 'secondary' : 'primary'}
-                    className="w-full"
-                    disabled={!canManage}
-                    pendingLabel="Opening PayPal…"
-                  >
-                    {current ? `Switch to ${plan.name}, $${plan.monthly} a month` : `${plan.name}, $${plan.monthly} a month`}
-                  </SubmitButton>
-                  <SubmitButton
-                    name="interval"
-                    value="year"
-                    tone="secondary"
-                    className="w-full"
-                    disabled={!canManage}
-                    pendingLabel="Opening PayPal…"
-                  >
-                    {`${plan.name}, $${plan.yearly.toLocaleString('en-US')} a year`}
-                  </SubmitButton>
+                  {(['month', 'year'] as const).map((interval) => {
+                    const mine = current && currentInterval === interval;
+                    const price = interval === 'month' ? plan.monthly : plan.yearly;
+                    return (
+                      <SubmitButton
+                        key={interval}
+                        name="interval"
+                        value={interval}
+                        tone={interval === 'month' && !current ? 'primary' : 'secondary'}
+                        className="w-full"
+                        disabled={!canManage || mine}
+                        pendingLabel="Opening PayPal…"
+                      >
+                        {mine
+                          ? `Your current plan, $${price.toLocaleString('en-US')} a ${interval}`
+                          : `${plan.name}, $${price.toLocaleString('en-US')} a ${interval}`}
+                      </SubmitButton>
+                    );
+                  })}
                 </form>
               )}
             </Card>

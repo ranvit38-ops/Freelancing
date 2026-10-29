@@ -93,6 +93,7 @@ await step('subscribing goes through PayPal and comes back on the plan', async (
   await page.waitForURL(/checkout=success/, { timeout: 20_000 });
   await expectText('Subscribed');
   await expectText('$49 a month, through PayPal');
+  assert(await page.getByRole('button', { name: 'Your current plan, $49 a month' }).isDisabled(), 'can subscribe to the plan already held');
 });
 
 await step('the owner gets the renewal terms and how to cancel by email, once', async () => {
