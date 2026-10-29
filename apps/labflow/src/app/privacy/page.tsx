@@ -28,6 +28,8 @@ export default function PrivacyPage() {
           'Your sessions: a SHA-256 hash of your sign-in token, never the token itself, and when it expires. Signing out deletes it.',
           'Your billing state: plan, status, whether it is billed monthly or yearly, and the PayPal subscription identifier. Payment details are collected and held by PayPal and never reach our servers.',
           'Answers you give to our feedback questions.',
+          'Which version of the Terms and this statement you agreed to, and when.',
+          'A count of AI requests, with who made each and which feature, for the monthly allowance.',
           'Our hosting provider keeps basic request logs, such as IP addresses and the pages requested, for a limited time, to run and protect the service.',
         ],
       ],
