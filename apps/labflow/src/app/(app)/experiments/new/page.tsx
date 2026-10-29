@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { labAiReady } from '@/server/ai/access';
 import { NewExperiment } from '@/components/new-experiment';
 import { QuickProjectForm } from '@/components/simple-forms';
 import { Card, PageHeader } from '@/components/ui';
@@ -120,7 +121,7 @@ export default async function RecordExperimentPage({
         projectName={project.name}
         nextNumber={number}
         protocolVersions={protocolVersions}
-        aiConfigured={Boolean(process.env.ANTHROPIC_API_KEY)}
+        aiConfigured={await labAiReady(session)}
         siblingExperiments={siblings.map((e) => ({ id: e.id, number: e.number, title: e.title }))}
         initialDraft={fromFile?.draft}
         storedFile={fromFile?.file}

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { rateLimit } from '@/lib/rate-limit';
 import { getSession } from '@/server/auth';
-import { blockedReason } from '@/server/paywall';
+import { aiAccess, countAiUse, isRefusal } from '@/server/ai/access';
 import { recordAiGeneration } from '@/server/queries';
 import { streamAnswer } from '@/server/ai/stream';
 import { LABBOT_RULES, buildLabContext, labbotMessages, type Turn } from '@/server/ai/labbot';
@@ -23,15 +23,8 @@ export async function POST(request: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Sign in again to use LabBot.' }, { status: 401 });
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'LabBot is not switched on for this site yet. It needs ANTHROPIC_API_KEY set on the server.' },
-      { status: 503 },
-    );
-  }
-  const blocked = await blockedReason(session, 'ai');
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 402 });
+  const access = await aiAccess(session);
+  if (isRefusal(access)) return NextResponse.json({ error: access.error }, { status: access.status });
 
   const limit = rateLimit(`labbot:${session.userId}`, { limit: 20, windowMs: 60_000 });
   if (!limit.ok) {
@@ -60,6 +53,8 @@ export async function POST(request: Request) {
     model,
     system: LABBOT_RULES,
     messages: labbotMessages(context, question, history),
+    apiKey: access.apiKey,
+    onStart: () => countAiUse(session, 'labbot', access),
     // Kept like every other AI answer, with what it was given, so an answer
     // can be traced back to its records later.
     onDone: (answer) =>

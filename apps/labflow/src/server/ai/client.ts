@@ -51,10 +51,12 @@ export async function callModel(
     model?: string;
     /** A JSON Schema the answer must match (structured outputs). */
     schema?: Record<string, unknown>;
+    /** The lab's own key, from ai/access. Unset, the site's key is used. */
+    apiKey?: string;
   },
   fetchImpl: ModelTransport = fetch,
 ): Promise<{ text: string; model: string }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = input.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new AiNotConfiguredError();
 
   const model = input.model ?? env().LABFLOW_AI_MODEL;
@@ -114,6 +116,9 @@ export async function callModel(
         return undefined;
       }
     })();
+    if (input.apiKey && response.status === 401) {
+      throw new AiRequestError("The lab's own Claude key was rejected. A lab owner can replace or remove it in Settings.");
+    }
     throw new AiRequestError(
       `The model request failed (${response.status}${message ? `: ${message}` : ''}). No analysis was generated.`,
     );

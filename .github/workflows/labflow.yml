@@ -89,6 +89,8 @@ jobs:
       LABFLOW_EPHEMERAL_UPLOADS: "1"
       ANTHROPIC_API_KEY: sk-ant-fake
       ANTHROPIC_BASE_URL: http://127.0.0.1:4555
+      # Encrypts a lab's own Claude key. A fixed test value, not a secret.
+      LABFLOW_ENCRYPTION_KEY: e2e-only-not-a-secret
       RESEND_API_KEY: re_fake
       RESEND_BASE_URL: http://127.0.0.1:4556
       EMAIL_FROM: Labquill <hello@labquill.test>

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { labAiReady } from '@/server/ai/access';
 import { ExperimentForm } from '@/components/experiment-form';
 import { PageHeader } from '@/components/ui';
 import { experimentCode, toDateInput } from '@/lib/display';
@@ -34,7 +35,7 @@ export default async function EditExperimentPage({
           projectId={experiment.projectId}
           projectName={experiment.projectName}
           protocolVersions={protocolVersions}
-          aiConfigured={Boolean(process.env.ANTHROPIC_API_KEY)}
+          aiConfigured={await labAiReady(session)}
           siblingExperiments={siblings.map((e) => ({ id: e.id, number: e.number, title: e.title }))}
           initial={{
             title: experiment.title,

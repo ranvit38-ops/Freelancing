@@ -6,7 +6,7 @@ import { buildLabContext } from '@/server/ai/labbot';
 import { streamAnswer } from '@/server/ai/stream';
 import { readDocument } from '@/server/documents';
 import { NotFoundInWorkspaceError } from '@/server/not-found';
-import { blockedReason } from '@/server/paywall';
+import { aiAccess, countAiUse, isRefusal } from '@/server/ai/access';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,8 +27,8 @@ You are given a document and an instruction. Return the complete revised documen
 export async function POST(request: Request, { params }: { params: { fileId: string } }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Sign in again.' }, { status: 401 });
-  const blocked = await blockedReason(session, 'ai');
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 402 });
+  const access = await aiAccess(session);
+  if (isRefusal(access)) return NextResponse.json({ error: access.error }, { status: access.status });
   const limit = rateLimit(`labbot:${session.userId}`, { limit: 20, windowMs: 60_000 });
   if (!limit.ok) return NextResponse.json({ error: `Try again in ${limit.retryAfterSec} seconds.` }, { status: 429 });
 
@@ -45,6 +45,8 @@ export async function POST(request: Request, { params }: { params: { fileId: str
       model: env().LABFLOW_LABBOT_MODEL,
       system: REVISE_RULES,
       maxTokens: 8000,
+      apiKey: access.apiKey,
+      onStart: () => countAiUse(session, 'revise', access),
       messages: [
         {
           role: 'user',

@@ -13,7 +13,8 @@ import {
 import type { Evidence } from '../ai/context';
 import { catchUp } from '../ai/catch-up';
 import { searchPubMed, type Article } from '@/lib/pubmed';
-import { blockedReason, hasFeature } from '../paywall';
+import { hasFeature } from '../paywall';
+import { aiAccess, countAiUse, isRefusal } from '../ai/access';
 import { fillRecordFromText, MAX_DESCRIPTION, type FilledRecord } from '../ai/fill-record';
 import { listProtocolVersionOptions } from '../queries';
 import { rateLimit } from '@/lib/rate-limit';
@@ -55,12 +56,13 @@ export async function analyseExperimentAction(
   formData: FormData,
 ): Promise<AnalysisState> {
   const session = await requireSession();
-  const blocked = await blockedReason(session, 'ai');
-  if (blocked) return { error: blocked };
+  const access = await aiAccess(session);
+  if (isRefusal(access)) return { error: access.error, ...(access.notConfigured ? { notConfigured: true as const } : {}) };
 
   const experimentId = String(formData.get('experimentId') ?? '');
   try {
-    const { analysis, evidence, model } = await analyseExperiment(session, experimentId);
+    const { analysis, evidence, model } = await analyseExperiment(session, experimentId, undefined, access.apiKey);
+    await countAiUse(session, 'analysis', access);
     revalidatePath(`/experiments/${experimentId}/analysis`);
     return { analysis, evidence, model };
   } catch (error) {
@@ -73,8 +75,8 @@ export async function askProjectAction(
   formData: FormData,
 ): Promise<AnswerState> {
   const session = await requireSession();
-  const blocked = await blockedReason(session, 'ai');
-  if (blocked) return { error: blocked };
+  const access = await aiAccess(session);
+  if (isRefusal(access)) return { error: access.error, ...(access.notConfigured ? { notConfigured: true as const } : {}) };
 
   const projectId = String(formData.get('projectId') ?? '');
   const question = String(formData.get('question') ?? '').trim();
@@ -103,7 +105,8 @@ export async function askProjectAction(
   }
 
   try {
-    const result = await askProject(session, projectId, question, undefined, papers);
+    const result = await askProject(session, projectId, question, undefined, papers, access.apiKey);
+    await countAiUse(session, 'project_answer', access);
     revalidatePath(`/projects/${projectId}/assistant`);
     return {
       question,
@@ -126,10 +129,12 @@ export type CatchUpState = { error?: string; notConfigured?: true; briefing?: st
 /** "Catch me up": a plain-language briefing on the lab for someone new. */
 export async function catchUpAction(_prev: CatchUpState, _formData: FormData): Promise<CatchUpState> {
   const session = await requireSession();
-  const blocked = await blockedReason(session, 'ai');
-  if (blocked) return { error: blocked };
+  const access = await aiAccess(session);
+  if (isRefusal(access)) return { error: access.error, ...(access.notConfigured ? { notConfigured: true as const } : {}) };
   try {
-    return { briefing: await catchUp(session) };
+    const briefing = await catchUp(session, undefined, access.apiKey);
+    await countAiUse(session, 'catch_up', access);
+    return { briefing };
   } catch (error) {
     return describe(error);
   }
@@ -148,8 +153,8 @@ export type FillState = {
  */
 export async function fillRecordAction(input: { text: string; today: string }): Promise<FillState> {
   const session = await requireSession();
-  const blocked = await blockedReason(session, 'ai');
-  if (blocked) return { error: blocked };
+  const access = await aiAccess(session);
+  if (isRefusal(access)) return { error: access.error, ...(access.notConfigured ? { notConfigured: true as const } : {}) };
   const text = String(input.text ?? '').trim();
   if (text.length < 10) return { error: 'Write a sentence or two about what you did first.' };
   if (text.length > MAX_DESCRIPTION) {
@@ -160,7 +165,9 @@ export async function fillRecordAction(input: { text: string; today: string }): 
   const today = /^\d{4}-\d{2}-\d{2}$/.test(input.today) ? input.today : new Date().toISOString().slice(0, 10);
   try {
     const protocols = await listProtocolVersionOptions(session);
-    return { record: await fillRecordFromText({ text, today, protocols }) };
+    const record = await fillRecordFromText({ text, today, protocols, apiKey: access.apiKey });
+    await countAiUse(session, 'fill_record', access);
+    return { record };
   } catch (error) {
     return describe(error);
   }

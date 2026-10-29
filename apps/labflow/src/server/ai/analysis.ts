@@ -43,6 +43,7 @@ export async function analyseExperiment(
   s: SessionContext,
   experimentId: string,
   fetchImpl?: ModelTransport,
+  apiKey?: string,
 ) {
   const { record, context, evidence } = await buildExperimentContext(s, experimentId);
 
@@ -54,7 +55,7 @@ export async function analyseExperiment(
     `Respond with JSON in exactly this shape:\n${ANALYSIS_PROMPT_SCHEMA}`,
   ].join('\n');
 
-  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 8000, effort: 'medium' }, fetchImpl);
+  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 8000, effort: 'medium', apiKey }, fetchImpl);
   const parsed = analysisSchema.safeParse(extractJson(text));
   if (!parsed.success) {
     throw new AiOutputError('The model returned an analysis in an unexpected shape. Nothing was saved.');
@@ -80,6 +81,7 @@ export async function askProject(
   question: string,
   fetchImpl?: ModelTransport,
   literature: Article[] = [],
+  apiKey?: string,
 ) {
   const { context, evidence, retrievedCount, totalCount, paperCount, savedPaperCount } =
     await buildProjectContext(
@@ -105,7 +107,7 @@ export async function askProject(
     `Respond with JSON in exactly this shape:\n${ANSWER_PROMPT_SCHEMA}`,
   ].join('\n');
 
-  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 8000, effort: 'low' }, fetchImpl);
+  const { text, model } = await callModel({ system: GROUND_RULES, prompt, maxTokens: 8000, effort: 'low', apiKey }, fetchImpl);
   const parsed = answerSchema.safeParse(extractJson(text));
   if (!parsed.success) {
     throw new AiOutputError('The model returned an answer in an unexpected shape. Nothing was saved.');

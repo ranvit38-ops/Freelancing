@@ -23,11 +23,8 @@ const ROWS: { label: string; value: (id: PlanId) => string }[] = [
   },
   { label: 'Uploads', value: (id) => formatLimitBytes(PLANS[id].limits.storageBytes) },
   {
-    label: 'LabBot questions',
-    value: (id) =>
-      Number.isFinite(PLANS[id].limits.aiPerMonth)
-        ? `${PLANS[id].limits.aiPerMonth}/month`
-        : 'Unlimited',
+    label: 'AI requests a month (unlimited with your own Claude key)',
+    value: (id) => PLANS[id].limits.aiPerMonth.toLocaleString('en-US'),
   },
   { label: 'Compare experiments', value: (id) => (PLANS[id].limits.compare ? '✓' : 'No') },
   { label: 'Research memory', value: (id) => (PLANS[id].limits.researchMemory ? '✓' : 'No') },
@@ -139,7 +136,7 @@ export default async function PricingPage() {
 
         <p className="mt-4 text-sm text-muted">
           Every plan has every feature, including the free one. What a plan buys is room: more
-          people, more projects and runs, more storage, more LabBot. You will not discover
+          people, more projects and runs, more storage, more AI requests. You will not discover
           three months in that the thing your lab relies on was behind a tier.
         </p>
         <p className="mt-2 text-sm text-muted">

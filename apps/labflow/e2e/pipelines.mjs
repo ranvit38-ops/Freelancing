@@ -743,6 +743,39 @@ await step('LabBot panel answers a question (streaming)', async () => {
   await expectText(P, 'Fake LabBot answer', 30_000);
 });
 
+await step('every AI feature counts toward the month, and Settings says how much is used', async () => {
+  await P.goto(`${BASE}/settings`);
+  const line = await P.locator('[data-ai-usage]').innerText();
+  const used = Number(/([\d,]+) of ([\d,]+) AI requests/.exec(line)?.[1]?.replace(/,/g, '') ?? -1);
+  // Analysis three times, the assistant, catch-up, filling a run and LabBot all ran above.
+  assert(used >= 6, `usage line: ${line}`);
+});
+await step("a lab's own Claude key: a bad one is refused, a good one is used and can be removed", async () => {
+  await P.goto(`${BASE}/settings`);
+  await P.fill('#lab-ai-key', 'sk-ant-bad-' + 'x'.repeat(40));
+  await P.getByRole('button', { name: 'Check and save' }).click();
+  await expectText(P, 'Anthropic rejected that key');
+  const own = 'sk-ant-api03-pipeline-' + 'y'.repeat(30) + 'Q7z9';
+  await P.fill('#lab-ai-key', own);
+  await P.getByRole('button', { name: 'Check and save' }).click();
+  await expectText(P, 'key ending Q7z9');
+  await P.reload();
+  assert(!(await P.content()).includes(own), 'the saved key is shown back on the page');
+  await expectText(P, 'own Claude key ending');
+  await clearFake(MODEL);
+  await P.goto(`${BASE}/dashboard`);
+  // The panel remembers it was open; only open it when it is not.
+  if (!(await P.locator('#labbot-question').isVisible())) await P.getByRole('button', { name: 'Ask LabBot' }).click();
+  await P.fill('#labbot-question', 'What did batch 1 show?');
+  await P.locator('#labbot-panel').getByRole('button', { name: 'Send' }).click();
+  await expectText(P, 'Fake LabBot answer', 30_000);
+  const sent = (await fakeLog(MODEL)).filter((r) => r.url === '/v1/messages');
+  assert(sent.length > 0 && sent.every((r) => r.headers['x-api-key'] === own), 'LabBot did not use the lab key');
+  await P.goto(`${BASE}/settings`);
+  await P.getByRole('button', { name: /Remove the key ending Q7z9/ }).click();
+  await expectText(P, 'Removed.');
+});
+
 
 // ── 5. the team: join link, email invite, roles ───────────────────────────
 

@@ -5,6 +5,7 @@ import { normaliseEmail } from '@/lib/trial-eligibility';
 import {
   activity,
   aiGenerations,
+  aiUsage,
   datasetColumns as datasetColumnsTable,
   datasets,
   discussions,
@@ -44,6 +45,7 @@ import { dmParticipants } from '@/lib/dm';
 import { changedFields, excerpt } from '@/lib/activity';
 import { experimentCode, experimentStatusLabel } from '@/lib/display';
 import { InUseError, NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
+import { open as openSecret, seal } from '@/lib/secret-box';
 
 /*
  * Every function here takes the caller's SessionContext and filters on
@@ -3067,6 +3069,51 @@ export async function claimStripeEvent(eventId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/* ── AI usage and the lab's own key ─────────────────────────────────────── */
+
+/** One AI request, counted against the month once it has been made. */
+export async function recordAiUse(s: SessionContext, feature: string, ownKey: boolean) {
+  await db.insert(aiUsage).values({ workspaceId: s.workspaceId, userId: s.userId, feature, ownKey });
+}
+
+/** The lab's own Anthropic key, or null when it has none or it cannot be read. */
+export async function getLabAiKey(s: SessionContext): Promise<string | null> {
+  const rows = await db
+    .select({ enc: workspaces.anthropicKeyEnc })
+    .from(workspaces)
+    .where(eq(workspaces.id, s.workspaceId));
+  return openSecret(rows[0]?.enc);
+}
+
+/** What Settings may show: the last four characters, and whether it still decrypts. */
+export async function labAiKeyStatus(s: SessionContext): Promise<{ hint: string; readable: boolean } | null> {
+  const rows = await db
+    .select({ enc: workspaces.anthropicKeyEnc, hint: workspaces.anthropicKeyHint })
+    .from(workspaces)
+    .where(eq(workspaces.id, s.workspaceId));
+  const row = rows[0];
+  if (!row?.enc) return null;
+  return { hint: row.hint ?? '', readable: openSecret(row.enc) !== null };
+}
+
+/** Stores (or with null, removes) the lab's own key. Owners and admins only. */
+export async function setLabAiKey(s: SessionContext, apiKey: string | null) {
+  if (s.role === 'member') throw new MembershipRefusedError('Only an owner or admin can change the lab\'s Claude key.');
+  await db
+    .update(workspaces)
+    .set(
+      apiKey
+        ? { anthropicKeyEnc: seal(apiKey), anthropicKeyHint: apiKey.slice(-4) }
+        : { anthropicKeyEnc: null, anthropicKeyHint: null },
+    )
+    .where(eq(workspaces.id, s.workspaceId));
+  await logActivity(s, {
+    action: apiKey ? 'added' : 'removed',
+    subjectType: 'setting',
+    label: apiKey ? `the lab's own Claude key (…${apiKey.slice(-4)})` : "the lab's own Claude key",
+  });
+}
+
 /** Counts the free tier is measured against. */
 export async function usageCounts(s: SessionContext) {
   const monthStart = new Date();
@@ -3090,13 +3137,16 @@ export async function usageCounts(s: SessionContext) {
       .select({ bytes: sql<number>`coalesce(sum(byte_size), 0)::bigint` })
       .from(files)
       .where(eq(files.workspaceId, s.workspaceId)),
+    // Requests made with the lab's own key are the lab's own bill, so they
+    // never count against the plan's allowance.
     db
       .select({ n: count() })
-      .from(aiGenerations)
+      .from(aiUsage)
       .where(
         and(
-          eq(aiGenerations.workspaceId, s.workspaceId),
-          gt(aiGenerations.createdAt, monthStart),
+          eq(aiUsage.workspaceId, s.workspaceId),
+          eq(aiUsage.ownKey, false),
+          gt(aiUsage.createdAt, monthStart),
         ),
       ),
   ]);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PLANS,
   PLAN_ORDER,
+  allowanceUsed,
   monthlyTotal,
   renewalNotice,
   seatLimit,
@@ -198,5 +199,13 @@ describe('renewalNotice', () => {
     expect(text).toMatch(/Cancel any time/);
     expect(text).toContain('https://labquill.example/terms');
     expect(text.length).toBeLessThanOrEqual(1200);
+  });
+});
+
+describe('allowanceUsed', () => {
+  it('names the next plan up, and the own-key way out', () => {
+    expect(allowanceUsed('free')).toMatch(/Free plan includes 5 AI requests.*Lab includes 200 a month.*own Claude key/);
+    expect(allowanceUsed('group')).toMatch(/Department includes 2,500 a month/);
+    expect(allowanceUsed('department')).not.toMatch(/includes 2,500 a month\. Or/);
   });
 });

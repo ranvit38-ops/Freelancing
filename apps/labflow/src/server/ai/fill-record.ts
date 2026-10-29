@@ -90,6 +90,7 @@ export async function fillRecordFromText(
     /** The researcher's local date, YYYY-MM-DD. The server's clock is UTC. */
     today: string;
     protocols: { id: string; version: number; protocolName: string }[];
+    apiKey?: string;
   },
   fetchImpl?: ModelTransport,
 ): Promise<FilledRecord> {
@@ -104,6 +105,7 @@ export async function fillRecordFromText(
       schema: SCHEMA,
       effort: 'low',
       maxTokens: 4000,
+      apiKey: input.apiKey,
     },
     fetchImpl,
   );

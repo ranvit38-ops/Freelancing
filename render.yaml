@@ -78,6 +78,10 @@ services:
       # Named in the Terms and Privacy statement: who runs the site (ideally a
       # company), the address people write to, and the US state whose law
       # governs the Terms.
+      # Encrypts labs' own Claude keys. Render makes up a random value once;
+      # never change it afterwards, or saved keys stop working.
+      - key: LABFLOW_ENCRYPTION_KEY
+        generateValue: true
       - key: LABFLOW_LEGAL_NAME
         sync: false
       - key: LABFLOW_CONTACT_EMAIL

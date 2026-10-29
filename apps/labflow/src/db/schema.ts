@@ -127,6 +127,10 @@ export const workspaces = pgTable(
      * to be pasteable. See migration 0012.
      */
     joinCode: text('join_code'),
+    /** The lab's own Anthropic key, AES-256-GCM encrypted. See lib/secret-box. */
+    anthropicKeyEnc: text('anthropic_key_enc'),
+    /** Its last four characters, the only part ever shown. */
+    anthropicKeyHint: text('anthropic_key_hint'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -466,6 +470,22 @@ export const datasetColumns = pgTable(
  * researcher can audit what the model actually saw. AI output is never
  * written back into the scientific record automatically.
  */
+/** One row per AI request, for the monthly allowance. See migration 0023. */
+export const aiUsage = pgTable(
+  'ai_usage',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    feature: text('feature').notNull(),
+    ownKey: boolean('own_key').notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => ({ wsIdx: index('ai_usage_workspace_created_idx').on(t.workspaceId, t.createdAt) }),
+);
+
 export const aiGenerations = pgTable(
   'ai_generations',
   {

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { labAiReady } from '@/server/ai/access';
 import { NavList, type NavItem } from '@/components/nav';
 import { Button } from '@/components/ui';
 import { logoutAction } from '@/server/actions/auth';
@@ -220,7 +221,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </main>
       <LabBotPanel
-        configured={Boolean(process.env.ANTHROPIC_API_KEY)}
+        configured={await labAiReady(session)}
         people={members.map((m) => ({ id: m.id, name: m.name ?? m.email, you: m.id === session.userId }))}
       />
     </div>

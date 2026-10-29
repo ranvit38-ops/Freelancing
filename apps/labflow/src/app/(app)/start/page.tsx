@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { labAiReady } from '@/server/ai/access';
 import { CatchUp } from '@/components/catch-up';
 import { ReadingPath } from '@/components/reading-path';
 import { Card, CardHeader, PageHeader } from '@/components/ui';
@@ -145,7 +146,7 @@ export default async function StartPage({ searchParams }: { searchParams: { join
           ) : null}
           <Card>
             <CardHeader title="Catch me up" description="The whole lab on one page, in plain language." />
-            <CatchUp configured={Boolean(process.env.ANTHROPIC_API_KEY)} />
+            <CatchUp configured={await labAiReady(session)} />
           </Card>
 
           <Card>

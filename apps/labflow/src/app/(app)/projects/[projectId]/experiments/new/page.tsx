@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { labAiReady } from '@/server/ai/access';
 import { NewExperiment } from '@/components/new-experiment';
 import { PageHeader } from '@/components/ui';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
@@ -34,7 +35,7 @@ export default async function NewExperimentPage({ params }: { params: { projectI
           projectName={project.name}
           nextNumber={number}
           protocolVersions={protocolVersions}
-          aiConfigured={Boolean(process.env.ANTHROPIC_API_KEY)}
+          aiConfigured={await labAiReady(session)}
           siblingExperiments={siblings.map((e) => ({ id: e.id, number: e.number, title: e.title }))}
         />
       </div>

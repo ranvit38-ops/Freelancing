@@ -15,9 +15,13 @@ export async function streamAnswer(input: {
   system: string;
   messages: Anthropic.MessageParam[];
   maxTokens?: number;
+  /** The lab's own key, from ai/access. Unset, the site's key is used. */
+  apiKey?: string;
+  /** Called once the first words arrive, i.e. once the request has succeeded. */
+  onStart?: () => Promise<void>;
   onDone?: (text: string) => Promise<void>;
 }): Promise<Response> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = input.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
       { error: 'LabBot is not switched on for this site yet. It needs ANTHROPIC_API_KEY set on the server.' },
@@ -48,8 +52,9 @@ export async function streamAnswer(input: {
       }
     }
   } catch (error) {
-    return NextResponse.json({ error: explainModelError(error) }, { status: 502 });
+    return NextResponse.json({ error: explainModelError(error, Boolean(input.apiKey)) }, { status: 502 });
   }
+  await input.onStart?.().catch(() => {});
 
   const encoder = new TextEncoder();
   let text = first;
@@ -73,7 +78,7 @@ export async function streamAnswer(input: {
           controller.enqueue(encoder.encode('\n\n(Cut short. Ask for the rest.)'));
         }
       } catch (error) {
-        controller.enqueue(encoder.encode(`\n\nLabBot stopped: ${explainModelError(error)}`));
+        controller.enqueue(encoder.encode(`\n\nLabBot stopped: ${explainModelError(error, Boolean(input.apiKey))}`));
       } finally {
         controller.close();
       }
@@ -89,15 +94,20 @@ export async function streamAnswer(input: {
   });
 }
 
-export function explainModelError(error: unknown): string {
+export function explainModelError(error: unknown, ownKey = false): string {
+  const whose = ownKey ? "The lab's own Claude key" : 'The AI key on the server';
   if (error instanceof Anthropic.AuthenticationError) {
-    return 'The AI key on the server was rejected. Create a new key at console.anthropic.com and replace ANTHROPIC_API_KEY.';
+    return ownKey
+      ? "The lab's own Claude key was rejected. A lab owner can replace or remove it in Settings."
+      : 'The AI key on the server was rejected. Create a new key at console.anthropic.com and replace ANTHROPIC_API_KEY.';
   }
-  if (error instanceof Anthropic.PermissionDeniedError) return 'The AI key on the server is not allowed to use this model.';
+  if (error instanceof Anthropic.PermissionDeniedError) return `${whose} is not allowed to use this model.`;
   if (error instanceof Anthropic.RateLimitError) return 'Too many questions at once for the AI account. Wait a moment and ask again.';
   if (error instanceof Anthropic.BadRequestError) {
     return /credit balance/i.test(error.message)
-      ? 'The AI account is out of credit. Add credit at console.anthropic.com → Billing.'
+      ? ownKey
+        ? "The lab's own Claude account is out of credit. Add credit at console.anthropic.com → Billing, or remove the key in Settings to use the plan's allowance."
+        : 'The AI account is out of credit. Add credit at console.anthropic.com → Billing.'
       : `The AI service refused the request: ${error.message}`;
   }
   if (error instanceof Anthropic.APIConnectionTimeoutError) return 'The AI service took too long to answer. Try again.';

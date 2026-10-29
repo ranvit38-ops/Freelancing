@@ -954,3 +954,48 @@ suite('links into another of your labs', () => {
     expect(await ctx.q.findLinkInMyOtherLabs(ctx.sessionB, '/projects/not-an-id')).toBeNull();
   });
 });
+
+suite('AI allowance and a lab\'s own key', () => {
+  let ctx: Ctx;
+  beforeAll(async () => {
+    process.env.LABFLOW_ENCRYPTION_KEY = 'integration-test-key';
+    ctx = await setup();
+  });
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.schema.workspaces).where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db
+      .delete(ctx.schema.users)
+      .where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId]));
+    delete process.env.LABFLOW_ENCRYPTION_KEY;
+  });
+
+  it('counts every feature on the plan, but not requests on the lab\'s own key', async () => {
+    await ctx.q.recordAiUse(ctx.sessionA, 'labbot', false);
+    await ctx.q.recordAiUse(ctx.sessionA, 'fill_record', false);
+    await ctx.q.recordAiUse(ctx.sessionA, 'revise', true);
+    expect((await ctx.q.usageCounts(ctx.sessionA)).aiThisMonth).toBe(2);
+    expect((await ctx.q.usageCounts(ctx.sessionB)).aiThisMonth).toBe(0);
+  });
+
+  it('stores the key encrypted, reads it back only for its own lab, and removes it', async () => {
+    const key = 'sk-ant-api03-' + 'k'.repeat(40) + 'WXYZ';
+    await ctx.q.setLabAiKey(ctx.sessionA, key);
+    const [row] = await ctx.db
+      .select({ enc: ctx.schema.workspaces.anthropicKeyEnc })
+      .from(ctx.schema.workspaces)
+      .where(ctx.eq(ctx.schema.workspaces.id, ctx.wsA.id));
+    expect(row?.enc).not.toContain('sk-ant');
+    expect(await ctx.q.getLabAiKey(ctx.sessionA)).toBe(key);
+    expect(await ctx.q.labAiKeyStatus(ctx.sessionA)).toEqual({ hint: 'WXYZ', readable: true });
+    expect(await ctx.q.getLabAiKey(ctx.sessionB)).toBeNull();
+    await ctx.q.setLabAiKey(ctx.sessionA, null);
+    expect(await ctx.q.getLabAiKey(ctx.sessionA)).toBeNull();
+  });
+
+  it('refuses a member changing the key', async () => {
+    await expect(ctx.q.setLabAiKey({ ...ctx.sessionA, role: 'member' }, 'sk-ant-x')).rejects.toBeInstanceOf(
+      ctx.q.MembershipRefusedError,
+    );
+  });
+});

@@ -6,11 +6,13 @@ import { logoutAction } from '@/server/actions/auth';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { CreateWorkspaceForm } from '@/components/workspace-switcher';
 import { Badge, Button, Card, CardHeader, DefinitionList, PageHeader } from '@/components/ui';
-import { aiConfigured } from '@/lib/env';
+import { LabAiKeyForm } from '@/components/lab-ai-key';
+import { PLANS } from '@/lib/plans';
+import { workspacePlan } from '@/server/paywall';
 import { formatDate } from '@/lib/display';
 import { requireSession } from '@/server/authz';
 import { revokeInviteAction } from '@/server/actions/invites';
-import { listInvites, listWorkspaceMembers } from '@/server/queries';
+import { labAiKeyStatus, listInvites, listWorkspaceMembers, usageCounts } from '@/server/queries';
 import { mailSetupProblem, senderAddress, usingResendTestSender } from '@/server/mailer';
 
 export const metadata = { title: 'Settings' };
@@ -18,10 +20,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const session = await requireSession();
-  const [members, invites, myWorkspaces] = await Promise.all([
+  const [members, invites, myWorkspaces, aiKey, usage, plan] = await Promise.all([
     listWorkspaceMembers(session),
     listInvites(session),
     listMyWorkspaces(),
+    labAiKeyStatus(session),
+    usageCounts(session),
+    workspacePlan(session),
   ]);
   const canInvite = session.role !== 'member';
 
@@ -143,26 +148,44 @@ export default async function SettingsPage() {
         />
 
         <Card className="p-5 lg:col-span-2">
-          <h2 className="mb-1 text-sm font-semibold tracking-tight">LabBot</h2>
+          <h2 className="mb-1 text-sm font-semibold tracking-tight">AI</h2>
           <p className="text-sm text-muted">
-            LabBot calls a language model with a focused slice of your records, never the whole
-            database, and can search PubMed alongside them.
+            LabBot and the other AI features send the parts of your records a request needs to Anthropic&rsquo;s
+            Claude, never the whole database. Research records are never used to train models.
           </p>
-          <div className="mt-4">
-            {aiConfigured() ? (
-              <Badge tone="ok">Configured</Badge>
+          <p className="mt-3 text-sm" data-ai-usage>
+            {aiKey?.readable ? (
+              <>
+                Using this lab&rsquo;s own Claude key ending <span className="font-mono">{aiKey.hint}</span>: no monthly
+                limit, billed to the lab by Anthropic. {usage.aiThisMonth.toLocaleString('en-US')} requests on the
+                plan&rsquo;s allowance this month.
+              </>
+            ) : process.env.ANTHROPIC_API_KEY ? (
+              <>
+                {usage.aiThisMonth.toLocaleString('en-US')} of {plan.limits.aiPerMonth.toLocaleString('en-US')} AI
+                requests used this month on the {PLANS[plan.plan].name} plan. Every AI feature counts; the count
+                starts again on the 1st.
+              </>
             ) : (
-              <div className="rounded-lg border border-warn/25 bg-warn/5 px-4 py-3 text-sm text-warn">
-                Not configured. Set <code className="font-mono">ANTHROPIC_API_KEY</code> on the
-                server to enable AI features. Until then Labquill will say so rather than generate
-                anything.
-              </div>
+              <span className="text-warn">
+                AI is not switched on for this site, so Labquill says so rather than generating anything. A lab owner
+                can add the lab&rsquo;s own Claude key below.
+              </span>
             )}
-          </div>
-          <p className="mt-4 text-xs text-subtle">
-            Research records are never used to train models. Only the records relevant to a request
-            are sent, and each response is stored with the evidence it was given.
           </p>
+          {canInvite ? (
+            <div className="mt-5 max-w-xl border-t border-line pt-5">
+              <h3 className="text-sm font-medium">Use your lab&rsquo;s own Claude key</h3>
+              <p className="mt-1 text-sm text-muted">
+                With a key from your lab&rsquo;s Anthropic account, every AI request in this lab runs on it, without the
+                plan&rsquo;s monthly limit, and Anthropic bills your lab directly. It is checked with Anthropic before
+                it is saved, stored encrypted, and never shown again.
+              </p>
+              <div className="mt-4">
+                <LabAiKeyForm hint={aiKey?.hint ?? null} readable={aiKey?.readable ?? false} />
+              </div>
+            </div>
+          ) : null}
         </Card>
         <DangerZone
           isOwner={session.role === 'owner'}

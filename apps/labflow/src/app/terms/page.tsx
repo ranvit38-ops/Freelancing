@@ -64,6 +64,13 @@ export default function TermsPage() {
       ],
     },
     {
+      title: 'AI allowance and your own Claude key',
+      body: [
+        'Each plan includes a number of AI requests a month, shown on the Pricing page. Every AI feature counts, and the count starts again on the first of each month.',
+        'A lab owner or admin can instead add the lab\'s own Anthropic API key. Its requests then run on that key without the monthly limit, and Anthropic bills the lab directly under the lab\'s own agreement with Anthropic. You are responsible for that account, its charges and its use; we use the key only for your lab\'s requests, keep it encrypted, and delete it when you remove it or delete the lab.',
+      ],
+    },
+    {
       title: 'Lab safety is not handled here',
       body: [
         'Labquill keeps records. Nothing in it, including protocols, inventory, reminders, checklists and AI suggestions, replaces your institution\'s safety training, safety data sheets, risk assessments, or approvals such as IRB, IACUC or biosafety review. Follow those first.',

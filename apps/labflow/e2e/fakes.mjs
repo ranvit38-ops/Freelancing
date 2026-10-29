@@ -16,6 +16,9 @@
  * Every request is kept in memory; GET /__log on either port returns them, and
  * DELETE /__log clears them, so the test can assert on what was sent.
  *
+ * A key starting sk-ant-bad gets a 401, as a revoked key would, and
+ * GET /v1/models answers, for checking a lab's own key.
+ *
  * POST /__fail-next on the model port makes its next answer a 500, and
  * POST /__refuse-next makes it a refusal. An email to fail@labquill.test gets
  * a 422. Switches rather than magic words in a prompt, because a lab's
@@ -90,6 +93,16 @@ const LOOSE_JSON = {
 };
 
 serve(4555, (req, res, sent) => {
+  // A lab's own key: anything starting sk-ant-bad is refused, as Anthropic
+  // refuses a revoked key; any other key works.
+  if (String(req.headers['x-api-key'] ?? '').startsWith('sk-ant-bad')) {
+    res.writeHead(401, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }));
+  }
+  if (req.method === 'GET' && req.url.startsWith('/v1/models')) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ data: [{ id: 'claude-fake', type: 'model' }], has_more: false }));
+  }
   const prompt = JSON.stringify(sent.messages ?? []);
   const mode = next;
   next = null;

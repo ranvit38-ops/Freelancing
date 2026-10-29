@@ -139,7 +139,7 @@ export async function requireFeature(
  */
 export async function blockedReason(
   session: SessionContext,
-  adding?: 'project' | 'experiment' | 'upload' | 'ai',
+  adding?: 'project' | 'experiment' | 'upload',
 ): Promise<string | null> {
   const { plan, limits, writable } = await workspacePlan(session);
 
@@ -167,9 +167,6 @@ export async function blockedReason(
     usage.storageBytes >= limits.storageBytes
   ) {
     return `The ${PLANS[plan].name} plan includes ${formatLimitBytes(limits.storageBytes)} of uploads, which this lab has used.${upgrade}`;
-  }
-  if (adding === 'ai' && usage.aiThisMonth >= limits.aiPerMonth) {
-    return `The ${PLANS[plan].name} plan includes ${limits.aiPerMonth} LabBot questions a month, which this lab has used.${upgrade}`;
   }
   return null;
 }

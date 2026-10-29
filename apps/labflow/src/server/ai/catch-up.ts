@@ -74,7 +74,7 @@ export async function buildCatchUpContext(s: SessionContext): Promise<string> {
   return lines.join('\n');
 }
 
-export async function catchUp(s: SessionContext, fetchImpl?: ModelTransport): Promise<string> {
+export async function catchUp(s: SessionContext, fetchImpl?: ModelTransport, apiKey?: string): Promise<string> {
   // The overview, plus what the lab actually wrote: file contents and chat,
   // read the same way LabBot reads them, so the briefing reflects the
   // protocols and conversations and not just the titles.
@@ -90,6 +90,7 @@ export async function catchUp(s: SessionContext, fetchImpl?: ModelTransport): Pr
       effort: 'low',
       // The fast model: a newcomer is waiting on this screen.
       model: env().LABFLOW_LABBOT_MODEL,
+      apiKey,
     },
     fetchImpl,
   );

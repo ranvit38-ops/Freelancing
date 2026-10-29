@@ -39,7 +39,7 @@ export type Limits = {
   experiments: number | null;
   /** Total upload bytes across the workspace. */
   storageBytes: number | null;
-  /** LabBot questions per calendar month. */
+  /** AI requests per calendar month, every AI feature counted alike. A lab's own key is not limited. */
   aiPerMonth: number;
   compare: boolean;
   researchMemory: boolean;
@@ -78,7 +78,7 @@ export const PLANS: Record<PlanId, Plan> = {
       '1 project, 10 experiments',
       '50 MB of uploads',
       'Every feature the paid plans have',
-      '5 LabBot questions a month',
+      '5 AI requests a month, or no limit with your own Claude key',
     ],
     limits: {
       // Free is the whole product at small scale, not a crippled demo. A lab
@@ -114,6 +114,7 @@ export const PLANS: Record<PlanId, Plan> = {
       'Uploads, links and datasets',
       'Comparison, timeline and research memory',
       'LabBot with PubMed grounding',
+      '200 AI requests a month, or no limit with your own Claude key',
       'PowerPoint research updates',
     ],
     limits: { ...UNLIMITED, storageBytes: 10 * GB, aiPerMonth: 200 },
@@ -125,7 +126,7 @@ export const PLANS: Record<PlanId, Plan> = {
     yearly: 990,
     seats: 10,
     blurb: 'A larger group, or a PI running two lines of work.',
-    features: ['10 people', 'Everything in Lab', '50 GB of uploads', 'Priority support', 'Invoice or PO billing'],
+    features: ['10 people', 'Everything in Lab', '750 AI requests a month', '50 GB of uploads', 'Priority support', 'Invoice or PO billing'],
     limits: {
       ...UNLIMITED,
       storageBytes: 50 * GB,
@@ -145,13 +146,13 @@ export const PLANS: Record<PlanId, Plan> = {
       '25 people',
       'Everything in Group',
       '200 GB of uploads',
-      'Unlimited LabBot',
+      '2,500 AI requests a month',
       'Onboarding session',
     ],
     limits: {
       ...UNLIMITED,
       storageBytes: 200 * GB,
-      aiPerMonth: Number.POSITIVE_INFINITY,
+      aiPerMonth: 2500,
       prioritySupport: true,
       invoiceBilling: true,
     },
@@ -301,5 +302,16 @@ export function renewalNotice(termsUrl: string): string {
     'Your plan renews automatically at the end of each billing period, at the price shown, until you cancel. ' +
     'Cancel any time in Labquill under Billing, then Manage billing; the plan stays active until the end of the period you have paid for. ' +
     `By subscribing you agree to the Terms: ${termsUrl}`
+  );
+}
+
+/** Said when a lab has used its month of AI requests: what the next plan gives, and the own-key way out. */
+export function allowanceUsed(plan: PlanId): string {
+  const next = PLAN_ORDER[PLAN_ORDER.indexOf(plan) + 1];
+  const count = (id: PlanId) => PLANS[id].limits.aiPerMonth.toLocaleString('en-US');
+  const more = next ? ` ${PLANS[next].name} includes ${count(next)} a month.` : '';
+  return (
+    `The ${PLANS[plan].name} plan includes ${count(plan)} AI requests a month, and this lab has used them.` +
+    `${more} Or a lab owner can add the lab's own Claude key in Settings, which has no limit.`
   );
 }
