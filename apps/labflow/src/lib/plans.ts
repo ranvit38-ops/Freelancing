@@ -9,7 +9,7 @@
  *
  * There is deliberately no per-person add-on. A lab that outgrows its plan
  * moves up a plan. That keeps the price a lab can state in one sentence, and
- * keeps Stripe down to three products with nothing metered.
+ * keeps PayPal down to three products with nothing metered.
  */
 
 export type PlanId = 'free' | 'lab' | 'group' | 'department';
@@ -182,7 +182,7 @@ export function effectivePlan(sub: SubscriptionState | null, now: Date = new Dat
   if (!sub) return 'free';
   // A trial is the smallest paid plan, so a lab can try it as a team.
   if (sub.status === 'trialing' && trialLive(sub, now)) return 'lab';
-  if (sub.plan && paidActive(sub)) return sub.plan;
+  if (sub.plan && paidActive(sub, now)) return sub.plan;
   return 'free';
 }
 
@@ -200,9 +200,16 @@ function trialLive(sub: SubscriptionState, now: Date): boolean {
   return Boolean(sub.trialEndsAt) && new Date(sub.trialEndsAt!).getTime() > now.getTime();
 }
 
-function paidActive(sub: SubscriptionState): boolean {
+function paidActive(sub: SubscriptionState, now: Date): boolean {
   // past_due is a grace period, not a lockout, the card retry may still work.
-  return sub.status === 'active' || sub.status === 'past_due';
+  if (sub.status === 'active' || sub.status === 'past_due') return true;
+  // Cancelled, but the period already paid for has not ended: the Terms
+  // promise the plan until then, and nothing more is charged.
+  return sub.status === 'canceled' && paidThrough(sub, now);
+}
+
+function paidThrough(sub: SubscriptionState, now: Date): boolean {
+  return Boolean(sub.currentPeriodEnd) && new Date(sub.currentPeriodEnd!).getTime() > now.getTime();
 }
 
 /**
@@ -219,10 +226,10 @@ function paidActive(sub: SubscriptionState): boolean {
  */
 export function canWrite(sub: SubscriptionState | null, now: Date = new Date()): boolean {
   if (!sub) return true; // never subscribed: free
-  if (sub.status === 'canceled') return false; // paid, then ended
+  if (sub.status === 'canceled') return paidThrough(sub, now); // paid, then ended (once the paid period runs out)
   if (sub.status === 'none') return true; // never paid: free
   if (sub.status === 'trialing') return true; // trial over drops to free, not out
-  return paidActive(sub);
+  return paidActive(sub, now);
 }
 
 /** Alias kept for call sites that ask "can this workspace be used". */
@@ -248,6 +255,9 @@ export function subscriptionNotice(
 ): string | null {
   if (!sub || sub.status === 'none') return null; // free: the plan banner says it
   if (sub.status === 'canceled') {
+    if (paidThrough(sub, now)) {
+      return `The plan is cancelled and nothing more will be charged. It stays active until ${new Date(sub.currentPeriodEnd!).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}; after that the lab becomes read-only, and nothing is deleted.`;
+    }
     return 'This lab is read-only because its plan has ended. Everything already recorded stays readable, and nothing has been deleted.';
   }
   if (sub.status === 'past_due') {
@@ -293,17 +303,14 @@ export function toSubscriptionState(row: {
 }
 
 /**
- * Shown on Stripe Checkout above the Subscribe button. Stripe already shows
- * the price and period; this says that it renews, how to stop it, and where
- * the Terms are. Stripe caps the text at 1200 characters.
+ * Shown beside the buttons that start a subscription, and in the emails about
+ * it: that it renews, and how to stop it. PayPal's approval page shows the
+ * price and period itself.
  */
-export function renewalNotice(termsUrl: string): string {
-  return (
-    'Your plan renews automatically at the end of each billing period, at the price shown, until you cancel. ' +
-    'Cancel any time in Labquill under Billing, then Manage billing; the plan stays active until the end of the period you have paid for. ' +
-    `By subscribing you agree to the Terms: ${termsUrl}`
-  );
-}
+export const RENEWAL_TERMS =
+  'Plans renew automatically at the end of each month or year, at the price shown, until you cancel. ' +
+  'Cancel any time in Labquill under Billing, then Cancel plan, or in your PayPal account under Automatic payments; ' +
+  'the plan stays active until the end of the period you have paid for, and nothing more is charged.';
 
 /** Said when a lab has used its month of AI requests: what the next plan gives, and the own-key way out. */
 export function allowanceUsed(plan: PlanId): string {

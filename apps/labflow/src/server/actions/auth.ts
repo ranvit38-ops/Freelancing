@@ -1,5 +1,6 @@
 'use server';
 
+import { LEGAL_EFFECTIVE } from '@/lib/legal';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { randomBytes, createHash } from 'node:crypto';
@@ -136,7 +137,14 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     const provedInbox = Boolean(invite && normaliseEmail(invite.email) === email);
     const [user] = await tx
       .insert(users)
-      .values({ email, name: parsed.data.name, passwordHash, emailVerifiedAt: provedInbox ? new Date() : null })
+      .values({
+        email,
+        name: parsed.data.name,
+        passwordHash,
+        emailVerifiedAt: provedInbox ? new Date() : null,
+        termsVersion: LEGAL_EFFECTIVE,
+        termsAcceptedAt: new Date(),
+      })
       .returning({ id: users.id });
     if (!user) throw new Error('Could not create the account');
     if (invite || joinTarget) return user.id;

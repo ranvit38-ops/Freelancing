@@ -33,7 +33,7 @@ const proxyOrigins = [
  * reset or calendar token in a URL cannot leak through a Referer. Browsers
  * may not guess a file's type, and the site is HTTPS-only once visited.
  * A full Content-Security-Policy would also have to allow Google Sheets,
- * Drive, YouTube and Stripe, and is left until it can be tested against all
+ * Drive, YouTube and PayPal, and is left until it can be tested against all
  * of them; frame-ancestors is the part that guards against clickjacking.
  */
 const securityHeaders = [
@@ -51,7 +51,7 @@ const extra = (process.env.LABFLOW_ALLOWED_ORIGINS ?? '')
   .filter(Boolean);
 
 /**
- * The deployed domain is already declared once, for Stripe redirects and email
+ * The deployed domain is already declared once, for PayPal redirects and email
  * links. Deriving the allowed origin from it means a real deployment needs no
  * second variable saying the same thing, and forms do not silently fail on a
  * host that terminates TLS in front of the app.
@@ -79,6 +79,8 @@ const nextConfig = {
   // container does not need node_modules or a package manager to boot.
   output: 'standalone',
   experimental: {
+    // src/instrumentation.ts starts the yearly renewal reminders.
+    instrumentationHook: true,
     serverComponentsExternalPackages: ['pg'],
     serverActions: {
       allowedOrigins: [...codespace, ...deployed, ...proxyOrigins, ...extra],

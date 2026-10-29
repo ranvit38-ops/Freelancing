@@ -73,6 +73,9 @@ export const users = pgTable(
     passwordHash: text('password_hash').notNull(),
     /** When the person proved they own this address; null until then. See 0022. */
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+    /** The Terms and Privacy version they agreed to, and when. See migration 0026. */
+    termsVersion: text('terms_version'),
+    termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -701,16 +704,19 @@ export const workspaceSubscriptions = pgTable(
     status: subscriptionStatus('status').notNull().default('trialing'),
     trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
     currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
-    stripeCustomerId: text('stripe_customer_id'),
-    stripeSubscriptionId: text('stripe_subscription_id'),
+    /** PayPal's subscription id (I-…). Null for a trial or a comped lab. See migration 0025. */
+    paypalSubscriptionId: text('paypal_subscription_id'),
+    billingInterval: text('billing_interval').$type<'month' | 'year'>(),
+    notifiedState: text('notified_state'),
+    renewalReminderFor: timestamp('renewal_reminder_for', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => ({ wsUniq: uniqueIndex('workspace_subscriptions_workspace_key').on(t.workspaceId) }),
 );
 
-/** Stripe retries webhooks; recording ids makes a replay a no-op. */
-export const processedStripeEvents = pgTable('processed_stripe_events', {
+/** PayPal retries webhooks; recording ids makes a replay a no-op. */
+export const processedPaypalEvents = pgTable('processed_paypal_events', {
   id: text('id').primaryKey(),
   createdAt: createdAt(),
 });

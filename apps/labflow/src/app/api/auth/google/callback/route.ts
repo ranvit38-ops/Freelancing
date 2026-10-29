@@ -1,4 +1,5 @@
 import { seedExampleProject } from '@/server/example-project';
+import { LEGAL_EFFECTIVE } from '@/lib/legal';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createHash } from 'node:crypto';
@@ -102,7 +103,15 @@ export async function GET(request: Request) {
     const created = await db.transaction(async (tx) => {
       const [user] = await tx
         .insert(users)
-        .values({ email, name: profile.name, passwordHash: NO_PASSWORD, emailVerifiedAt: new Date() })
+        // The notice beside the Google button is the agreement on this path.
+        .values({
+          email,
+          name: profile.name,
+          passwordHash: NO_PASSWORD,
+          emailVerifiedAt: new Date(),
+          termsVersion: LEGAL_EFFECTIVE,
+          termsAcceptedAt: new Date(),
+        })
         .returning({ id: users.id });
       if (!user) throw new Error('Could not create the account');
 
@@ -177,8 +186,8 @@ export async function GET(request: Request) {
         plan: 'department',
         status: 'active',
         currentPeriodEnd: null,
-        stripeCustomerId: null,
-        stripeSubscriptionId: null,
+        paypalSubscriptionId: null,
+        billingInterval: null,
       });
       console.info(`[labflow] owner account signed in, workspace comped: ${email}`);
     }

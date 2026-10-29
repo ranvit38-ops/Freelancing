@@ -70,7 +70,7 @@ DATABASE_URL        the Neon connection string from step 1
 NEXT_PUBLIC_APP_URL https://your-service.onrender.com
 ```
 
-Add the Stripe values from BILLING.md once you have them, and the optional keys
+Add the PayPal values from BILLING.md once you have them, and the optional keys
 for AI, email and Google sign-in when you want those features. Each feature
 says plainly when its own key is missing rather than pretending to work.
 
@@ -189,35 +189,28 @@ Two things to know:
   to whatever they are actually entitled to, which for a pilot lab is the free
   plan. Nothing is deleted, and everything stays readable.
 
-## Point Stripe at the real address
+## Point PayPal at the real address
 
-Once the site has a public URL, the Stripe CLI is no longer needed. Use a real
-webhook endpoint instead:
-
-**Developers, Webhooks, Add endpoint.**
-
-- URL: `https://your-domain.com/api/stripe/webhook`
-- Events: `checkout.session.completed`, `customer.subscription.created`,
-  `customer.subscription.updated`, `customer.subscription.deleted`
-
-Copy that endpoint's signing secret into `STRIPE_WEBHOOK_SECRET` and redeploy.
-It is a different secret from the one `stripe listen` printed.
+Once the site has a public URL, run `npm run paypal:setup -- --create --webhook
+https://your-domain.com/api/paypal/webhook` (BILLING.md step 3), or add the
+webhook by hand in developer.paypal.com → your app → Webhooks with the events
+BILLING.md lists. Put its id in `PAYPAL_WEBHOOK_ID` and redeploy.
 
 ## Check it before you tell anyone about it
 
 Open `/billing` on the deployed site. If anything about payments is missing it
 says so there, and it names the variable rather than making you guess.
 
-Then take one test payment with test keys, following step 6 of BILLING.md, on
-the deployed URL rather than localhost. Only after that has worked end to end
-should live keys go anywhere near it.
+Then take one sandbox payment, following step 5 of BILLING.md, on the deployed
+URL rather than localhost. Only after that has worked end to end should live
+keys go anywhere near it.
 
 ## What still needs doing before real customers
 
 - **Uploads are on one disk.** Fine for one server. It becomes the thing to fix
   when you want two servers, or want backups independent of the host.
 - **A custom domain.** Both hosts do this in a few clicks and issue the
-  certificate for you. Update `NEXT_PUBLIC_APP_URL` and the Stripe webhook URL
+  certificate for you. Update `NEXT_PUBLIC_APP_URL` and the PayPal webhook URL
   when you do, or payment redirects will point at the old address.
 - **Database backups.** Neon's free plan keeps a short restore window; its paid
   plans and Render's both keep real backups. Confirm yours before a lab trusts

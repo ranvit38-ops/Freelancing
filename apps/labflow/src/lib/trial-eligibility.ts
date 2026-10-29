@@ -7,7 +7,7 @@
  * plus-address or an extra dot.
  *
  * The wall, when you want one, is requiring a card to start the trial. That is
- * a Stripe setting, not code, and it costs signups. Until then this keeps the
+ * a payment-provider setting, not code, and it costs signups. Until then this keeps the
  * honest majority honest and the free plan catches everyone else, which is the
  * point: an expired trial drops to free rather than locking anyone out.
  */

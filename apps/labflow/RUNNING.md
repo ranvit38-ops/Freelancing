@@ -119,22 +119,29 @@ pages stay readable and only writing is refused.
 
 One command drives the whole product in a real browser: signing up and
 resetting a password, Google sign-in, projects, protocols and their files,
-experiments and datasets, tasks, the calendar feed, chat, documents, research
-updates, inviting people and changing roles, two labs that must never see each
-other's records, the owner page, and every page on a laptop and a phone. AI,
-email and Google run against stand-ins, so no keys or money are involved.
+experiments and datasets, linked Google Sheets, tasks, the calendar feed, chat,
+documents, research updates, the AI allowance and a lab's own Claude key,
+inviting people and changing roles, two labs that must never see each other's
+records, the owner page, and every page on a laptop and a phone. AI, email,
+Google and PayPal run against stand-ins, so no keys or money are involved.
 
 ```bash
 npm run e2e:fakes &
 NEXT_PUBLIC_APP_URL=http://127.0.0.1:3001 npm run build
 NEXT_PUBLIC_APP_URL=http://127.0.0.1:3001 LABFLOW_PILOT_MODE=1 \
   ANTHROPIC_API_KEY=sk-ant-fake ANTHROPIC_BASE_URL=http://127.0.0.1:4555 \
+  LABFLOW_ENCRYPTION_KEY=e2e-only-not-a-secret \
   RESEND_API_KEY=re_fake RESEND_BASE_URL=http://127.0.0.1:4556 \
   EMAIL_FROM="Labquill <hello@labquill.test>" LABFLOW_OWNER_EMAIL=owner@labquill.test \
   GOOGLE_CLIENT_ID=fake GOOGLE_CLIENT_SECRET=fake GOOGLE_OAUTH_TOKEN_URL=http://127.0.0.1:4557/token \
+  GOOGLE_API_KEY=fake GOOGLE_API_BASE=http://127.0.0.1:4557 \
   npx next start -p 3001 &
 npm run e2e
 ```
+
+Paying is checked separately, because a pilot never bills: restart the server
+without `LABFLOW_PILOT_MODE` and with PayPal pointed at the stand-in, then run
+`npm run e2e:billing`. The variables are in `e2e/billing.mjs` and in CI.
 
 It prints one line per step and a count at the end. CI runs the same thing on
 every push.

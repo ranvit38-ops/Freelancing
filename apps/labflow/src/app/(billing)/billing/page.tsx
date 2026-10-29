@@ -1,10 +1,9 @@
-import { BillingPortalButton, PlanPicker, SyncBillingButton } from '@/components/billing-forms';
+import { CancelPlanForm, PlanPicker, SyncBillingButton } from '@/components/billing-forms';
 import { UnlockForm } from '@/components/unlock-form';
 import { Badge, Card, CardHeader, DefinitionList, PageHeader } from '@/components/ui';
 import { formatDate } from '@/lib/display';
 import {
   PLANS,
-  monthlyTotal,
   seatLimit,
   seatsRemaining,
   subscriptionNotice,
@@ -12,7 +11,7 @@ import {
 } from '@/lib/plans';
 import { PILOT_PLAN, pilotMode } from '@/lib/pilot';
 import { PilotFeedbackForm } from '@/components/pilot-feedback-form';
-import { billingProblem } from '@/server/billing';
+import { billingProblem, paypalLive } from '@/server/paypal';
 import { requireSession } from '@/server/authz';
 import { getSubscription, myPilotFeedback, seatUsage } from '@/server/queries';
 
@@ -40,26 +39,27 @@ export default async function BillingPage({
     <>
       <PageHeader
         title="Billing"
-        description="Plans are per lab, not per person. Stripe raises and charges a monthly invoice automatically."
+        description="Plans are per lab, not per person, paid monthly or yearly through PayPal."
       />
 
       {searchParams.checkout === 'success' ? (
         <p role="status" className="mb-5 rounded-lg border border-ok/25 bg-ok/5 px-4 py-3 text-sm text-ok">
-          Payment set up, and the plan below is what Stripe says you are on.
+          Subscribed, and the plan below is what PayPal says you are on. A confirmation with the renewal terms is on
+          its way by email.
         </p>
       ) : null}
-      {/* The payment went through. Stripe had just not finished creating the
-          subscription when the customer landed back here, which is normal and
-          resolves on its own. Never imply the charge failed. */}
+      {/* Approved. PayPal had just not finished activating the subscription
+          when the customer landed back here, which is normal and resolves on
+          its own. Never imply the charge failed. */}
       {searchParams.checkout === 'pending' ? (
         <p role="status" className="mb-5 rounded-lg border border-ok/25 bg-ok/5 px-4 py-3 text-sm text-ok">
-          Payment received. Stripe is still finishing the subscription, which usually takes a few
-          seconds. Reload this page, or use the refresh button below if it has not caught up.
+          Approved. PayPal is still finishing the subscription, which usually takes a few seconds. Reload this page,
+          or use the refresh button below if it has not caught up.
         </p>
       ) : null}
       {searchParams.checkout === 'cancelled' ? (
         <p className="mb-5 rounded-lg border border-line bg-raised px-4 py-3 text-sm text-muted">
-          Checkout was cancelled. Nothing was charged.
+          You left PayPal without subscribing. Nothing was charged.
         </p>
       ) : null}
       {notice ? (
@@ -103,23 +103,26 @@ export default async function BillingPage({
                 ),
               },
               {
-                term: 'Monthly',
-                value: sub?.plan ? `$${monthlyTotal(sub.plan)}` : 'not recorded',
+                term: 'Price',
+                value:
+                  sub?.plan && row?.paypalSubscriptionId && row.billingInterval
+                    ? `$${(row.billingInterval === 'year' ? PLANS[sub.plan].yearly : PLANS[sub.plan].monthly).toLocaleString('en-US')} a ${row.billingInterval}, through PayPal`
+                    : 'nothing is being charged',
               },
             ]}
           />
-          {row?.stripeCustomerId && canManage ? (
+          {row?.paypalSubscriptionId && row.status !== 'canceled' && canManage ? (
             <div className="mt-5 border-t border-line pt-4">
-              <BillingPortalButton />
+              <CancelPlanForm activeUntil={row.currentPeriodEnd ? formatDate(row.currentPeriodEnd) : null} />
               <p className="mt-2 text-xs text-subtle">
-                Opens Stripe, where the card, past invoices and cancellation all live.
+                Receipts and the payment method are in your PayPal account, under Automatic payments.
               </p>
             </div>
           ) : null}
-          {/* Shown to any manager, not only to workspaces that already have a
-              Stripe customer. The case worth rescuing is someone who paid and
-              whose workspace does not know it, and that workspace looks exactly
-              like one that never paid. */}
+          {/* Shown to any manager, not only to labs that already have a PayPal
+              subscription. The case worth rescuing is someone who paid and
+              whose lab does not know it, and that lab looks exactly like one
+              that never paid. */}
           {canManage ? (
             <div className="mt-4 border-t border-line pt-4">
               <SyncBillingButton />
@@ -131,17 +134,24 @@ export default async function BillingPage({
           <CardHeader title="How payment works" />
           <div className="space-y-3 px-5 py-4 text-sm leading-6 text-muted">
             <p>
-              Choosing a plan opens Stripe Checkout. Card details go straight to Stripe and never
-              touch Labquill, so there is no card data here to leak.
+              Choosing a plan opens PayPal, where you approve the subscription with a PayPal account or a card. Payment
+              details go straight to PayPal and never touch Labquill, so there is none here to leak.
             </p>
             <p>
-              After that it is automatic: Stripe raises an invoice each month, charges the card on
-              file, emails the receipt, and retries a failed payment before anything is cut off.
+              After that it is automatic: PayPal charges each month or year, emails the receipt, and retries a failed
+              payment before anything is cut off. Labquill emails the renewal terms when a plan starts, and a reminder a
+              month before a yearly plan renews.
             </p>
             <p>
-              Billing address and tax ID are collected at checkout, because a university finance
-              office will not accept an invoice without them.
+              Cancel any time with Cancel plan above, or in PayPal under Automatic payments. Nothing more is charged,
+              and the plan runs to the end of the period already paid for.
             </p>
+            {!paypalLive() && !billingProblem() ? (
+              <p className="rounded-lg border border-warn/25 bg-warn/5 px-3 py-2 text-warn">
+                PayPal is in sandbox mode on this site: subscriptions are tests and no real money moves. Set PAYPAL_ENV
+                to live to take real payments.
+              </p>
+            ) : null}
             {billingProblem() ? (
               <p className="rounded-lg border border-warn/25 bg-warn/5 px-3 py-2 text-warn">
                 Payments are not configured on this deployment, so checkout cannot open and nothing

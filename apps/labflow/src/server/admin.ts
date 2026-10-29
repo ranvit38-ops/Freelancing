@@ -7,7 +7,7 @@ import {
   workspaces,
   workspaceSubscriptions,
 } from '@/db/schema';
-import { isPlanId, monthlyTotal } from '@/lib/plans';
+import { PLANS, isPlanId, monthlyTotal } from '@/lib/plans';
 import { NotTheOwnerError, requireOwner } from './owner';
 import type { SessionContext } from './auth';
 
@@ -44,7 +44,8 @@ export async function ownerSummary(session: SessionContext) {
       status: workspaceSubscriptions.status,
       trialEndsAt: workspaceSubscriptions.trialEndsAt,
       currentPeriodEnd: workspaceSubscriptions.currentPeriodEnd,
-      stripeCustomerId: workspaceSubscriptions.stripeCustomerId,
+      paypalSubscriptionId: workspaceSubscriptions.paypalSubscriptionId,
+      billingInterval: workspaceSubscriptions.billingInterval,
       members: sql<number>`(
         select count(*)::int from "workspace_members" m where m.workspace_id = workspaces.id
       )`,
@@ -55,7 +56,7 @@ export async function ownerSummary(session: SessionContext) {
         select count(*)::int from "experiments" e where e.workspace_id = workspaces.id
       )`,
       aiThisMonth: sql<number>`(
-        select count(*)::int from "ai_generations" g
+        select count(*)::int from "ai_usage" g
         where g.workspace_id = workspaces.id
           and g.created_at >= date_trunc('month', now())
       )`,
@@ -69,9 +70,11 @@ export async function ownerSummary(session: SessionContext) {
     .leftJoin(workspaceSubscriptions, eq(workspaceSubscriptions.workspaceId, workspaces.id))
     .orderBy(desc(workspaces.createdAt));
 
-  const paying = rows.filter((r) => r.status === 'active' || r.status === 'past_due');
+  // Only labs with a PayPal subscription pay; a comped lab is active and free.
+  const paying = rows.filter((r) => r.paypalSubscriptionId && (r.status === 'active' || r.status === 'past_due'));
   const monthlyRevenue = paying.reduce(
-    (sum, r) => sum + (r.plan && isPlanId(r.plan) ? monthlyTotal(r.plan) : 0),
+    (sum, r) =>
+      sum + (r.plan && isPlanId(r.plan) ? (r.billingInterval === 'year' ? PLANS[r.plan].yearly / 12 : monthlyTotal(r.plan)) : 0),
     0,
   );
 
@@ -98,8 +101,8 @@ export async function ownerSummary(session: SessionContext) {
       canceled: rows.filter((r) => r.status === 'canceled').length,
       free: rows.filter((r) => !r.status || r.status === 'none').length,
       monthlyRevenue,
-      /** Stripe is connected only if at least one workspace has a customer id. */
-      stripeLinked: rows.filter((r) => Boolean(r.stripeCustomerId)).length,
+      /** PayPal is connected only if at least one workspace has a subscription. */
+      paypalLinked: rows.filter((r) => Boolean(r.paypalSubscriptionId)).length,
     },
   };
 }

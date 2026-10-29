@@ -2,7 +2,7 @@
  * Stand-ins for the services Labquill talks to, so the end-to-end test drives
  * the real code paths without real keys, real money or real inboxes.
  *
- *   node e2e/fakes.mjs            # model :4555, email :4556, Google token and Drive :4557
+ *   node e2e/fakes.mjs            # model :4555, email :4556, Google :4557, PayPal :4558
  *
  * Start the app pointed at them:
  *   ANTHROPIC_API_KEY=sk-ant-fake ANTHROPIC_BASE_URL=http://127.0.0.1:4555
@@ -208,4 +208,75 @@ serve(4557, async (req, res, _json, raw) => {
   res.end(JSON.stringify({ id_token: idToken }));
 });
 
-console.log('fakes: model :4555, email :4556, Google token and Drive :4557');
+/**
+ * PayPal on :4558: sign-in, subscriptions, plan changes, cancelling, and
+ * webhook verification. Approving a subscription goes through this server, as
+ * it does through paypal.com: the approve link activates it, then sends the
+ * browser on to the app's return URL. A webhook signature of
+ * "fake-good-signature" verifies; anything else does not. Plan ids ending in
+ * Y are yearly. Products, plans and webhooks can also be created, for
+ * `npm run paypal:setup`.
+ */
+const subs = new Map();
+let paypalSeq = 0;
+const plans = new Map();
+const json = (res, status, body) => {
+  res.writeHead(status, { 'content-type': 'application/json' });
+  res.end(body === undefined ? '' : JSON.stringify(body));
+};
+const days = (n) => new Date(Date.now() + n * 86_400_000).toISOString();
+serve(4558, (req, res, body) => {
+  const url = new URL(req.url, 'http://127.0.0.1:4558');
+  const path = url.pathname;
+  if (path === '/v1/oauth2/token') return json(res, 200, { access_token: 'fake-paypal-token', expires_in: 3600 });
+  if (path === '/v1/catalogs/products') return json(res, 201, { id: 'PROD-FAKE' });
+  if (path === '/v1/billing/plans' && req.method === 'POST') {
+    const id = `P-FAKE${++paypalSeq}${body.billing_cycles?.[0]?.frequency?.interval_unit === 'YEAR' ? 'Y' : 'M'}`;
+    plans.set(id, { id, status: 'ACTIVE', ...body });
+    return json(res, 201, plans.get(id));
+  }
+  if (path.startsWith('/v1/billing/plans/')) {
+    const plan = plans.get(path.split('/').pop());
+    return plan ? json(res, 200, plan) : json(res, 404, { message: 'not found' });
+  }
+  if (path === '/v1/notifications/webhooks') return json(res, 201, { id: 'WH-FAKE' });
+  if (path === '/v1/notifications/verify-webhook-signature') {
+    return json(res, 200, { verification_status: body.transmission_sig === 'fake-good-signature' ? 'SUCCESS' : 'FAILURE' });
+  }
+  if (path === '/v1/billing/subscriptions' && req.method === 'POST') {
+    const id = `I-FAKE${String(++paypalSeq).padStart(8, '0')}`;
+    subs.set(id, { id, status: 'APPROVAL_PENDING', plan_id: body.plan_id, custom_id: body.custom_id, subscriber: body.subscriber, returnUrl: body.application_context.return_url });
+    return json(res, 201, { id, status: 'APPROVAL_PENDING', links: [{ rel: 'approve', href: `http://127.0.0.1:4558/approve/${id}` }] });
+  }
+  const m = /^\/v1\/billing\/subscriptions\/(I-[A-Z0-9]+)(\/(cancel|revise))?$/.exec(path);
+  if (m) {
+    const sub = subs.get(m[1]);
+    if (!sub) return json(res, 404, { name: 'RESOURCE_NOT_FOUND', message: 'not found' });
+    if (m[3] === 'cancel') {
+      sub.status = 'CANCELLED';
+      delete sub.next;
+      return json(res, 204);
+    }
+    if (m[3] === 'revise') {
+      sub.pendingPlan = body.plan_id;
+      sub.returnUrl = body.application_context.return_url;
+      return json(res, 200, { plan_id: body.plan_id, links: [{ rel: 'approve', href: `http://127.0.0.1:4558/approve/${sub.id}` }] });
+    }
+    const { returnUrl, pendingPlan, next, ...shown } = sub;
+    return json(res, 200, { ...shown, billing_info: next ? { next_billing_time: next } : {} });
+  }
+  // The subscriber approves "on PayPal", then goes back to the app.
+  const approve = /^\/approve\/(I-[A-Z0-9]+)$/.exec(path);
+  if (approve && subs.has(approve[1])) {
+    const sub = subs.get(approve[1]);
+    if (sub.pendingPlan) sub.plan_id = sub.pendingPlan;
+    delete sub.pendingPlan;
+    sub.status = 'ACTIVE';
+    sub.next = days(sub.plan_id.endsWith('Y') ? 365 : 30);
+    res.writeHead(302, { location: `${sub.returnUrl}?subscription_id=${sub.id}&ba_token=BA-FAKE&token=EC-FAKE` });
+    return res.end();
+  }
+  json(res, 404, { message: `fake PayPal has no ${req.method} ${path}` });
+});
+
+console.log('fakes: model :4555, email :4556, Google token and Drive :4557, PayPal :4558');

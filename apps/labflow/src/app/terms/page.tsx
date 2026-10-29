@@ -54,6 +54,8 @@ export default function TermsPage() {
       title: 'Using Labquill fairly',
       body: [
         'Do not try to get into another lab\'s records or anyone else\'s account, probe or attack the service, overload it, scrape it, upload malware, use it to send unwanted email, or resell it without our written agreement.',
+        'The AI features are provided by Anthropic. Do not use them for anything Anthropic\'s Usage Policy (anthropic.com/legal/aup) prohibits.',
+        'You may not use Labquill if you are in a country under a United States embargo, or are on a United States government list of restricted parties, and you may not use it to export anything in breach of export-control law.',
       ],
     },
     {
@@ -86,9 +88,10 @@ export default function TermsPage() {
       title: 'Paid plans',
       body: [
         [
-          'Prices are shown on the Pricing page. Paid plans are billed in advance, monthly or yearly, through Stripe, plus any tax that applies.',
+          'Prices are shown on the Pricing page. Paid plans are billed in advance, monthly or yearly, through PayPal, plus any tax that applies. PayPal\'s own terms also apply to the payment.',
           'A paid plan renews automatically at the end of each period at the price then in effect, and you are charged for each renewal, until you cancel.',
-          'You can cancel at any time from Billing, then Manage billing. Cancelling stops the next renewal; the plan stays active until the end of the period you have paid for.',
+          'You can cancel at any time in Labquill under Billing, then Cancel plan, or in your PayPal account under Automatic payments. Cancelling stops the next renewal; the plan stays active until the end of the period you have paid for. We email a confirmation when a plan starts and when it is cancelled.',
+          'For yearly plans we email the lab\'s owners and admins a reminder about a month before each renewal, with the price and how to cancel.',
           'Payments are not refunded for partly used periods, except where the law requires it.',
           'We will email the lab\'s owners at least 30 days before a price change applies to their renewal.',
           `A person's first lab gets ${TRIAL_DAYS} days of the Lab plan free, without a card. When the trial ends the lab moves to the free plan. Nothing is charged unless you choose a plan.`,
@@ -129,9 +132,40 @@ export default function TermsPage() {
       ],
     },
     {
+      title: 'Copyright complaints',
+      body: [
+        `If you believe something in Labquill infringes your copyright, send a notice to ${id.contact ?? 'the contact address below'} with: your contact details; the work you say is infringed; where it is in Labquill; a statement that you believe in good faith the use is not authorised; a statement, under penalty of perjury, that your notice is accurate and that you are the owner or authorised to act for them; and your physical or electronic signature.`,
+        'We will remove or disable access to material that is the subject of a valid notice, tell the person who uploaded it, and close the accounts of people who repeatedly infringe. Someone whose material was removed by mistake may send a counter-notice to the same address.',
+      ],
+    },
+    {
+      title: 'Feedback',
+      body: [
+        'If you send us ideas or suggestions about Labquill, we may use them without owing you anything for them.',
+      ],
+    },
+    {
+      title: 'Accessibility',
+      body: [
+        'Labquill is built to be usable with a keyboard and a screen reader, and we test it for that. If any part of it is hard for you to use, tell us at the contact address below and we will fix it or find another way to get you what you need.',
+      ],
+    },
+    {
+      title: 'If something goes wrong between us',
+      body: [
+        'Tell us first, at the contact address below, and give us 30 days to put it right before starting any legal claim. Most problems are fixed far faster than that.',
+      ],
+    },
+    {
       title: 'Changes to these terms',
       body: [
         'When we change these terms we will post the new version here with a new date. If a change is significant we will email account holders at least 14 days before it takes effect. Using Labquill after that means you accept the new terms.',
+      ],
+    },
+    {
+      title: 'The rest',
+      body: [
+        'These terms and the Privacy statement are the whole agreement between you and us about Labquill. If a court finds part of them unenforceable, the rest still applies. Not enforcing a term straight away does not mean we give it up. You may not transfer your rights under these terms without our agreement; we may transfer ours to whoever takes over running Labquill, and will tell you if we do.',
       ],
     },
     ...(id.law

@@ -132,7 +132,31 @@ jobs:
       - name: Run every pipeline
         run: npm run e2e
 
+      # Paying needs a server that is not a pilot, with PayPal pointed at the
+      # stand-in on :4558.
+      - name: Restart outside pilot mode, with PayPal
+        env:
+          LABFLOW_PILOT_MODE: ""
+          PAYPAL_API_BASE: http://127.0.0.1:4558
+          PAYPAL_CLIENT_ID: fake
+          PAYPAL_CLIENT_SECRET: fake
+          PAYPAL_WEBHOOK_ID: WH-FAKE
+          PAYPAL_PLAN_LAB_MONTHLY: P-LABM
+          PAYPAL_PLAN_LAB_YEARLY: P-LABY
+          PAYPAL_PLAN_GROUP_MONTHLY: P-GRPM
+          PAYPAL_PLAN_GROUP_YEARLY: P-GRPY
+          PAYPAL_PLAN_DEPARTMENT_MONTHLY: P-DEPM
+          PAYPAL_PLAN_DEPARTMENT_YEARLY: P-DEPY
+        run: |
+          pkill -f next-server || true
+          sleep 2
+          npx next start -p 3001 > server-billing.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3001/api/version >/dev/null && break; sleep 1; done
+
+      - name: Pay, change plan, cancel, end to end
+        run: npm run e2e:billing
+
       - name: Server log
         if: failure()
-        run: tail -200 server.log
+        run: tail -200 server.log; tail -100 server-billing.log 2>/dev/null || true
 

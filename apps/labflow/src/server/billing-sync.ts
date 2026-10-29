@@ -1,94 +1,141 @@
-import type Stripe from 'stripe';
-import { applySubscriptionEvent, getSubscriptionByWorkspace } from './queries';
-import { mapStatus, planForPrice, stripe } from './billing';
+import { formatDate } from '@/lib/display';
+import { PLANS, isPlanId } from '@/lib/plans';
+import {
+  renewalReminderEmail,
+  subscriptionCancelledEmail,
+  subscriptionStartedEmail,
+} from './account-emails';
+import { absoluteUrl, sendEmail } from './mailer';
+import {
+  getPayPalSubscription,
+  mapPayPalStatus,
+  planForPayPalPlan,
+  priceFor,
+  type Interval,
+  type PaidPlanId,
+  type PayPalSubscription,
+} from './paypal';
+import {
+  applySubscriptionEvent,
+  billingContacts,
+  claimBillingNotice,
+  claimDueRenewalReminders,
+  getSubscriptionByWorkspace,
+} from './queries';
 
 /**
- * Writes what Stripe says about a workspace's subscription.
+ * Writes what PayPal says about a workspace's subscription.
  *
- * Stripe is the only authority on who has paid. This file exists so that
- * authority can be *asked*, rather than only listened for. A webhook that never
- * arrives is the one failure that costs a real customer: they are charged,
- * nothing unlocks, and the app has no idea anything happened.
+ * PayPal is the only authority on who has paid. This exists so that authority
+ * can be *asked*, from the return redirect, a webhook, or the refresh button,
+ * rather than only listened for: a webhook that never arrives is the failure
+ * that costs a real customer.
  */
 
-/** Derives the plan from the subscription's own line items, then stores it. */
-export async function storeSubscription(workspaceId: string, subscription: Stripe.Subscription) {
-  let plan: string | null = null;
-  for (const item of subscription.items.data) {
-    plan = planForPrice(item.price.id) ?? plan;
+export type SyncResult = { ok: true; plan: string | null; status: string } | { ok: false; reason: string };
+
+/** Stores one subscription for the lab it says it pays for, and sends the notice it calls for. */
+export async function storeSubscription(workspaceId: string, sub: PayPalSubscription): Promise<SyncResult> {
+  // custom_id is set by Labquill when the subscription is created and read
+  // back from PayPal's own copy, so it cannot be steered by a browser.
+  if (sub.custom_id !== workspaceId) return { ok: false, reason: 'That subscription belongs to a different lab.' };
+
+  const status = mapPayPalStatus(sub.status);
+  if (status === 'none') return { ok: false, reason: 'PayPal has not finished setting up the subscription yet.' };
+
+  const existing = await getSubscriptionByWorkspace(workspaceId);
+  // An older, cancelled subscription must not overwrite the one that replaced it.
+  if (
+    existing?.paypalSubscriptionId &&
+    existing.paypalSubscriptionId !== sub.id &&
+    existing.status === 'active' &&
+    status === 'canceled'
+  ) {
+    return { ok: true, plan: existing.plan, status: existing.status };
   }
-  // Fall back to what checkout recorded if the price ids have since changed.
-  plan = plan ?? subscription.metadata?.plan ?? null;
+
+  const mapped = planForPayPalPlan(sub.plan_id);
+  const next = sub.billing_info?.next_billing_time ? new Date(sub.billing_info.next_billing_time) : null;
+  // A cancelled subscription has no next payment, but the period already paid
+  // for still runs: keep the end date it had, so the lab keeps its plan until then.
+  const currentPeriodEnd = next ?? (existing?.paypalSubscriptionId === sub.id ? existing.currentPeriodEnd : null);
+  const plan = mapped?.plan ?? (existing?.paypalSubscriptionId === sub.id ? existing.plan : null);
+  const interval = mapped?.interval ?? (existing?.billingInterval as Interval | null) ?? null;
 
   await applySubscriptionEvent({
     workspaceId,
     plan,
-    status: mapStatus(subscription.status),
-    currentPeriodEnd: subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000)
-      : null,
-    stripeCustomerId:
-      typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id,
-    stripeSubscriptionId: subscription.id,
+    status,
+    currentPeriodEnd,
+    paypalSubscriptionId: sub.id,
+    billingInterval: interval,
   });
+
+  if (plan && isPlanId(plan) && plan !== 'free' && interval && (status === 'active' || status === 'canceled')) {
+    // A change of plan or period is a change of terms, so it gets its own confirmation.
+    const state = status === 'active' ? `${sub.id}:active:${plan}:${interval}` : `${sub.id}:canceled`;
+    if (await claimBillingNotice(workspaceId, state)) {
+      await notify(workspaceId, status === 'active' ? subscriptionStartedEmail : subscriptionCancelledEmail, {
+        plan,
+        interval,
+        date: currentPeriodEnd,
+      });
+    }
+  }
+  return { ok: true, plan, status };
 }
 
-export type SyncResult =
-  | { ok: true; plan: string | null; status: string }
-  | { ok: false; reason: string };
-
 /**
- * Asks Stripe directly what this workspace is paying for, and records it.
+ * Asks PayPal directly what this workspace is paying for, and records it.
  *
- * Two ways in, because a first purchase and a later one fail differently:
- *
- *  - `checkoutSessionId`, straight off the redirect Stripe sends the customer
- *    back with. This is the only handle that exists before any subscription has
- *    ever been stored, so it is what rescues a first purchase whose webhook was
- *    lost.
- *  - the stored customer id, for every time after that.
- *
- * Safe to call repeatedly. It writes the same state the webhook would, so the
- * two racing produces one outcome rather than two.
+ * `subscriptionId` comes off the return redirect, the only handle there is
+ * before anything has been stored; after that the stored id is used.
  */
-export async function syncSubscriptionFromStripe(
+export async function syncSubscriptionFromPayPal(workspaceId: string, subscriptionId?: string | null): Promise<SyncResult> {
+  const id = subscriptionId ?? (await getSubscriptionByWorkspace(workspaceId))?.paypalSubscriptionId;
+  if (!id) return { ok: false, reason: 'This lab has no PayPal subscription yet.' };
+  return storeSubscription(workspaceId, await getPayPalSubscription(id));
+}
+
+/** Emails a lab's owners and admins about its billing. Never throws: billing must not fail on email. */
+async function notify(
   workspaceId: string,
-  checkoutSessionId?: string | null,
-): Promise<SyncResult> {
-  const client = stripe();
-
-  if (checkoutSessionId) {
-    const checkout = await client.checkout.sessions.retrieve(checkoutSessionId);
-    // The id came back through the customer's browser, so it is not trusted
-    // until Stripe's own copy says it belongs to this workspace.
-    const claimed = checkout.client_reference_id ?? checkout.metadata?.workspaceId;
-    if (claimed !== workspaceId) {
-      return { ok: false, reason: 'That checkout belongs to a different lab.' };
-    }
-    if (!checkout.subscription) {
-      return { ok: false, reason: 'Stripe has not finished setting up the subscription yet.' };
-    }
-    const subscription = await client.subscriptions.retrieve(String(checkout.subscription));
-    await storeSubscription(workspaceId, subscription);
-    return { ok: true, plan: subscription.metadata?.plan ?? null, status: subscription.status };
+  build: typeof subscriptionStartedEmail,
+  input: { plan: PaidPlanId; interval: Interval; date: Date | null },
+) {
+  let billingLink: string;
+  let termsLink: string;
+  try {
+    billingLink = absoluteUrl('/billing');
+    termsLink = absoluteUrl('/terms');
+  } catch (error) {
+    console.warn(`[labflow] billing notice not sent: ${(error as Error).message}`);
+    return;
   }
-
-  const existing = await getSubscriptionByWorkspace(workspaceId);
-  if (!existing?.stripeCustomerId) {
-    return { ok: false, reason: 'This lab has no Stripe customer yet.' };
+  const contacts = await billingContacts(workspaceId);
+  for (const contact of contacts) {
+    const email = build({
+      name: contact.name,
+      labName: contact.labName,
+      planName: PLANS[input.plan].name,
+      price: `$${priceFor(input.plan, input.interval).toLocaleString('en-US')}`,
+      interval: input.interval,
+      date: input.date ? formatDate(input.date) : null,
+      billingLink,
+      termsLink,
+    });
+    await sendEmail({ to: contact.email, ...email }).catch((error: Error) =>
+      console.warn(`[labflow] billing notice to ${contact.email} not sent: ${error.message}`),
+    );
   }
+}
 
-  // Newest first, so a re-subscription wins over the cancelled one before it.
-  const list = await client.subscriptions.list({
-    customer: existing.stripeCustomerId,
-    status: 'all',
-    limit: 10,
-  });
-  const subscription = list.data.sort((a, b) => b.created - a.created)[0];
-  if (!subscription) {
-    return { ok: false, reason: 'Stripe has no subscription for this customer.' };
+/** Sends the reminders due before yearly renewals. Safe to run on any schedule, on any number of servers. */
+export async function sendRenewalReminders(): Promise<number> {
+  const due = await claimDueRenewalReminders();
+  for (const row of due) {
+    if (!row.plan || !isPlanId(row.plan) || row.plan === 'free') continue;
+    await notify(row.workspaceId, renewalReminderEmail, { plan: row.plan, interval: 'year', date: row.renewsOn });
   }
-
-  await storeSubscription(workspaceId, subscription);
-  return { ok: true, plan: subscription.metadata?.plan ?? null, status: subscription.status };
+  return due.length;
 }

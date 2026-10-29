@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           'Your research: everything you and your lab put into Labquill. Projects, experiments, notes, protocols, samples, inventory, files, datasets, documents, tasks, calendar events, chat and direct messages, saved literature, and answers the AI features produced.',
           'An activity log of who created, changed or deleted what, and when. It keeps short excerpts of notebook notes, including the first 500 characters of a deleted note, so that a lab record cannot vanish without trace.',
           'Your sessions: a SHA-256 hash of your sign-in token, never the token itself, and when it expires. Signing out deletes it.',
-          'Your billing state: plan, status, and the Stripe customer and subscription identifiers. Card numbers, billing addresses and tax IDs are collected and held by Stripe; card numbers never reach our servers.',
+          'Your billing state: plan, status, whether it is billed monthly or yearly, and the PayPal subscription identifier. Payment details are collected and held by PayPal and never reach our servers.',
           'Answers you give to our feedback questions.',
           'Our hosting provider keeps basic request logs, such as IP addresses and the pages requested, for a limited time, to run and protect the service.',
         ],
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
         [
           'Anthropic, for the AI features (LabBot, filling in a run from a description, analysis, catch-up briefings and document revisions). When you use one, the parts of your lab\'s records it needs are sent: for example the experiments, notes, protocols, tasks and messages you can see that relate to your question, people\'s names in them, file names, text taken from relevant uploaded files, and at most one relevant PDF in full. Anthropic processes this to produce the answer, under commercial terms that do not allow it to train models on what we send, and may keep it for a limited time for safety and abuse monitoring. If your lab adds its own Claude key, its requests go to Anthropic on the lab\'s own account instead, under the lab\'s own agreement with Anthropic; the key is stored encrypted and never shown again.',
           'Google, if you use it. Signing in with Google, importing files from Google Drive or linking a Google Sheet to a run (only the files you pick; the access token stays in your browser and is not stored, and a linked Sheet keeps only its Drive file id so it can be refreshed), and viewing Google Sheets, Docs or YouTube links your lab added, which load from Google and may set Google\'s own cookies under Google\'s privacy policy.',
-          'Stripe, for payments. Card details go directly to Stripe.',
+          'PayPal, for payments. You approve a subscription on PayPal\'s own site; your payment details go to PayPal, which tells us only whether the subscription is active and when it renews.',
           'Our email provider, which receives the address and contents of each email we send: invitations, password resets, notices, and documents or answers you choose to email.',
           'The NIH PubMed service, which receives your literature search terms and nothing about your lab.',
           'Render, which runs our servers and stores uploaded files, and our database provider. Our servers are in the United States.',

@@ -1,139 +1,115 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { isPlanId, renewalNotice } from '@/lib/plans';
+import { revalidatePath } from 'next/cache';
+import { isPlanId } from '@/lib/plans';
 import { absoluteUrl } from '../mailer';
 import { requireSession } from '../authz';
 import * as q from '../queries';
-import { revalidatePath } from 'next/cache';
-import { BillingNotConfiguredError, billingProblem, priceIdFor, stripe } from '../billing';
-import { syncSubscriptionFromStripe } from '../billing-sync';
+import { syncSubscriptionFromPayPal } from '../billing-sync';
+import {
+  BillingNotConfiguredError,
+  PayPalError,
+  billingProblem,
+  cancelPayPalSubscription,
+  createSubscription,
+  reviseSubscription,
+} from '../paypal';
 import type { ActionState } from './types';
 
 /**
- * Sends the workspace owner to Stripe Checkout.
+ * Sends the workspace owner to PayPal to approve a subscription.
  *
- * Stripe hosts the card form and, once subscribed, raises and charges a monthly
- * invoice on its own. Billing address and tax id are collected because a
- * university finance office will not accept an invoice without them.
+ * A lab already paying is moved to the new plan instead (PayPal's "revise"),
+ * so it is never subscribed twice.
  */
-export async function startCheckoutAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
+export async function startCheckoutAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireSession();
   if (session.role === 'member') {
     return { error: 'Only an owner or admin can change the plan for this lab.' };
   }
 
   const plan = String(formData.get('plan') ?? '');
-  if (!isPlanId(plan) || plan === 'free') {
-    return { error: 'Choose one of the paid plans.' };
-  }
+  const interval = formData.get('interval') === 'year' ? 'year' : 'month';
+  if (!isPlanId(plan) || plan === 'free') return { error: 'Choose one of the paid plans.' };
 
   const problem = billingProblem();
   if (problem) {
-    return {
-      error: `Payments are not configured on this deployment, so checkout cannot open. Nothing was charged. ${problem}`,
-    };
-  }
-
-  let url: string | null;
-  try {
-    const client = stripe();
-    const existing = await q.getSubscription(session);
-
-    // One line, always: the plan. There is no per-person add-on to price in.
-    const checkout = await client.checkout.sessions.create({
-      mode: 'subscription',
-      line_items: [{ price: priceIdFor(plan), quantity: 1 }],
-      customer: existing?.stripeCustomerId ?? undefined,
-      customer_email: existing?.stripeCustomerId ? undefined : session.userEmail,
-      client_reference_id: session.workspaceId,
-      // Read back by the webhook, which has no session of its own.
-      subscription_data: {
-        metadata: { workspaceId: session.workspaceId, plan },
-      },
-      metadata: { workspaceId: session.workspaceId, plan },
-      // A university finance office rejects an invoice without these.
-      billing_address_collection: 'required',
-      tax_id_collection: { enabled: true },
-      allow_promotion_codes: true,
-      // Auto-renewal laws want the renewal and how to cancel stated plainly
-      // beside the button that commits to it, not only in the Terms.
-      custom_text: { submit: { message: renewalNotice(absoluteUrl('/terms')) } },
-      success_url: absoluteUrl('/api/stripe/return?session_id={CHECKOUT_SESSION_ID}'),
-      cancel_url: absoluteUrl('/billing?checkout=cancelled'),
-    });
-    url = checkout.url;
-  } catch (error) {
-    if (error instanceof BillingNotConfiguredError) return { error: error.message };
-    console.error('[labflow] stripe checkout failed', error);
-    return { error: 'Stripe could not open a checkout session. Nothing was charged.' };
-  }
-
-  if (!url) return { error: 'Stripe did not return a checkout link. Nothing was charged.' };
-  redirect(url);
-}
-
-/**
- * Re-reads the subscription from Stripe.
- *
- * The safety net for the one failure that costs a customer: they paid, the
- * webhook never arrived, and nothing unlocked. Stripe knows the truth; this
- * asks for it.
- */
-export async function syncBillingAction(
-  _prev: ActionState,
-  _formData: FormData,
-): Promise<ActionState> {
-  const session = await requireSession();
-  if (session.role === 'member') {
-    return { error: 'Only an owner or admin can refresh billing.' };
-  }
-  const problem = billingProblem();
-  if (problem) return { error: problem };
-
-  try {
-    const result = await syncSubscriptionFromStripe(session.workspaceId);
-    if (!result.ok) return { error: result.reason };
-    revalidatePath('/billing');
-    revalidatePath('/', 'layout');
-    return { ok: true, message: `Stripe says this lab is ${result.status}.` };
-  } catch (error) {
-    if (error instanceof BillingNotConfiguredError) return { error: error.message };
-    console.error('[labflow] billing sync failed', error);
-    return { error: 'Stripe could not be reached. Nothing was changed.' };
-  }
-}
-
-/** Opens Stripe's own billing portal: card, invoices, cancellation. */
-export async function openBillingPortalAction(
-  _prev: ActionState,
-  _formData: FormData,
-): Promise<ActionState> {
-  const session = await requireSession();
-  if (session.role === 'member') {
-    return { error: 'Only an owner or admin can manage billing.' };
-  }
-
-  const subscription = await q.getSubscription(session);
-  if (!subscription?.stripeCustomerId) {
-    return { error: 'This lab has no billing account yet. Choose a plan first.' };
+    return { error: `Payments are not configured on this deployment, so PayPal cannot open. Nothing was charged. ${problem}` };
   }
 
   let url: string;
   try {
-    const portal = await stripe().billingPortal.sessions.create({
-      customer: subscription.stripeCustomerId,
-      return_url: absoluteUrl('/billing'),
-    });
-    url = portal.url;
+    const existing = await q.getSubscription(session);
+    const returnUrl = absoluteUrl('/api/paypal/return');
+    const cancelUrl = absoluteUrl('/billing?checkout=cancelled');
+    if (existing?.paypalSubscriptionId && (existing.status === 'active' || existing.status === 'past_due')) {
+      url = (await reviseSubscription(existing.paypalSubscriptionId, { plan, interval, returnUrl, cancelUrl })).approveUrl;
+    } else {
+      url = (
+        await createSubscription({
+          plan,
+          interval,
+          workspaceId: session.workspaceId,
+          email: session.userEmail,
+          returnUrl,
+          cancelUrl,
+        })
+      ).approveUrl;
+    }
   } catch (error) {
-    if (error instanceof BillingNotConfiguredError) return { error: error.message };
-    console.error('[labflow] stripe portal failed', error);
-    return { error: 'Stripe could not open the billing portal.' };
+    if (error instanceof BillingNotConfiguredError || error instanceof PayPalError) {
+      return { error: `${error.message} Nothing was charged.` };
+    }
+    throw error;
   }
   redirect(url);
 }
 
+/**
+ * Re-reads the plan from PayPal: the rescue for someone who has paid while the
+ * workspace still says otherwise, which is what a lost webhook looks like.
+ */
+export async function syncBillingAction(_prev: ActionState, _formData: FormData): Promise<ActionState> {
+  const session = await requireSession();
+  if (session.role === 'member') return { error: 'Only an owner or admin can refresh billing.' };
+  const problem = billingProblem();
+  if (problem) return { error: problem };
+  try {
+    const result = await syncSubscriptionFromPayPal(session.workspaceId);
+    if (!result.ok) return { error: result.reason };
+    revalidatePath('/', 'layout');
+    return { ok: true, message: `PayPal says this lab's plan is ${result.status}.` };
+  } catch (error) {
+    if (error instanceof BillingNotConfiguredError || error instanceof PayPalError) {
+      return { error: `${error.message} Nothing was changed.` };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Cancels the lab's subscription with PayPal, from inside Labquill, in one
+ * step: nobody should have to find PayPal's settings to stop paying. Nothing
+ * more is charged; the plan runs to the end of the period already paid for.
+ */
+export async function cancelPlanAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireSession();
+  if (session.role === 'member') return { error: 'Only an owner or admin can cancel the plan.' };
+  if (formData.get('confirm') !== 'cancel') return { error: 'Tick the box to confirm.' };
+  const existing = await q.getSubscription(session);
+  if (!existing?.paypalSubscriptionId || existing.status === 'canceled') {
+    return { error: 'This lab has no PayPal plan to cancel.' };
+  }
+  try {
+    await cancelPayPalSubscription(existing.paypalSubscriptionId, `Cancelled in Labquill by ${session.userEmail}`);
+    await syncSubscriptionFromPayPal(session.workspaceId, existing.paypalSubscriptionId);
+  } catch (error) {
+    if (error instanceof BillingNotConfiguredError || error instanceof PayPalError) {
+      return { error: `${error.message} The plan was not cancelled; try again, or cancel it in your PayPal account under Automatic payments.` };
+    }
+    throw error;
+  }
+  revalidatePath('/', 'layout');
+  return { ok: true, message: 'Cancelled. Nothing more will be charged, and a confirmation is on its way by email.' };
+}

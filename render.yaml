@@ -82,6 +82,28 @@ services:
       # never change it afterwards, or saved keys stop working.
       - key: LABFLOW_ENCRYPTION_KEY
         generateValue: true
+      # Payments. BILLING.md has the steps; `npm run paypal:setup -- --create`
+      # prints the plan and webhook ids. Sandbox unless PAYPAL_ENV is "live".
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PAYPAL_PLAN_LAB_MONTHLY
+        sync: false
+      - key: PAYPAL_PLAN_LAB_YEARLY
+        sync: false
+      - key: PAYPAL_PLAN_GROUP_MONTHLY
+        sync: false
+      - key: PAYPAL_PLAN_GROUP_YEARLY
+        sync: false
+      - key: PAYPAL_PLAN_DEPARTMENT_MONTHLY
+        sync: false
+      - key: PAYPAL_PLAN_DEPARTMENT_YEARLY
+        sync: false
       - key: LABFLOW_LEGAL_NAME
         sync: false
       - key: LABFLOW_CONTACT_EMAIL

@@ -54,14 +54,14 @@ export async function redeemOwnerCodeAction(
     return { error: 'That code is not recognised.' };
   }
 
-  // Comped: the top plan, with no Stripe subscription behind it.
+  // Comped: the top plan, with no PayPal subscription behind it.
   await applySubscriptionEvent({
     workspaceId: session.workspaceId,
     plan: 'department',
     status: 'active',
     currentPeriodEnd: null,
-    stripeCustomerId: null,
-    stripeSubscriptionId: null,
+    paypalSubscriptionId: null,
+    billingInterval: null,
   });
 
   console.info(

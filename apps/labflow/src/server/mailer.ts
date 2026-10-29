@@ -188,11 +188,11 @@ export async function sendEmail(
 }
 
 /**
- * Absolute links for emails and for Stripe's return URLs. Relative paths are
+ * Absolute links for emails and for PayPal's return URLs. Relative paths are
  * useless in an inbox, and worse at a payment provider.
  *
  * In production the localhost fallback is not a fallback, it is a trap: a
- * customer pays, Stripe sends them to http://localhost:3001, and they land on
+ * customer pays, PayPal sends them to http://localhost:3001, and they land on
  * a dead page believing the payment failed. Refusing outright is the only
  * honest option, and it fails before the charge rather than after it.
  */

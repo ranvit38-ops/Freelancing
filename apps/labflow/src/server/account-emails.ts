@@ -85,6 +85,82 @@ export function taskAssignedEmail({
   };
 }
 
+/* ── billing notices ─────────────────────────────────────────────────────
+ *
+ * Auto-renewal laws ask for the terms in writing once a subscription starts,
+ * notice when it is cancelled, and a reminder before a yearly one renews.
+ * Each says what it costs, when it renews, and exactly how to stop it.
+ */
+
+type BillingNotice = {
+  name: string;
+  labName: string;
+  planName: string;
+  price: string;
+  interval: 'month' | 'year';
+  /** e.g. "12 November 2026", or null when PayPal has not said yet. */
+  date: string | null;
+  billingLink: string;
+  termsLink: string;
+};
+
+const howToCancel = (b: BillingNotice) => [
+  'To cancel: open Billing in Labquill and choose "Cancel plan", or cancel it under Automatic payments in your PayPal account. The plan then stays active until the end of the period already paid for, and nothing more is charged.',
+  `Billing: ${b.billingLink}`,
+  `Terms: ${b.termsLink}`,
+];
+
+export function subscriptionStartedEmail(b: BillingNotice): Email {
+  const first = b.name.trim().split(/\s+/)[0] || 'there';
+  return {
+    subject: `Your Labquill ${b.planName} plan for ${b.labName}`,
+    text: [
+      `Hi ${first},`,
+      '',
+      `${b.labName} is now on the Labquill ${b.planName} plan, paid through PayPal.`,
+      '',
+      `It costs ${b.price} a ${b.interval} and renews automatically every ${b.interval} until you cancel.${b.date ? ` The next payment is due on ${b.date}.` : ''}`,
+      '',
+      ...howToCancel(b),
+      '',
+      'Keep this email as your record of the subscription.',
+    ].join('\n'),
+  };
+}
+
+export function subscriptionCancelledEmail(b: BillingNotice): Email {
+  const first = b.name.trim().split(/\s+/)[0] || 'there';
+  return {
+    subject: `Your Labquill plan for ${b.labName} is cancelled`,
+    text: [
+      `Hi ${first},`,
+      '',
+      `The ${b.planName} plan for ${b.labName} is cancelled, and nothing more will be charged.`,
+      b.date
+        ? `It stays active until ${b.date}. After that the lab becomes read-only: every record, file and dataset stays readable, and nothing is deleted.`
+        : 'The lab is now read-only: every record, file and dataset stays readable, and nothing is deleted.',
+      '',
+      `To start again, choose a plan in Billing: ${b.billingLink}`,
+    ].join('\n'),
+  };
+}
+
+export function renewalReminderEmail(b: BillingNotice): Email {
+  const first = b.name.trim().split(/\s+/)[0] || 'there';
+  return {
+    subject: `Your yearly Labquill plan renews${b.date ? ` on ${b.date}` : ' soon'}`,
+    text: [
+      `Hi ${first},`,
+      '',
+      `The yearly ${b.planName} plan for ${b.labName} renews automatically${b.date ? ` on ${b.date}` : ''}, and PayPal will then charge ${b.price} for the next year.`,
+      '',
+      'If that is what you want, there is nothing to do.',
+      '',
+      ...howToCancel(b),
+    ].join('\n'),
+  };
+}
+
 /**
  * Sends a confirmation without making anyone wait for it or fail because of
  * it. Signing up must not depend on an email provider being up, so this is not

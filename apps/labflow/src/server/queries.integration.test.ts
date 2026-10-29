@@ -999,3 +999,48 @@ suite('AI allowance and a lab\'s own key', () => {
     );
   });
 });
+
+suite('billing notices are sent once', () => {
+  let ctx: Ctx;
+  beforeAll(async () => {
+    ctx = await setup();
+  });
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.schema.workspaces).where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db
+      .delete(ctx.schema.users)
+      .where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId]));
+  });
+
+  it('claims a confirmation once per subscription and state', async () => {
+    await ctx.q.applySubscriptionEvent({
+      workspaceId: ctx.wsA.id,
+      plan: 'lab',
+      status: 'active',
+      currentPeriodEnd: new Date(Date.now() + 30 * 86_400_000),
+      paypalSubscriptionId: 'I-TESTSUB0001',
+      billingInterval: 'month',
+    });
+    expect(await ctx.q.claimBillingNotice(ctx.wsA.id, 'I-TESTSUB0001:active')).toBe(true);
+    expect(await ctx.q.claimBillingNotice(ctx.wsA.id, 'I-TESTSUB0001:active')).toBe(false);
+    expect(await ctx.q.claimBillingNotice(ctx.wsA.id, 'I-TESTSUB0001:canceled')).toBe(true);
+    expect((await ctx.q.billingContacts(ctx.wsA.id)).map((c) => c.email)).toEqual([ctx.sessionA.userEmail]);
+  });
+
+  it('reminds a yearly plan once, a month before it renews, and never a monthly one', async () => {
+    const soon = new Date(Date.now() + 30 * 86_400_000);
+    await ctx.q.applySubscriptionEvent({
+      workspaceId: ctx.wsB.id,
+      plan: 'group',
+      status: 'active',
+      currentPeriodEnd: soon,
+      paypalSubscriptionId: 'I-TESTSUB0002',
+      billingInterval: 'year',
+    });
+    const first = (await ctx.q.claimDueRenewalReminders()).map((r) => r.workspaceId);
+    expect(first).toContain(ctx.wsB.id);
+    expect(first).not.toContain(ctx.wsA.id);
+    expect((await ctx.q.claimDueRenewalReminders()).map((r) => r.workspaceId)).not.toContain(ctx.wsB.id);
+  });
+});

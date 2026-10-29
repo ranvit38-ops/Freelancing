@@ -1,156 +1,117 @@
-# Connecting Stripe
+# Connecting PayPal
 
-Labquill's payment code is already written. This is the account setup only, and
-none of it can be done from the code, it needs someone with legal authority
-over the bank account.
+Labquill's payment code is already written. This is the account setup only. It
+needs someone with legal authority over the money, so it cannot be done from
+the code.
 
-> **Before anything else.** Stripe requires the account holder to be 18 or over,
-> or a registered business. If you are under 18 the account must be opened by a
-> parent, guardian, or a company they set up. Money will land in whichever bank
-> account is attached, so this decision is not a formality.
+> **Before anything else.** PayPal requires the account holder to be 18 or over.
+> If you are under 18, a parent or guardian, or a company they set up (an LLC is
+> best), must open the PayPal Business account. Money lands in that account, and
+> that person or company is who the Terms name, so this is not a formality.
 
-## 1. Create the account
+## 1. Create the accounts
 
-Sign up at [dashboard.stripe.com/register](https://dashboard.stripe.com/register),
-then complete **Activate payments**: legal entity, address, and the bank account
-payouts go to. Until that is done you can only use test mode.
+1. A **PayPal Business** account at [paypal.com/business](https://www.paypal.com/business),
+   completed with the legal owner's details and a bank account for withdrawals.
+2. At [developer.paypal.com](https://developer.paypal.com), log in with it and open
+   **Apps & Credentials**. Stay on **Sandbox** for now and create an app. Copy its
+   **Client ID** and **Secret**.
 
-## 2. Create the three prices
+## 2. Set the keys (sandbox first)
 
-**Products → Add product.** Make one product per plan, each with a **recurring
-monthly** price:
+In Render (or `.env.local` for local testing), never in a chat or a commit:
 
-| Product | Price | Notes |
-|---|---|---|
-| Labquill Lab | 49.00 / month | |
-| Labquill Group | 99.00 / month | |
-| Labquill Department | 249.00 / month | |
-
-Open each price and copy its ID, it starts with `price_`.
-
-If you also want annual billing, add a second yearly price to the same product
-(490 / 990 / 2490). The code uses whichever ID you put in the environment.
-
-## 3. Put the keys in the environment
-
-From **Developers → API keys**, copy the secret key. Use the **test** key
-(`sk_test_…`) until you have taken a test payment.
-
-```bash
-STRIPE_SECRET_KEY="sk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."     # step 4 produces this
-STRIPE_PRICE_LAB="price_..."
-STRIPE_PRICE_GROUP="price_..."
-STRIPE_PRICE_DEPARTMENT="price_..."
-NEXT_PUBLIC_APP_URL="https://your-domain.com"
+```
+PAYPAL_ENV="sandbox"
+PAYPAL_CLIENT_ID="..."
+PAYPAL_CLIENT_SECRET="..."
 ```
 
-Never commit these. `.env.local` is gitignored; on a host, use its environment
-variable settings.
+`PAYPAL_ENV` is sandbox unless it says exactly `live`, so a half-finished setup
+can never take real money.
 
-Then check them before going further:
+## 3. Create the plans
 
-```bash
-npm run stripe:check
-```
-
-It asks Stripe what each id actually is and compares it to what the pricing
-page promises: right mode, recurring monthly, right amount, not archived. It
-only reads, and charges nothing. A price created with Test mode switched off is
-the most common mistake, and this is what catches it.
-
-## 4. Point the webhook at Labquill
-
-**Developers → Webhooks → Add endpoint.**
-
-- URL: `https://your-domain.com/api/stripe/webhook`
-- Events: `checkout.session.completed`, `customer.subscription.created`,
-  `customer.subscription.updated`, `customer.subscription.deleted`
-
-Copy the signing secret (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`.
-
-**This step is not optional.** The webhook is the only thing that writes
-subscription state, without it a customer pays and nothing unlocks.
-
-### Locally, or in a Codespace
-
-A dashboard endpoint needs a public URL. While the app is only running on your
-own machine or in a Codespace, use the Stripe CLI instead. It logs in to your
-account, listens for events, and forwards them to the app over the connection
-it opened, so nothing has to be reachable from the internet.
+From `apps/labflow`, with those three variables set:
 
 ```bash
-# Install (Codespaces and most Linux):
-curl -fsSL https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public \
-  | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg > /dev/null
-echo "deb [signed-by=/usr/share/keyrings/stripe.gpg] https://packages.stripe.dev/stripe-cli-debian-local stable main" \
-  | sudo tee /etc/apt/sources.list.d/stripe.list
-sudo apt update && sudo apt install stripe
-
-stripe login          # opens a browser to authorise this machine
-stripe listen --forward-to localhost:3001/api/stripe/webhook
+npm run paypal:setup -- --create --webhook https://your-site.onrender.com/api/paypal/webhook
 ```
 
-The `listen` command prints `Your webhook signing secret is whsec_…`. That is
-the value for `STRIPE_WEBHOOK_SECRET`. It is a different secret from the one a
-dashboard endpoint gives you, and it changes each time unless you pass
-`--load-from-webhooks-api`.
+It creates the Labquill product and six plans (Lab, Group and Department, each
+monthly and yearly) at exactly the prices on the Pricing page, plus the webhook,
+and prints seven lines:
 
-Leave `stripe listen` running in its own terminal while you test. Restart
-`npm run dev` after adding the secret, because the app reads it at startup.
+```
+PAYPAL_PLAN_LAB_MONTHLY=P-...
+PAYPAL_PLAN_LAB_YEARLY=P-...
+PAYPAL_PLAN_GROUP_MONTHLY=P-...
+PAYPAL_PLAN_GROUP_YEARLY=P-...
+PAYPAL_PLAN_DEPARTMENT_MONTHLY=P-...
+PAYPAL_PLAN_DEPARTMENT_YEARLY=P-...
+PAYPAL_WEBHOOK_ID=WH-...
+```
 
-## 5. Turn on the customer portal
+Paste all seven into Render and redeploy.
 
-**Settings → Billing → Customer portal → Activate.** Allow customers to update
-their card, see invoices and cancel. Labquill's "Manage billing" button opens
-this; without it, that button errors.
+## 4. Check it
 
-## 6. Take a test payment
+```bash
+npm run paypal:setup
+```
 
-With test keys, subscribe using card `4242 4242 4242 4242`, any future expiry,
-any CVC. Then check:
+Without `--create` it changes nothing: it asks PayPal what each plan id really
+is and compares the price and billing period with the Pricing page. Fix anything
+it marks `FIX` before going further. `/billing` on the site also names anything
+still missing.
 
-- `/billing` shows the plan as active
-- Stripe shows the subscription and an invoice
-- Inviting people stops at the number of people the plan covers
-- The terminal running `stripe listen` shows the events arriving with `200`
+## 5. Take a test payment
 
-A `400` in that terminal means the signing secret does not match. A connection
-error means the app is not running on port 3001.
+Turn off pilot mode for this (`LABFLOW_PILOT_MODE` empty), then on the deployed
+site, signed in as a lab owner:
 
-Cards worth trying, all with any future expiry and any CVC:
+1. Billing, then **Lab, $49 a month**. PayPal opens.
+2. Log in with a **sandbox personal account** (developer.paypal.com → Testing
+   Tools → Sandbox Accounts) and approve.
+3. You land back on Billing with the plan active, and the owner gets an email
+   with the renewal terms and how to cancel.
+4. **Cancel plan** on Billing: the plan stays active until the period ends, and a
+   cancellation email arrives.
 
-| Card number | What it does |
-|---|---|
-| 4242 4242 4242 4242 | succeeds |
-| 4000 0000 0000 9995 | declined, insufficient funds |
-| 4000 0025 0000 3155 | asks for 3D Secure authentication |
-
-Only then swap in the live keys.
+Only after that works end to end, repeat steps 1–4 of this file on the **Live**
+tab with `PAYPAL_ENV="live"`. Live plan ids are different from sandbox ones.
 
 ## What happens after that
 
-Nothing manual. Stripe raises an invoice each month, charges the card, emails
-the receipt, and retries a failed payment before anything lapses. Money reaches
-your bank on Stripe's payout schedule (usually 2–7 days for a new account).
+PayPal charges each month or year, emails its own receipts, and retries a failed
+payment (three tries) before suspending. Labquill reads every change from
+PayPal through the webhook, and the **Refresh from PayPal** button on Billing
+re-reads it if a webhook was ever missed.
 
-Stripe takes roughly 2.9% + 30¢ per transaction, about $1.72 of a $49 month.
+Labquill also emails, by law and by courtesy:
+
+- the renewal terms and how to cancel, when a plan starts or changes;
+- a confirmation when a plan is cancelled;
+- a reminder about a month before a yearly plan renews.
+
+These go to the lab's owners and admins, and need email (Resend) working.
+
+PayPal's fees for US merchants are roughly 3.49% + 49¢ per payment, about
+$2.20 of a $49 month. Check PayPal's current fee page; they change.
 
 ## University buyers
 
-Universities frequently pay by invoice or purchase order rather than card.
-Checkout already collects a billing address and tax ID so the invoice satisfies
-a finance office. For a department that cannot use a card at all, raise an
-invoice manually in Stripe (**Invoices → Create**) and then comp the workspace
-with the owner code below.
+Universities often pay by invoice or purchase order rather than card. For a
+department that cannot use PayPal, send an invoice from PayPal (**Invoicing →
+Create invoice**), and once it is paid, comp the lab with the owner code below.
 
 ## Owner code
 
 Setting `LABFLOW_OWNER_UNLOCK` to a long random string puts a redeem box on
-`/billing`. Entering that code puts the current workspace on the Department
-plan with no Stripe subscription, for your own workspace, a demo, or a
-customer who paid by bank transfer.
+`/billing`. Entering that code puts the current lab on the Department plan with
+no PayPal subscription, for your own lab, a demo, or a customer who paid by
+invoice.
 
-It is compared in constant time against a SHA-256 digest, rate limited to five
-attempts per ten minutes, requires a signed-in session, and logs every
-redemption. Leave the variable unset and the box does not exist.
+It is compared in constant time against a SHA-256 digest, rate limited per
+account, per address and across the whole server, requires a signed-in session,
+and logs every redemption. Leave the variable unset and the box does not exist.

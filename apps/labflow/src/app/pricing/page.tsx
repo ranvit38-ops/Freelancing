@@ -194,7 +194,7 @@ export default async function PricingPage() {
               },
               {
                 q: 'Can we pay by invoice or purchase order?',
-                a: 'Checkout takes cards, and collects a billing address and tax ID so the receipt satisfies a university finance office. If your department needs to pay an invoice or a purchase order instead, write to us before subscribing and we will arrange it.',
+                a: 'Plans are paid through PayPal, with a PayPal account or a card, monthly or yearly. If your department needs to pay an invoice or a purchase order instead, write to us before subscribing and we will arrange it.',
               },
               {
                 q: 'Is our research data used to train models?',

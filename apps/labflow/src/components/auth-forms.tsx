@@ -112,6 +112,25 @@ export function SignupForm({
           </Field>
         </>
       )}
+      <div>
+        <label className="flex items-start gap-2 text-sm text-muted">
+          <input id="agreeTerms" name="agreeTerms" type="checkbox" required className="mt-1" />
+          <span>
+            I agree to the{' '}
+            <a href="/terms" target="_blank" className="underline underline-offset-2 hover:text-fg">
+              Terms
+            </a>{' '}
+            and the{' '}
+            <a href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-fg">
+              Privacy statement
+            </a>
+            .
+          </span>
+        </label>
+        {state.fieldErrors?.agreeTerms ? (
+          <p className="mt-1 text-sm text-danger">{state.fieldErrors.agreeTerms}</p>
+        ) : null}
+      </div>
       <SubmitButton className="w-full" pendingLabel={joining ? 'Joining…' : 'Creating your lab…'}>
         {joining ? 'Join the lab' : 'Start a lab'}
       </SubmitButton>

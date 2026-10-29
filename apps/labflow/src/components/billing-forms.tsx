@@ -3,15 +3,12 @@
 import { useFormState } from 'react-dom';
 import { Badge, Card, FormError, cx } from './ui';
 import { SubmitButton } from './submit-button';
-import {
-  openBillingPortalAction,
-  startCheckoutAction,
-  syncBillingAction,
-} from '@/server/actions/billing';
+import { cancelPlanAction, startCheckoutAction, syncBillingAction } from '@/server/actions/billing';
 import { noState } from '@/server/actions/types';
-import { PLANS, PLAN_ORDER, type PlanId } from '@/lib/plans';
+import Link from 'next/link';
+import { PLANS, PLAN_ORDER, RENEWAL_TERMS, type PlanId } from '@/lib/plans';
 
-/** The plan cards. Choosing one opens Stripe Checkout. */
+/** The plan cards. Choosing one opens PayPal to approve the subscription. */
 export function PlanPicker({
   currentPlan,
   canManage,
@@ -23,6 +20,14 @@ export function PlanPicker({
 
   return (
     <div className="space-y-4">
+      {/* Auto-renewal laws want this beside the button that commits to it. */}
+      <p className="rounded-lg border border-line bg-raised px-4 py-3 text-sm text-muted" data-renewal-terms>
+        {RENEWAL_TERMS} By subscribing you agree to the{' '}
+        <Link href="/terms" className="underline underline-offset-2">
+          Terms
+        </Link>
+        .
+      </p>
       <FormError>{state.error}</FormError>
       <div className="grid gap-4 lg:grid-cols-3">
         {PLAN_ORDER.map((id) => {
@@ -67,15 +72,27 @@ export function PlanPicker({
                   Nothing is deleted.
                 </p>
               ) : (
-                <form action={action} className="mt-5">
+                <form action={action} className="mt-5 space-y-2">
                   <input type="hidden" name="plan" value={id} />
                   <SubmitButton
+                    name="interval"
+                    value="month"
                     tone={current ? 'secondary' : 'primary'}
                     className="w-full"
                     disabled={!canManage}
-                    pendingLabel="Opening Stripe…"
+                    pendingLabel="Opening PayPal…"
                   >
-                    {current ? 'Change plan' : `Choose ${plan.name}`}
+                    {current ? `Switch to ${plan.name}, $${plan.monthly} a month` : `${plan.name}, $${plan.monthly} a month`}
+                  </SubmitButton>
+                  <SubmitButton
+                    name="interval"
+                    value="year"
+                    tone="secondary"
+                    className="w-full"
+                    disabled={!canManage}
+                    pendingLabel="Opening PayPal…"
+                  >
+                    {`${plan.name}, $${plan.yearly.toLocaleString('en-US')} a year`}
                   </SubmitButton>
                 </form>
               )}
@@ -92,21 +109,35 @@ export function PlanPicker({
   );
 }
 
-/** Card, invoices and cancellation all live in Stripe's own portal. */
-export function BillingPortalButton() {
-  const [state, action] = useFormState(openBillingPortalAction, noState);
+/** Cancel inside Labquill, in one step, without hunting through PayPal. */
+export function CancelPlanForm({ activeUntil }: { activeUntil: string | null }) {
+  const [state, action] = useFormState(cancelPlanAction, noState);
+  if (state.ok) {
+    return (
+      <p role="status" className="text-sm text-ok">
+        {state.message}
+      </p>
+    );
+  }
   return (
     <form action={action} className="space-y-2">
       <FormError>{state.error}</FormError>
-      <SubmitButton tone="secondary" size="sm" pendingLabel="Opening…">
-        Manage billing, card and invoices
+      <label className="flex items-start gap-2 text-sm text-muted">
+        <input type="checkbox" name="confirm" value="cancel" required className="mt-1" />
+        <span>
+          Cancel this plan. Nothing more will be charged{activeUntil ? `; it stays active until ${activeUntil}` : ''}, and after
+          that the lab becomes read-only. Nothing is deleted.
+        </span>
+      </label>
+      <SubmitButton tone="secondary" size="sm" pendingLabel="Cancelling with PayPal…">
+        Cancel plan
       </SubmitButton>
     </form>
   );
 }
 
 /**
- * Re-reads the plan from Stripe.
+ * Re-reads the plan from PayPal.
  *
  * Here for the case where someone has paid and the workspace still says
  * otherwise, which is what a lost webhook looks like from the inside.
@@ -121,8 +152,8 @@ export function SyncBillingButton() {
           {state.message}
         </p>
       ) : null}
-      <SubmitButton tone="ghost" size="sm" pendingLabel="Asking Stripe…">
-        Paid but still not showing? Refresh from Stripe
+      <SubmitButton tone="ghost" size="sm" pendingLabel="Asking PayPal…">
+        Paid but still not showing? Refresh from PayPal
       </SubmitButton>
     </form>
   );

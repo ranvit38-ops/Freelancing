@@ -47,7 +47,7 @@ export default async function OwnerPage() {
     { label: 'People', value: String(totals.users), note: `${totals.newUsersThisMonth} in the last 30 days` },
     { label: 'Paying', value: String(totals.active), note: `${totals.trialing} trialing, ${totals.free} free` },
     { label: 'Needs attention', value: String(totals.pastDue + totals.canceled), note: `${totals.pastDue} past due, ${totals.canceled} cancelled` },
-    { label: 'Linked to Stripe', value: String(totals.stripeLinked), note: totals.stripeLinked === 0 ? 'No Stripe customer yet' : 'Workspaces with a customer id' },
+    { label: 'Paying through PayPal', value: String(totals.paypalLinked), note: totals.paypalLinked === 0 ? 'No PayPal subscription yet' : 'Labs with a subscription id' },
   ];
 
   return (
@@ -105,9 +105,9 @@ export default async function OwnerPage() {
                   <tr key={w.id}>
                     <td className="px-5 py-2.5">
                       <span className="block truncate font-medium">{w.name}</span>
-                      {w.stripeCustomerId ? (
+                      {w.paypalSubscriptionId ? (
                         <span className="block truncate font-mono text-xs text-subtle">
-                          {w.stripeCustomerId}
+                          {w.paypalSubscriptionId}
                         </span>
                       ) : null}
                     </td>

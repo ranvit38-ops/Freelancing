@@ -39,6 +39,8 @@ export const signupSchema = z
     /** Only when starting a lab. Someone joining one by invitation has none. */
     workspaceName: trimmed(120).optional(),
     institution: optionalText(160),
+    /** The tick box: a new account agrees to the Terms and Privacy statement. */
+    agreeTerms: z.literal('on', { errorMap: () => ({ message: 'Tick the box to agree to the Terms and Privacy statement' }) }),
   });
 
 export const loginSchema = z

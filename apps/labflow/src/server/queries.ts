@@ -19,7 +19,7 @@ import {
   literatureRefs,
   projects,
   protocolVersions,
-  processedStripeEvents,
+  processedPaypalEvents,
   protocols,
   researchUpdates,
   samples,
@@ -3021,7 +3021,7 @@ export async function getSubscription(s: SessionContext) {
 /**
  * The same row keyed on the workspace rather than a session.
  *
- * Reconciling with Stripe runs from a redirect and from a webhook, neither of
+ * Reconciling with PayPal runs from a redirect and from a webhook, neither of
  * which has a workspace-scoped session to hand.
  */
 export async function getSubscriptionByWorkspace(workspaceId: string) {
@@ -3089,24 +3089,17 @@ export async function startTrial(
   return first ? 'trial' : 'free';
 }
 
-export async function setStripeCustomer(s: SessionContext, customerId: string) {
-  await db
-    .update(workspaceSubscriptions)
-    .set({ stripeCustomerId: customerId, updatedAt: new Date() })
-    .where(eq(workspaceSubscriptions.workspaceId, s.workspaceId));
-}
-
 /**
- * Applied from a Stripe webhook, so it is keyed on the Stripe ids rather than
- * a session, there is no user in that request.
+ * Applied from PayPal's webhook and return redirect, so it is keyed on the
+ * workspace rather than a session: there is no user in a webhook request.
  */
 export async function applySubscriptionEvent(input: {
   workspaceId: string;
   plan: string | null;
   status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'none';
   currentPeriodEnd: Date | null;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
+  paypalSubscriptionId: string | null;
+  billingInterval: 'month' | 'year' | null;
 }) {
   await db
     .insert(workspaceSubscriptions)
@@ -3117,21 +3110,74 @@ export async function applySubscriptionEvent(input: {
         plan: input.plan,
         status: input.status,
         currentPeriodEnd: input.currentPeriodEnd,
-        stripeCustomerId: input.stripeCustomerId,
-        stripeSubscriptionId: input.stripeSubscriptionId,
+        paypalSubscriptionId: input.paypalSubscriptionId,
+        billingInterval: input.billingInterval,
         updatedAt: new Date(),
       },
     });
 }
 
 /** True the first time an event id is seen; false on a replay. */
-export async function claimStripeEvent(eventId: string): Promise<boolean> {
+export async function claimPayPalEvent(eventId: string): Promise<boolean> {
   const rows = await db
-    .insert(processedStripeEvents)
+    .insert(processedPaypalEvents)
     .values({ id: eventId })
     .onConflictDoNothing()
-    .returning({ id: processedStripeEvents.id });
+    .returning({ id: processedPaypalEvents.id });
   return rows.length > 0;
+}
+
+/**
+ * True the first time a lab reaches this billing state, so the email about it
+ * goes once however many webhooks and syncs report the same thing.
+ */
+export async function claimBillingNotice(workspaceId: string, state: string): Promise<boolean> {
+  const rows = await db
+    .update(workspaceSubscriptions)
+    .set({ notifiedState: state })
+    .where(
+      and(
+        eq(workspaceSubscriptions.workspaceId, workspaceId),
+        sql`${workspaceSubscriptions.notifiedState} is distinct from ${state}`,
+      ),
+    )
+    .returning({ id: workspaceSubscriptions.id });
+  return rows.length > 0;
+}
+
+/** Who hears about a lab's billing: its owners and admins. */
+export async function billingContacts(workspaceId: string) {
+  return db
+    .select({ email: users.email, name: users.name, labName: workspaces.name })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+    .where(and(eq(workspaceMembers.workspaceId, workspaceId), ne(workspaceMembers.role, 'member')));
+}
+
+/**
+ * Yearly plans renewing 25 to 35 days from now that have not been reminded
+ * for this renewal yet, each claimed as it is returned so two servers never
+ * send the same reminder.
+ */
+export async function claimDueRenewalReminders() {
+  return db
+    .update(workspaceSubscriptions)
+    .set({ renewalReminderFor: sql`${workspaceSubscriptions.currentPeriodEnd}` })
+    .where(
+      and(
+        eq(workspaceSubscriptions.billingInterval, 'year'),
+        eq(workspaceSubscriptions.status, 'active'),
+        sql`${workspaceSubscriptions.paypalSubscriptionId} is not null`,
+        sql`${workspaceSubscriptions.currentPeriodEnd} between now() + interval '25 days' and now() + interval '35 days'`,
+        sql`${workspaceSubscriptions.renewalReminderFor} is distinct from ${workspaceSubscriptions.currentPeriodEnd}`,
+      ),
+    )
+    .returning({
+      workspaceId: workspaceSubscriptions.workspaceId,
+      plan: workspaceSubscriptions.plan,
+      renewsOn: workspaceSubscriptions.currentPeriodEnd,
+    });
 }
 
 /* ── AI usage and the lab's own key ─────────────────────────────────────── */

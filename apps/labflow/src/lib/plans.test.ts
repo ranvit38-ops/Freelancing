@@ -4,7 +4,7 @@ import {
   PLAN_ORDER,
   allowanceUsed,
   monthlyTotal,
-  renewalNotice,
+  RENEWAL_TERMS,
   seatLimit,
   seatsRemaining,
   subscriptionNotice,
@@ -22,7 +22,7 @@ const base: SubscriptionState = {
 describe('canWrite', () => {
   it('allows an active plan and stops one that was paid for and ended', () => {
     expect(usable(base, NOW)).toBe(true);
-    expect(usable({ ...base, status: 'canceled' }, NOW)).toBe(false);
+    expect(usable({ ...base, status: 'canceled', currentPeriodEnd: '2026-04-01' }, NOW)).toBe(false);
   });
 
   it('lets a workspace that never paid write on the free plan', () => {
@@ -70,7 +70,7 @@ describe('seatLimit', () => {
 
   it('falls back to the free plan’s single seat when nothing is active', () => {
     expect(seatLimit(null, NOW)).toBe(PLANS.free.seats);
-    expect(seatLimit({ ...base, status: 'canceled' }, NOW)).toBe(PLANS.free.seats);
+    expect(seatLimit({ ...base, status: 'canceled', currentPeriodEnd: '2026-04-01' }, NOW)).toBe(PLANS.free.seats);
   });
 });
 
@@ -100,7 +100,7 @@ describe('subscriptionNotice', () => {
 
   it('warns on a failed payment, and says read-only rather than deleted', () => {
     expect(subscriptionNotice({ ...base, status: 'past_due' }, NOW)).toContain('payment failed');
-    const lapsed = subscriptionNotice({ ...base, status: 'canceled' }, NOW);
+    const lapsed = subscriptionNotice({ ...base, status: 'canceled', currentPeriodEnd: '2026-04-01' }, NOW);
     expect(lapsed).toContain('read-only');
     expect(lapsed).toContain('stays readable');
   });
@@ -174,7 +174,7 @@ describe('free tier and read-only lockout', () => {
 
   it('makes a lapsed paid workspace read-only, not free-tier writable', async () => {
     const { canWrite, effectivePlan } = await import('./plans');
-    const lapsed = { ...base, status: 'canceled' as const };
+    const lapsed = { ...base, status: 'canceled' as const, currentPeriodEnd: '2026-04-01' };
     expect(canWrite(lapsed, NOW)).toBe(false);
     expect(effectivePlan(lapsed, NOW)).toBe('free');
   });
@@ -192,13 +192,11 @@ describe('free tier and read-only lockout', () => {
   });
 });
 
-describe('renewalNotice', () => {
-  it('says it renews, how to cancel, and where the Terms are, within Stripe\'s limit', () => {
-    const text = renewalNotice('https://labquill.example/terms');
-    expect(text).toMatch(/renews automatically/);
-    expect(text).toMatch(/Cancel any time/);
-    expect(text).toContain('https://labquill.example/terms');
-    expect(text.length).toBeLessThanOrEqual(1200);
+describe('RENEWAL_TERMS', () => {
+  it('says it renews, and both ways to cancel', () => {
+    expect(RENEWAL_TERMS).toMatch(/renew automatically/);
+    expect(RENEWAL_TERMS).toMatch(/Cancel plan/);
+    expect(RENEWAL_TERMS).toMatch(/Automatic payments/);
   });
 });
 
@@ -207,5 +205,17 @@ describe('allowanceUsed', () => {
     expect(allowanceUsed('free')).toMatch(/Free plan includes 5 AI requests.*Lab includes 200 a month.*own Claude key/);
     expect(allowanceUsed('group')).toMatch(/Department includes 2,500 a month/);
     expect(allowanceUsed('department')).not.toMatch(/includes 2,500 a month\. Or/);
+  });
+});
+
+describe('a cancelled plan', () => {
+  it('keeps the plan until the period already paid for ends, then goes read-only', () => {
+    const cancelled = { ...base, status: 'canceled' as const, currentPeriodEnd: '2026-05-20' };
+    expect(effectivePlan(cancelled, NOW)).toBe('lab');
+    expect(usable(cancelled, NOW)).toBe(true);
+    expect(subscriptionNotice(cancelled, NOW)).toMatch(/stays active until May 20, 2026/);
+    const after = new Date('2026-05-21T00:00:00Z');
+    expect(effectivePlan(cancelled, after)).toBe('free');
+    expect(usable(cancelled, after)).toBe(false);
   });
 });

@@ -34,6 +34,7 @@ await page.fill('input[name="name"]', 'Responsive Check');
 await page.fill('input[name="workspaceName"]', `Responsive Lab ${stamp}`);
 await page.fill('input[name="email"]', `responsive-${stamp}@labflow.test`);
 await page.fill('input[name="password"]', 'correct-horse-battery-1');
+await page.check('#agreeTerms');
 await page.getByRole('button', { name: 'Start a lab' }).click();
 await page.waitForURL(/dashboard/, { timeout: 40000 });
 

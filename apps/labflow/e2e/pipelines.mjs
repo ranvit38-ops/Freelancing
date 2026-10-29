@@ -148,6 +148,7 @@ async function signUp(page, { name, email, password = 'a-very-long-password', la
   await page.fill('#email', email);
   await page.fill('#password', password);
   if (lab !== undefined && (await page.locator('#workspaceName').count())) await page.fill('#workspaceName', lab);
+  await page.check('#agreeTerms');
   await page.click('button[type=submit]');
 }
 
@@ -245,6 +246,18 @@ await step('sign-up refuses a short password', async () => {
   // minLength stops the browser submitting; the page must not move on.
   await pi.page.waitForTimeout(500);
   assert(pi.page.url().includes('/signup'), 'short password was accepted');
+});
+await step('sign-up refuses an account that did not agree to the Terms, even past the browser', async () => {
+  await pi.page.goto(`${BASE}/signup`);
+  await pi.page.fill('#name', 'Dr Pat Investigator');
+  await pi.page.fill('#email', `noagree-${stamp}@labquill.test`);
+  await pi.page.fill('#password', 'a-very-long-password');
+  await pi.page.fill('#workspaceName', 'No Agreement Lab');
+  // Strip the browser's own check, as a script would, to reach the server.
+  await pi.page.evaluate(() => document.getElementById('agreeTerms')?.removeAttribute('required'));
+  await pi.page.click('button[type=submit]');
+  await expectText(pi.page, 'Tick the box to agree');
+  assert(pi.page.url().includes('/signup'), 'an account was made without agreement');
 });
 await step('sign-up refuses a disposable address', async () => {
   await signUp(pi.page, { name: 'Dr Pat Investigator', email: `x${stamp}@mailinator.com`, lab: 'Pipeline Lab' });
@@ -831,6 +844,7 @@ await step('PI creates a join link; a student signs up through it and lands in t
   await S.fill('#name', 'Sam Student');
   await S.fill('#email', studentEmail);
   await S.fill('#password', 'a-very-long-password');
+  await S.check('#agreeTerms');
   await S.click('button[type=submit]');
   await S.waitForURL(/\/start/, { timeout: 20_000 });
   await expectText(S, 'Pipeline Lab');
@@ -869,6 +883,7 @@ await step('invite by email; the invitee signs up from the emailed link', async 
   await I.fill('#name', 'Ivy Invitee');
   if (await I.locator('#email').isEditable()) await I.fill('#email', inviteeEmail);
   await I.fill('#password', 'a-very-long-password');
+  await I.check('#agreeTerms');
   await I.click('button[type=submit]');
   await I.waitForURL(/\/start/, { timeout: 20_000 });
 });
@@ -1104,9 +1119,9 @@ await step('pilot billing page takes feedback', async () => {
     await expectText(P, /thank|got it|received/i);
   }
 });
-await step('Stripe webhook refuses unsigned events', async () => {
-  const r = await fetch(`${BASE}/api/stripe/webhook`, { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } });
-  // 400 with Stripe configured; 503 "not configured" without it. Never 2xx.
+await step('PayPal webhook refuses unsigned events', async () => {
+  const r = await fetch(`${BASE}/api/paypal/webhook`, { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } });
+  // 400 with PayPal configured; 503 "not configured" without it. Never 2xx.
   assert(r.status === 400 || r.status === 503, `status ${r.status}`);
 });
 await step('delete the second lab (typed confirmation)', async () => {
@@ -1137,6 +1152,7 @@ await step('a member deletes their own account; the lab and its records stay', a
   await x.page.fill('#name', 'Lee Leaver');
   await x.page.fill('#email', email);
   await x.page.fill('#password', 'a-very-long-password');
+  await x.page.check('#agreeTerms');
   await x.page.click('button[type=submit]');
   await x.page.waitForURL(/\/start/, { timeout: 20_000 });
   await x.page.goto(`${BASE}/settings`);

@@ -57,6 +57,18 @@ export function GoogleButton({
         </svg>
         Continue with Google
       </a>
+      {/* Right beside the button: continuing is agreeing, so it must be read first. */}
+      <p className="text-center text-xs text-subtle">
+        Continuing with Google means you agree to the{' '}
+        <a href="/terms" className="underline underline-offset-2 hover:text-fg">
+          Terms
+        </a>{' '}
+        and the{' '}
+        <a href="/privacy" className="underline underline-offset-2 hover:text-fg">
+          Privacy statement
+        </a>
+        .
+      </p>
       <div className="flex items-center gap-3 text-xs text-subtle">
         <span className="h-px flex-1 bg-line" />
         or
