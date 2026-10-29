@@ -21,6 +21,8 @@
  * error during a step fails that step. Delete owner@labquill.test between
  * runs against the same database, or the owner steps meet last run's account.
  */
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3001';
@@ -1192,6 +1194,39 @@ for (const [who, page] of [['PI', P], ['admin (the student)', S]]) {
     assert(!broken.length, broken.join('\n'));
   });
 }
+await step('every page passes an automated accessibility check (WCAG 2.1 AA), light and dark', async () => {
+  // Universities buy to WCAG 2.1 AA, and an inaccessible site is a legal
+  // risk as well as a lost user. axe catches what a machine can: contrast,
+  // labels, names, structure. Embedded third-party frames are not ours to fix.
+  const axe = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
+  const signedOut = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await signedOut.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => route.abort());
+  const visitor = await signedOut.newPage();
+  const found = [];
+  for (const scheme of ['light', 'dark']) {
+    for (const [page, paths] of [
+      [visitor, ['/', '/pricing', '/terms', '/privacy', '/guide', '/signup', '/login', '/forgot-password']],
+      [P, everyPage()],
+    ]) {
+      // Reduced motion: a fade-in caught half-way reads as low contrast, which
+      // is the animation's timing, not the colours.
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+      for (const path of paths) {
+        await page.goto(BASE + path);
+        await page.addScriptTag({ content: axe });
+        const violations = await page.evaluate(async () =>
+          (await window.axe.run(document, { iframes: false, runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] })).violations.map(
+            (v) => `${v.id} x${v.nodes.length} (${v.nodes[0]?.target.join(' ')})`,
+          ),
+        );
+        for (const v of violations) found.push(`${scheme} ${path}: ${v}`);
+      }
+    }
+  }
+  await signedOut.close();
+  await P.emulateMedia({ colorScheme: 'light', reducedMotion: 'no-preference' });
+  assert(!found.length, found.slice(0, 12).join('\n'));
+});
 await step('every page fits a phone screen without sideways scrolling', async () => {
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   await phone.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => route.abort());

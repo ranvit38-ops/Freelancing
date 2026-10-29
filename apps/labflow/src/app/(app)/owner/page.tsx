@@ -82,7 +82,7 @@ export default async function OwnerPage() {
           title="Workspaces"
           description="Newest first. Revenue is what each workspace's plan comes to per month."
         />
-        <div className="overflow-x-auto">
+        <div tabIndex={0} role="region" aria-label="Labs" className="overflow-x-auto">
           <table className="w-full min-w-[52rem] text-sm">
             <thead className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
               <tr>
@@ -147,7 +147,7 @@ export default async function OwnerPage() {
           title="Signups"
           description="Every account, newest first, with how they signed in and when they were last here."
         />
-        <div className="overflow-x-auto">
+        <div tabIndex={0} role="region" aria-label="Signups" className="overflow-x-auto">
           <table className="w-full min-w-[42rem] text-sm">
             <thead className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
               <tr>
@@ -188,7 +188,7 @@ export default async function OwnerPage() {
             title="Would they pay?"
             description="What pilot labs said, newest first. Read each answer beside that workspace's row above: an opinion from a lab that barely used it is not evidence."
           />
-          <div className="overflow-x-auto">
+          <div tabIndex={0} role="region" aria-label="Feedback" className="overflow-x-auto">
             <table className="w-full min-w-[48rem] text-sm">
               <thead className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
                 <tr>

@@ -148,7 +148,7 @@ export default async function PricingPage() {
         </p>
 
         <h2 className="mt-16 text-2xl font-semibold tracking-tight">Compare plans</h2>
-        <Card className="mt-6 overflow-x-auto">
+        <Card tabIndex={0} role="region" aria-label="Compare plans" className="mt-6 overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <caption className="sr-only">Feature comparison across Labquill plans</caption>
             <thead>

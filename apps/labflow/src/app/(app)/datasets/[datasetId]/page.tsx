@@ -116,7 +116,7 @@ export default async function DatasetPage({
             title="Columns"
             description="Descriptive statistics only, no interpretation."
           />
-          <div className="overflow-x-auto">
+          <div tabIndex={0} role="region" aria-label="Columns" className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
@@ -154,7 +154,7 @@ export default async function DatasetPage({
 
         <Card>
           <CardHeader title="Preview" description={`First ${preview.length} of ${dataset.rowCount} rows`} />
-          <div className="overflow-x-auto">
+          <div tabIndex={0} role="region" aria-label="Rows" className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">

@@ -143,6 +143,10 @@ export default async function BillingPage({
               month before a yearly plan renews.
             </p>
             <p>
+              Changing plan while subscribed is approved on PayPal too. PayPal charges the new price from your next
+              payment and does not prorate the current one.
+            </p>
+            <p>
               Cancel any time with Cancel plan above, or in PayPal under Automatic payments. Nothing more is charged,
               and the plan runs to the end of the period already paid for.
             </p>

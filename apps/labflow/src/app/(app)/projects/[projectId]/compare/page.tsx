@@ -121,7 +121,7 @@ export default async function ComparePage({
             title="Differences"
             description={`${rows.filter((r) => r.differs).length} of ${rows.length} rows differ`}
           />
-          <div className="overflow-x-auto">
+          <div tabIndex={0} role="region" aria-label="Comparison" className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <caption className="sr-only">
                 Field-by-field comparison of the selected experiments

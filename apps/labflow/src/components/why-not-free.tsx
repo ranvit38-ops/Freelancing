@@ -46,7 +46,7 @@ export function WhyNotFree() {
         Most small labs run on a shared folder and a document template, and they are free. They hold the
         writing. They cannot tell the person running the lab what is missing, or who changed what.
       </p>
-      <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-surface">
+      <div tabIndex={0} role="region" aria-label="Labquill compared with a shared folder" className="mt-6 overflow-x-auto rounded-xl border border-line bg-surface">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">

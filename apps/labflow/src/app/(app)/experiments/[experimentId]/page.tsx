@@ -277,7 +277,7 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                 }
               />
             ) : (
-              <div className="overflow-x-auto">
+              <div tabIndex={0} role="region" aria-label="Conditions" className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">

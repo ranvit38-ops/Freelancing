@@ -67,7 +67,7 @@ export function LabPulse({ rows }: { rows: PulseRow[] }) {
           );
         })}
       </ul>
-      <div className="hidden overflow-x-auto sm:block">
+      <div tabIndex={0} role="region" aria-label="This week by person" className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">

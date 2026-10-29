@@ -31,7 +31,8 @@ export function ScatterChart({
   const { plot } = chart;
 
   return (
-    <figure className="overflow-x-auto px-5 py-4">
+    // Scrolls sideways on a phone, so it takes keyboard focus: arrow keys can then scroll it.
+    <figure tabIndex={0} className="overflow-x-auto px-5 py-4">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="h-auto w-full min-w-[520px]"
