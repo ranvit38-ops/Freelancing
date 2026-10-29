@@ -75,6 +75,15 @@ services:
       # with Google, or use "Forgot password" once.
       - key: LABFLOW_OWNER_EMAIL
         sync: false
+      # Named in the Terms and Privacy statement: who runs the site (ideally a
+      # company), the address people write to, and the US state whose law
+      # governs the Terms.
+      - key: LABFLOW_LEGAL_NAME
+        sync: false
+      - key: LABFLOW_CONTACT_EMAIL
+        sync: false
+      - key: LABFLOW_GOVERNING_LAW
+        sync: false
       # Google sign-in. Leave both blank and the button is hidden rather than
       # shown broken.
       - key: GOOGLE_CLIENT_ID

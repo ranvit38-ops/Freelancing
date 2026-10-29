@@ -320,7 +320,7 @@ function ReviseWithLabBot({
       {error ? <p className="text-danger">{error}</p> : null}
       {proposal !== null && !error ? (
         <div className="space-y-2">
-          <p className="text-xs text-subtle">LabBot&rsquo;s suggestion. Nothing changes until you accept it.</p>
+          <p className="text-xs text-subtle">LabBot&rsquo;s suggestion, which can be wrong: check amounts, units and safety steps. Nothing changes until you accept it.</p>
           <div id="revise-proposal" className="max-h-72 overflow-y-auto rounded-lg border border-line bg-raised px-3 py-2">
             {proposal ? <ChatMarkdown text={proposal} /> : <p className="text-muted">Reading your lab…</p>}
           </div>

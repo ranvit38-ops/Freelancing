@@ -69,7 +69,7 @@ const features = [
   },
   {
     title: 'Evidence-linked AI',
-    body: 'Answers cite the experiment records they came from, so every claim can be opened and checked.',
+    body: 'Answers list the records they drew on, so you can open them and check. AI can still be wrong; the record is what counts.',
   },
   {
     title: 'Research updates',
@@ -241,7 +241,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
                 },
                 {
                   t: 'Evidence-linked answers',
-                  d: 'Every AI response lists the experiment records behind it. Click through and check.',
+                  d: 'AI answers list the records they drew on. Click through and check.',
                 },
                 {
                   t: 'Transparent uncertainty',
@@ -249,7 +249,7 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
                 },
                 {
                   t: 'Your data is not training data',
-                  d: 'Research records are never used to train models.',
+                  d: 'We never use your records to train models, and our AI provider\'s terms do not allow it either.',
                 },
               ].map((item) => (
                 <div key={item.t} className="rounded-lg border border-line bg-surface p-4">
@@ -281,6 +281,9 @@ export default async function LandingPage({ searchParams }: { searchParams?: { a
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <span>Labquill. A research workflow system for labs.</span>
           <span className="flex items-center gap-4 text-subtle">
+            <Link href="/terms" className="underline underline-offset-2 hover:text-fg">
+              Terms
+            </Link>
             <Link href="/privacy" className="underline underline-offset-2 hover:text-fg">
               Privacy
             </Link>

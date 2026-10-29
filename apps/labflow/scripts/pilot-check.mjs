@@ -161,6 +161,23 @@ if (join.error || join.status >= 500) {
   ok('The join link page works, and refuses a made-up code.');
 }
 
+// ── Do the Terms and Privacy statement say who runs the site? ──────────────
+//
+// Both pages work without it, and say plainly that nobody has been named. That
+// is honest, but it is not something to launch with: a lab asking who holds
+// its data deserves a name and an address.
+const terms = await get('/terms');
+if (terms.error || terms.status >= 400) {
+  no('The Terms page is broken.', terms.error ?? `It answered ${terms.status}.`);
+} else if (terms.body.includes('data-legal-configured="no"')) {
+  off(
+    'The Terms and Privacy statement do not name who runs this site, or give a contact address.',
+    'Set LABFLOW_LEGAL_NAME and LABFLOW_CONTACT_EMAIL (and LABFLOW_GOVERNING_LAW) on Render, then restart.',
+  );
+} else {
+  ok('The Terms and Privacy statement name who runs the site and how to reach them.');
+}
+
 // ── What only you can check ────────────────────────────────────────────────
 console.log('');
 ask('Sign in and ask LabBot a question. If it answers, the AI key works.');

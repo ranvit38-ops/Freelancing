@@ -1,105 +1,121 @@
-import Link from 'next/link';
+import { LegalPage, type LegalSection } from '@/components/legal-page';
+import { legalIdentity } from '@/lib/legal';
 
 export const metadata = { title: 'Privacy' };
+// The operator's name and contact are set on the host, not baked in at build.
+export const dynamic = 'force-dynamic';
 
-const sections = [
-  {
-    title: 'What we store',
-    body: [
-      'Your account: name, email address, and a scrypt hash of your password. The password itself is never stored and cannot be recovered from the hash. If you sign in with Google we store the address Google gives us and no password at all.',
-      'Your research: everything you put into a workspace. Projects, experiments, protocols, samples, inventory, files, datasets, discussion messages and saved literature.',
-      'Your sessions: a SHA-256 hash of the cookie token, never the token itself, alongside its expiry. Signing out deletes the row.',
-      'Your billing state: plan, status and the Stripe customer and subscription identifiers. Card numbers never reach our servers. Stripe collects and holds them.',
-    ],
-  },
-  {
-    title: 'Who can see it',
-    body: [
-      'Only members of your workspace. Every query in this application is filtered by workspace, and there is no query that fetches a record by id without also checking which workspace it belongs to.',
-      'The account owner can see a list of workspaces, plan states and account addresses in order to run the business. They cannot read your experiments, files, datasets or messages, because that capability is not built.',
-    ],
-  },
-  {
-    title: 'What leaves our servers',
-    body: [
-      'When you ask LabBot a question, a focused slice of your records is sent to Anthropic to generate the answer: the experiments relevant to your question, descriptive statistics of attached data, and any papers you saved. Raw uploaded files are never sent. If no model key is configured, LabBot says so rather than answering.',
-      'When you search literature, your search terms go to the NIH PubMed E-utilities API. Nothing about your lab is included.',
-      'When you pay, card details go directly to Stripe from your browser.',
-      'When we send an email, the address and message go to our email provider.',
-      'Nothing else leaves. Your records are not sold, shared with other customers, or used to train any model.',
-    ],
-  },
-  {
-    title: 'Where it lives',
-    body: [
-      'In a PostgreSQL database and a file store controlled by whoever operates this deployment. If you run it yourself, that is you, and nothing reaches us at all.',
-    ],
-  },
-  {
-    title: 'Deleting things',
-    body: [
-      'Deleting a project, experiment, sample, file, note or research update removes it and everything derived from it immediately. A sample still recorded against an experiment is refused rather than silently unlinked, so remove it from that run first.',
-      'Ending a paid plan never deletes anything. The lab becomes read-only: every record, file and dataset stays exactly where it is and stays readable. We will not hold your research hostage over a lapsed invoice.',
-      'An owner can delete an entire lab, and anyone can delete their own account, from Settings. Both take effect immediately, stored files included. To get a copy of everything in a lab, write to the address below.',
-    ],
-  },
-  {
-    title: 'Cookies',
-    body: [
-      'One cookie, holding your session token. It is HttpOnly, SameSite=lax, and Secure in production. There is no advertising, no analytics and no third-party tracking on this site.',
-      'Your theme choice, and whether the LabBot panel is open, are kept in your browser and never sent to us.',
-    ],
-  },
-];
-
+/*
+ * Every sentence here is a promise that someone can hold us to, so each one
+ * was checked against the code. Change the code, change this page in the
+ * same commit, and bump LEGAL_EFFECTIVE.
+ */
 export default function PrivacyPage() {
+  const id = legalIdentity();
+
+  const sections: LegalSection[] = [
+    {
+      title: 'Who is responsible',
+      body: [`Labquill is run by ${id.name}, which decides how the information described here is used.`],
+    },
+    {
+      title: 'What we store',
+      body: [
+        [
+          'Your account: your name, email address, and a scrypt hash of your password. The password itself is never stored and cannot be recovered from the hash. If you sign in with Google, Google gives us your name and email address, and no password is stored at all.',
+          'Your research: everything you and your lab put into Labquill. Projects, experiments, notes, protocols, samples, inventory, files, datasets, documents, tasks, calendar events, chat and direct messages, saved literature, and answers the AI features produced.',
+          'An activity log of who created, changed or deleted what, and when. It keeps short excerpts of notebook notes, including the first 500 characters of a deleted note, so that a lab record cannot vanish without trace.',
+          'Your sessions: a SHA-256 hash of your sign-in token, never the token itself, and when it expires. Signing out deletes it.',
+          'Your billing state: plan, status, and the Stripe customer and subscription identifiers. Card numbers, billing addresses and tax IDs are collected and held by Stripe; card numbers never reach our servers.',
+          'Answers you give to our feedback questions.',
+          'Our hosting provider keeps basic request logs, such as IP addresses and the pages requested, for a limited time, to run and protect the service.',
+        ],
+      ],
+    },
+    {
+      title: 'Who can see it',
+      body: [
+        'Inside Labquill, the members of your lab, according to their role. Files and documents marked private are visible only to their owner and the people they share them with, and direct messages only to the people in the conversation. Every query is written to be limited to your own lab, and automated tests check that one lab cannot read another lab\'s records.',
+        'The person who runs Labquill has an owner view, to run the business. It lists each lab\'s name, plan and usage counts (members, experiments, AI requests, last activity), and each account\'s name, email address, lab, role and sign-in method. It shows no research content.',
+        'The people who run the servers, and our hosting providers, could technically read the database. We look at a lab\'s content only to fix a problem its members have asked us to fix, to keep the service secure, or when the law requires it.',
+      ],
+    },
+    {
+      title: 'What leaves our servers',
+      body: [
+        'We use these service providers. Each receives only what it needs for its part:',
+        [
+          'Anthropic, for the AI features (LabBot, filling in a run from a description, analysis, catch-up briefings and document revisions). When you use one, the parts of your lab\'s records it needs are sent: for example the experiments, notes, protocols, tasks and messages you can see that relate to your question, people\'s names in them, file names, text taken from relevant uploaded files, and at most one relevant PDF in full. Anthropic processes this to produce the answer, under commercial terms that do not allow it to train models on what we send, and may keep it for a limited time for safety and abuse monitoring.',
+          'Google, if you use it. Signing in with Google, importing files from Google Drive (only the files you pick; the access token stays in your browser and is not stored), and viewing Google Sheets, Docs or YouTube links your lab added, which load from Google and may set Google\'s own cookies under Google\'s privacy policy.',
+          'Stripe, for payments. Card details go directly to Stripe.',
+          'Our email provider, which receives the address and contents of each email we send: invitations, password resets, notices, and documents or answers you choose to email.',
+          'The NIH PubMed service, which receives your literature search terms and nothing about your lab.',
+          'Render, which runs our servers and stores uploaded files, and our database provider. Our servers are in the United States.',
+        ],
+        'Labquill\'s use of information received from Google APIs adheres to the Google API Services User Data Policy, including its Limited Use requirements.',
+        'We do not sell your information, share it for advertising, or use your research to train AI models.',
+      ],
+    },
+    {
+      title: 'Cookies and browser storage',
+      body: [
+        'A cookie holding your sign-in token (HttpOnly, SameSite=lax, and Secure on the live site), and one remembering which lab you last opened. Signing in with Google sets short-lived cookies that are deleted once sign-in finishes.',
+        'Your browser also keeps, on your device only: your light or dark theme, whether the LabBot panel is open, unsent form drafts, your reading-path progress, and which version of the site the tab loaded.',
+        'There is no advertising, no analytics and no tracking across other websites, so there is nothing for a browser\'s Do Not Track setting to turn off. Embedded Google content is the one exception noted above.',
+      ],
+    },
+    {
+      title: 'Keeping and deleting',
+      body: [
+        'We keep your information while your account and lab exist.',
+        [
+          'Deleting a project, run, sample, note, task, message or research update removes that record. Files uploaded to a project or run stay in the lab\'s Files until they are deleted there.',
+          'Deleting a file removes the stored file.',
+          'An owner can delete a whole lab, and anyone can delete their own account, from Settings. That removes the lab\'s records, its activity log and its stored files straight away.',
+          'Our providers\' backups may keep copies for a limited time until they expire.',
+          'Ending a paid plan never deletes anything. The lab becomes read-only, and every record, file and dataset stays readable.',
+        ],
+        'To get a copy of everything in a lab, the lab\'s owner can write to the contact address below and we will provide an export within 30 days.',
+      ],
+    },
+    {
+      title: 'Your choices',
+      body: [
+        'You can see and correct your information in Labquill, and delete it as described above. You can ask us what we hold about you, or to correct or delete it, at the address below. Depending on where you live you may have further rights, and we will honour them.',
+      ],
+    },
+    {
+      title: 'Research participants',
+      body: [
+        'Labquill is not built for information that identifies research participants or for health information covered by HIPAA, and the Terms ask labs not to upload it. If a lab records data about other people, it is responsible for having their consent and the approvals it needs.',
+      ],
+    },
+    {
+      title: 'Security',
+      body: [
+        'Connections are encrypted, passwords and sign-in tokens are stored only as hashes, sign-in and other sensitive actions are rate limited, and access is limited to each lab. No system is perfectly secure. If a breach affects your information, we will tell you without undue delay and as the law requires.',
+      ],
+    },
+    {
+      title: 'Children',
+      body: [
+        'Labquill is not for children under 13, and we do not knowingly collect their information. If we learn that we have, we will delete it.',
+      ],
+    },
+    {
+      title: 'Changes',
+      body: [
+        'When this statement changes we will post the new version here with a new date. If a change is significant we will email account holders before it takes effect.',
+      ],
+    },
+  ];
+
   return (
-    <div className="mx-auto max-w-3xl px-5 py-14 sm:px-8">
-      <Link
-        href="/"
-        className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"
-      >
-        <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
-          <path
-            d="M10 3 5 8l5 5"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        Labquill
-      </Link>
-
-      <h1 className="text-2xl font-semibold tracking-tight">Privacy</h1>
-      <p className="mt-2 text-sm text-muted">
-        Written to be read, not to be defensible. If anything here is unclear, ask and we will
-        rewrite it.
-      </p>
-
-      <div className="mt-10 space-y-9">
-        {sections.map((s) => (
-          <section key={s.title}>
-            <h2 className="text-sm font-semibold tracking-tight">{s.title}</h2>
-            <div className="mt-2 space-y-3">
-              {s.body.map((paragraph) => (
-                <p key={paragraph} className="text-sm leading-6 text-muted">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-          </section>
-        ))}
-
-        <section>
-          <h2 className="text-sm font-semibold tracking-tight">Asking us something</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            {/* SETUP REQUIRED: replace with the address you want privacy mail sent to. */}
-            Contact the operator of this deployment. If that is not you, your workspace owner knows
-            who it is.
-          </p>
-        </section>
-      </div>
-    </div>
+    <LegalPage
+      title="Privacy"
+      intro="What Labquill stores, who can see it, and where it goes. If anything here is unclear, ask and we will rewrite it."
+      sections={sections}
+      identity={id}
+    />
   );
 }

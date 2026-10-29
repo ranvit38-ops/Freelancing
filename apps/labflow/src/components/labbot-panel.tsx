@@ -275,7 +275,8 @@ export function LabBotPanel({
             )}
           </div>
           <p className="mt-1.5 text-[11px] text-subtle">
-            Enter to send, Shift+Enter for a new line. Only uses what you can see yourself.
+            Enter to send, Shift+Enter for a new line. Only uses what you can see yourself. LabBot can be
+            wrong: check amounts, units and safety steps against the record before relying on them.
           </p>
         </form>
       </aside>

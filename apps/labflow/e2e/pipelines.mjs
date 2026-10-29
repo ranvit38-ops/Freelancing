@@ -182,13 +182,28 @@ if (!fakesUp) console.log('  (fakes not running: AI and email steps will fail. S
 // ── 1. public pages ───────────────────────────────────────────────────────
 
 console.log('Public pages');
-for (const path of ['/', '/pricing', '/privacy', '/guide', '/login', '/signup', '/forgot-password']) {
+for (const path of ['/', '/pricing', '/privacy', '/terms', '/guide', '/login', '/signup', '/forgot-password']) {
   await step(`${path} renders`, async () => {
     const r = await pi.page.goto(BASE + path);
     assert(r.status() === 200, `status ${r.status()}`);
     assert((await bodyText(pi.page)).includes('Labquill'), 'brand name missing');
   });
 }
+await step('sign-up links the Terms and Privacy, and they say what the code does', async () => {
+  await pi.page.goto(`${BASE}/signup`);
+  for (const href of ['/terms', '/privacy']) {
+    assert(await pi.page.locator(`a[href="${href}"]`).count(), `sign-up has no link to ${href}`);
+  }
+  await pi.page.goto(`${BASE}/terms`);
+  const terms = await bodyText(pi.page);
+  assert(terms.includes('renews automatically') && terms.includes('HIPAA'), 'terms miss renewal or regulated data');
+  // Nothing named on this server, so the page must say so rather than invent one.
+  assert(terms.includes('No contact address has been set up'), 'terms invented a contact');
+  await pi.page.goto(`${BASE}/privacy`);
+  const privacy = await bodyText(pi.page);
+  assert(privacy.includes('Anthropic') && privacy.includes('PDF'), 'privacy does not say what the AI is sent');
+  assert(!/never sent/i.test(privacy), 'privacy still promises files are never sent');
+});
 await step('tab icon is served and robots.txt keeps crawlers out of lab records', async () => {
   const html = await fetch(BASE + '/').then((r) => r.text());
   const icon = html.match(/<link rel="icon" href="([^"]+)"/)?.[1];

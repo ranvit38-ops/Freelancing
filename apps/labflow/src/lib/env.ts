@@ -17,6 +17,10 @@ const schema = z.object({
   LABFLOW_DISABLE_PAYWALL: z.string().optional(),
   LABFLOW_OWNER_UNLOCK: z.string().optional(),
   LABFLOW_OWNER_EMAIL: z.string().optional(),
+  // Who the Terms and Privacy statement name, and how to reach them. See lib/legal.
+  LABFLOW_LEGAL_NAME: z.string().optional(),
+  LABFLOW_CONTACT_EMAIL: z.string().optional(),
+  LABFLOW_GOVERNING_LAW: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),

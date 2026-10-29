@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/server/auth';
 import { Badge, ButtonLink, Card, cx } from '@/components/ui';
-import { PLANS, PLAN_ORDER, formatLimitBytes, type PlanId } from '@/lib/plans';
+import { PLANS, PLAN_ORDER, TRIAL_DAYS, formatLimitBytes, type PlanId } from '@/lib/plans';
 import { PILOT_PLAN, pilotMode } from '@/lib/pilot';
 import { WhyNotFree } from '@/components/why-not-free';
 
@@ -81,9 +81,8 @@ export default async function PricingPage() {
             Priced per lab, not per person.
           </h1>
           <p className="mt-4 text-lg leading-7 text-muted">
-            A five-person lab pays $49 a month, about a third of what per-seat academic notebooks
-            charge for the same five people. Start free with three people and the whole product, no
-            card required.
+            A five-person lab pays $49 a month, whoever the five people are. Start free with three
+            people and the whole product, no card required.
           </p>
         </div>
 
@@ -146,7 +145,9 @@ export default async function PricingPage() {
         <p className="mt-2 text-sm text-muted">
           Each plan covers a fixed number of people, and the price you see is the price you pay.
           There is no per-person add-on to work out. A lab that grows past its plan moves up to the
-          next one. Every paid plan starts with a 14-day trial.
+          next one. Your first lab gets {TRIAL_DAYS} days of the Lab plan free, without a card, then moves to the
+          free plan unless you choose one. Paid plans renew automatically until you cancel, which you can
+          do any time from Billing.
         </p>
 
         <h2 className="mt-16 text-2xl font-semibold tracking-tight">Compare plans</h2>
@@ -196,11 +197,11 @@ export default async function PricingPage() {
               },
               {
                 q: 'Can we pay by invoice or purchase order?',
-                a: 'Yes, on Group and Department. Billing address and tax ID are collected at checkout so the invoice satisfies a university finance office.',
+                a: 'Checkout takes cards, and collects a billing address and tax ID so the receipt satisfies a university finance office. If your department needs to pay an invoice or a purchase order instead, write to us before subscribing and we will arrange it.',
               },
               {
                 q: 'Is our research data used to train models?',
-                a: 'No. Records are never used to train models, and only the specific records retrieved for a question are ever sent to one.',
+                a: 'No. We never use your records to train models, and our AI provider\'s commercial terms do not allow it to train on what we send. When you use an AI feature, the parts of your records it needs are sent to answer it; the Privacy statement lists exactly what.',
               },
               {
                 q: 'What counts as a person?',
@@ -217,8 +218,16 @@ export default async function PricingPage() {
       </main>
 
       <footer className="border-t border-line">
-        <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-muted">
-          Records stay yours. Nothing here is used to train models.
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+          <span>Records stay yours. Nothing here is used to train models.</span>
+          <span className="flex items-center gap-4 text-subtle">
+            <Link href="/terms" className="underline underline-offset-2 hover:text-fg">
+              Terms
+            </Link>
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-fg">
+              Privacy
+            </Link>
+          </span>
         </div>
       </footer>
     </div>

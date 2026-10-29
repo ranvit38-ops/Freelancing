@@ -63,6 +63,12 @@ export default async function SettingsPage() {
             >
               Privacy statement
             </a>
+            <a
+              href="/terms"
+              className="rounded-lg px-3 py-1.5 text-sm text-muted underline underline-offset-2 hover:text-fg"
+            >
+              Terms
+            </a>
           </div>
         </Card>
 

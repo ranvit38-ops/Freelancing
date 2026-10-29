@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { isPlanId } from '@/lib/plans';
+import { isPlanId, renewalNotice } from '@/lib/plans';
 import { absoluteUrl } from '../mailer';
 import { requireSession } from '../authz';
 import * as q from '../queries';
@@ -59,6 +59,9 @@ export async function startCheckoutAction(
       billing_address_collection: 'required',
       tax_id_collection: { enabled: true },
       allow_promotion_codes: true,
+      // Auto-renewal laws want the renewal and how to cancel stated plainly
+      // beside the button that commits to it, not only in the Terms.
+      custom_text: { submit: { message: renewalNotice(absoluteUrl('/terms')) } },
       success_url: absoluteUrl('/api/stripe/return?session_id={CHECKOUT_SESSION_ID}'),
       cancel_url: absoluteUrl('/billing?checkout=cancelled'),
     });

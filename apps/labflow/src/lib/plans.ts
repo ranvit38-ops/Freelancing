@@ -290,3 +290,16 @@ export function toSubscriptionState(row: {
     currentPeriodEnd: row.currentPeriodEnd,
   };
 }
+
+/**
+ * Shown on Stripe Checkout above the Subscribe button. Stripe already shows
+ * the price and period; this says that it renews, how to stop it, and where
+ * the Terms are. Stripe caps the text at 1200 characters.
+ */
+export function renewalNotice(termsUrl: string): string {
+  return (
+    'Your plan renews automatically at the end of each billing period, at the price shown, until you cancel. ' +
+    'Cancel any time in Labquill under Billing, then Manage billing; the plan stays active until the end of the period you have paid for. ' +
+    `By subscribing you agree to the Terms: ${termsUrl}`
+  );
+}

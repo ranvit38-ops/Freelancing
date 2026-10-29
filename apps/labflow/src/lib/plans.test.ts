@@ -3,6 +3,7 @@ import {
   PLANS,
   PLAN_ORDER,
   monthlyTotal,
+  renewalNotice,
   seatLimit,
   seatsRemaining,
   subscriptionNotice,
@@ -187,5 +188,15 @@ describe('free tier and read-only lockout', () => {
     expect(formatLimitBytes(50 * 1024 * 1024)).toBe('50 MB');
     expect(formatLimitBytes(10 * 1024 ** 3)).toBe('10 GB');
     expect(formatLimitBytes(null)).toBe('Unlimited');
+  });
+});
+
+describe('renewalNotice', () => {
+  it('says it renews, how to cancel, and where the Terms are, within Stripe\'s limit', () => {
+    const text = renewalNotice('https://labquill.example/terms');
+    expect(text).toMatch(/renews automatically/);
+    expect(text).toMatch(/Cancel any time/);
+    expect(text).toContain('https://labquill.example/terms');
+    expect(text.length).toBeLessThanOrEqual(1200);
   });
 });
