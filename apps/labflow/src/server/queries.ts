@@ -389,6 +389,8 @@ export async function getExperimentRecord(s: SessionContext, experimentId: strin
         byteSize: files.byteSize,
         sourceUrl: files.sourceUrl,
         provider: files.provider,
+        driveFileId: files.driveFileId,
+        driveSyncedAt: files.driveSyncedAt,
         createdAt: files.createdAt,
       })
       .from(experimentFiles)
@@ -1153,12 +1155,15 @@ export async function recordFile(
     storageKey: string;
     private?: boolean;
     isDocument?: boolean;
+    /** Set when the bytes are a copy of a Google Sheet. */
+    driveFileId?: string | null;
   },
 ) {
   const rows = await db
     .insert(files)
     .values({
       ...input,
+      ...(input.driveFileId ? { driveSyncedAt: new Date() } : {}),
       workspaceId: s.workspaceId,
       uploadedById: s.userId,
       ...(input.isDocument ? { updatedAt: new Date(), updatedById: s.userId } : {}),
@@ -1333,6 +1338,66 @@ export async function saveDocumentVersion(
 }
 
 /* ── datasets ───────────────────────────────────────────────────────────── */
+
+/* ── linked Google Sheets ───────────────────────────────────────────────── */
+
+/** A file that is a copy of a Google Sheet, if this person can see it. */
+export async function getLinkedSheet(s: SessionContext, fileId: string) {
+  assertId(fileId, 'File');
+  const rows = await db
+    .select({ id: files.id, filename: files.filename, storageKey: files.storageKey, driveFileId: files.driveFileId })
+    .from(files)
+    .where(and(eq(files.id, fileId), fileVisibleTo(s)));
+  const row = assertFound(rows[0], 'File');
+  if (!row.driveFileId || !row.storageKey) throw new NotFoundInWorkspaceError('That file is not linked to a Google Sheet.');
+  return { ...row, driveFileId: row.driveFileId, storageKey: row.storageKey };
+}
+
+/** Points a linked Sheet's file at freshly copied bytes, and its datasets at the new table. */
+export async function replaceLinkedSheet(
+  s: SessionContext,
+  fileId: string,
+  input: { storageKey: string; byteSize: number; table: DatasetTable | null },
+): Promise<number> {
+  const now = new Date();
+  const label = await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(files)
+      .set({ storageKey: input.storageKey, byteSize: input.byteSize, driveSyncedAt: now, updatedAt: now, updatedById: s.userId })
+      .where(and(eq(files.id, fileId), eq(files.workspaceId, s.workspaceId)))
+      .returning({ filename: files.filename });
+    const row = assertFound(updated[0], 'File');
+    if (input.table) {
+      const table = input.table;
+      const sets = await tx
+        .select({ id: datasets.id })
+        .from(datasets)
+        .where(and(eq(datasets.fileId, fileId), eq(datasets.workspaceId, s.workspaceId)));
+      for (const { id: datasetId } of sets) {
+        await tx.update(datasets).set({ rows: table.rows, rowCount: table.rows.length, updatedAt: now }).where(eq(datasets.id, datasetId));
+        await tx.delete(datasetColumnsTable).where(eq(datasetColumnsTable.datasetId, datasetId));
+        if (table.columns.length > 0) {
+          await tx.insert(datasetColumnsTable).values(table.columns.map((c, i) => ({ ...c, datasetId, position: i })));
+        }
+      }
+    }
+    return row.filename;
+  });
+  const refreshed = input.table
+    ? (await db.select({ n: count() }).from(datasets).where(eq(datasets.fileId, fileId)))[0]?.n ?? 0
+    : 0;
+  await logActivity(s, { action: 'changed', subjectType: 'file', subjectId: fileId, label, detail: 'refreshed from Google Sheets', href: '/files' });
+  return refreshed;
+}
+
+type DatasetTable = {
+  rows: Record<string, string>[];
+  columns: {
+    name: string;
+    isNumeric: boolean;
+    stats: { count: number; missing: number; min?: number; max?: number; mean?: number; stdDev?: number } | null;
+  }[];
+};
 
 export async function createDataset(
   s: SessionContext,

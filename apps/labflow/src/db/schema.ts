@@ -366,6 +366,9 @@ export const files = pgTable(
     private: boolean('private').notNull().default(false),
     /** Written and edited inside Labquill rather than uploaded. See migration 0018. */
     isDocument: boolean('is_document').notNull().default(false),
+    /** The Google Sheet this copy came from, so it can be refreshed. See migration 0024. */
+    driveFileId: text('drive_file_id'),
+    driveSyncedAt: timestamp('drive_synced_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
     updatedById: uuid('updated_by_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),

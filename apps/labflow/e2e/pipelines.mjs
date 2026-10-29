@@ -565,6 +565,44 @@ await step('AI analysis reports a refusal honestly', async () => {
   await P.getByRole('button', { name: 'Analyse with LabBot' }).click();
   await expectText(P, 'declined', 30_000);
 });
+await step('a Google Sheet becomes the run\'s data, and Refresh brings in what changed', async () => {
+  const sheet = { id: 'fakeSheetId123456', name: 'Plate readings', mimeType: 'application/vnd.google-apps.spreadsheet' };
+  const linked = await P.evaluate(
+    async (body) => (await fetch('/api/drive/sheets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json(),
+    { accessToken: 'fake-token', experimentId: ids.experiment, sheet },
+  );
+  assert(linked.fileId && linked.datasetId, `link: ${JSON.stringify(linked)}`);
+  await P.goto(`${BASE}/datasets/${linked.datasetId}`);
+  const before = await bodyText(P);
+  await P.goto(`${BASE}/experiments/${ids.experiment}`);
+  await expectText(P, 'Plate readings.xlsx');
+  await expectText(P, 'Refresh from Google Sheets');
+  const refreshed = await P.evaluate(
+    async (body) => (await fetch('/api/drive/sheets/refresh', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json(),
+    { accessToken: 'fake-token', fileId: linked.fileId },
+  );
+  assert(refreshed.datasets === 1, `refresh: ${JSON.stringify(refreshed)}`);
+  await P.goto(`${BASE}/datasets/${linked.datasetId}`);
+  const after = await bodyText(P);
+  assert(before !== after, 'the dataset did not change after refreshing');
+  // Someone Google will not let read the Sheet is told why, not given a stale copy.
+  const denied = await P.evaluate(
+    async (body) => {
+      const r = await fetch('/api/drive/sheets/refresh', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      return { status: r.status, ...(await r.json()) };
+    },
+    { accessToken: 'denied', fileId: linked.fileId },
+  );
+  assert(denied.status === 502 && /link it yourself/.test(denied.error), JSON.stringify(denied));
+  // Only Sheets can be linked as data.
+  const wrong = await P.evaluate(
+    async (body) => (await fetch('/api/drive/sheets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json(),
+    { accessToken: 'fake-token', experimentId: ids.experiment, sheet: { ...sheet, mimeType: 'application/pdf' } },
+  );
+  assert(/Pick a Google Sheet/.test(wrong.error ?? ''), JSON.stringify(wrong));
+  // The refusal and the wrong file type above were asked for.
+  stepErrors = stepErrors.filter((e) => !/sheets\/refresh|status of 502|status of 400/.test(e));
+});
 await step('ask the project assistant', async () => {
   await P.goto(`${BASE}/projects/${ids.project}/assistant`);
   await P.fill('#question', 'What have we learned about batch 1?');

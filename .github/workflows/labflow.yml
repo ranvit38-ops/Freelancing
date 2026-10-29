@@ -98,6 +98,9 @@ jobs:
       GOOGLE_CLIENT_ID: fake-client
       GOOGLE_CLIENT_SECRET: fake-secret
       GOOGLE_OAUTH_TOKEN_URL: http://127.0.0.1:4557/token
+      # Drive and Sheets: the fake on :4557 serves a Sheet export.
+      GOOGLE_API_KEY: fake-api-key
+      GOOGLE_API_BASE: http://127.0.0.1:4557
 
     steps:
       - uses: actions/checkout@v4

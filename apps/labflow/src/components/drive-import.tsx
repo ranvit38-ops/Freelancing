@@ -7,9 +7,9 @@ import { Button } from './ui';
 
 /* Only the handful of Google browser APIs this uses. */
 type TokenResponse = { access_token?: string; error?: string };
-type PickerDoc = { id: string; name: string; mimeType: string };
+export type PickerDoc = { id: string; name: string; mimeType: string };
 type PickerData = { action: string; docs?: PickerDoc[] };
-type GoogleApis = {
+export type GoogleApis = {
   accounts: {
     oauth2: {
       initTokenClient: (config: {
@@ -23,7 +23,7 @@ type GoogleApis = {
   picker: {
     Action: { PICKED: string; CANCEL: string };
     Feature: { MULTISELECT_ENABLED: string; SUPPORT_DRIVES: string };
-    ViewId: { DOCS: string };
+    ViewId: { DOCS: string; SPREADSHEETS: string };
     DocsView: new (viewId?: string) => { setIncludeFolders: (v: boolean) => unknown };
     PickerBuilder: new () => PickerBuilder;
   };
@@ -56,7 +56,7 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
-async function loadGoogle(): Promise<GoogleApis> {
+export async function loadGoogle(): Promise<GoogleApis> {
   if (!window.google?.accounts) await loadScript('https://accounts.google.com/gsi/client');
   if (!window.gapi) await loadScript('https://apis.google.com/js/api.js');
   if (!window.google?.picker) await new Promise<void>((resolve) => window.gapi!.load('picker', () => resolve()));

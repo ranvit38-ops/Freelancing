@@ -48,8 +48,24 @@ export async function storeExperimentFile(
   file: File,
 ): Promise<StoredUpload> {
   checkUpload(file);
+  return storeExperimentBytes(session, experimentId, {
+    name: file.name,
+    type: file.type,
+    bytes: Buffer.from(await file.arrayBuffer()),
+  });
+}
 
-  const bytes = Buffer.from(await file.arrayBuffer());
+/**
+ * As storeExperimentFile, for bytes that did not arrive as an upload: a
+ * Google Sheet copied from Drive. Same storage, same attachment, same dataset.
+ */
+export async function storeExperimentBytes(
+  session: SessionContext,
+  experimentId: string,
+  input: { name: string; type: string; bytes: Buffer; driveFileId?: string },
+): Promise<StoredUpload> {
+  const { bytes } = input;
+  const file = { name: input.name, type: input.type };
   let storageKey: string;
   try {
     storageKey = await putFile(session.workspaceId, file.name, bytes);
@@ -62,6 +78,7 @@ export async function storeExperimentFile(
     contentType: file.type || 'application/octet-stream',
     byteSize: bytes.byteLength,
     storageKey,
+    driveFileId: input.driveFileId ?? null,
   });
   await q.attachFileToExperiment(session, experimentId, fileId);
 
@@ -104,7 +121,7 @@ export async function storeExperimentFile(
 }
 
 /** Reads a table out of stored bytes, or null for a format that is not a table. */
-async function readTable(filename: string, bytes: Buffer) {
+export async function readTable(filename: string, bytes: Buffer) {
   const extension = extensionOf(filename);
   try {
     if (extension === 'csv' || extension === 'tsv') return parseDelimitedText(bytes.toString('utf8'));

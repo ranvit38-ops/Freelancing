@@ -2,7 +2,7 @@
  * Stand-ins for the services Labquill talks to, so the end-to-end test drives
  * the real code paths without real keys, real money or real inboxes.
  *
- *   node e2e/fakes.mjs            # model :4555, email :4556, Google token :4557
+ *   node e2e/fakes.mjs            # model :4555, email :4556, Google token and Drive :4557
  *
  * Start the app pointed at them:
  *   ANTHROPIC_API_KEY=sk-ant-fake ANTHROPIC_BASE_URL=http://127.0.0.1:4555
@@ -25,6 +25,7 @@
  * records are fed back into later prompts and a magic word would follow.
  */
 import http from 'node:http';
+import JSZip from 'jszip';
 
 let next = null;
 
@@ -160,7 +161,42 @@ serve(4556, (req, res, sent) => {
   res.end(JSON.stringify({ id: `fake-email-${Date.now()}` }));
 });
 
-serve(4557, (req, res, _json, raw) => {
+/**
+ * A Google Sheet exported as .xlsx, whose numbers change on every export, so
+ * a refresh can be told apart from a stale copy. Export number n has
+ * concentration values n, 2n, 3n.
+ */
+let exports = 0;
+async function sheetXlsx() {
+  exports += 1;
+  const n = exports;
+  const cell = (ref, v) => (typeof v === 'number' ? `<c r="${ref}"><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"><is><t>${v}</t></is></c>`);
+  const rows = [
+    ['sample', 'concentration'],
+    ['A', n],
+    ['B', 2 * n],
+    ['C', 3 * n],
+  ]
+    .map((r, i) => `<row r="${i + 1}">${cell(`A${i + 1}`, r[0])}${cell(`B${i + 1}`, r[1])}</row>`)
+    .join('');
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>');
+  zip.file('xl/worksheets/sheet1.xml', `<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows}</sheetData></worksheet>`);
+  return zip.generateAsync({ type: 'nodebuffer' });
+}
+
+serve(4557, async (req, res, _json, raw) => {
+  // Google Drive: an access token of "denied" is refused, as Drive refuses a
+  // Sheet that was never picked through Labquill; any other token works.
+  if (req.url.startsWith('/drive/v3/files/')) {
+    if (req.headers.authorization === 'Bearer denied') {
+      res.writeHead(404, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: { code: 404, message: 'File not found' } }));
+    }
+    const body = await sheetXlsx();
+    res.writeHead(200, { 'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'content-length': body.length });
+    return res.end(body);
+  }
   const code = new URLSearchParams(raw).get('code') ?? '';
   if (!code.includes('@')) {
     res.writeHead(400, { 'content-type': 'application/json' });
@@ -172,4 +208,4 @@ serve(4557, (req, res, _json, raw) => {
   res.end(JSON.stringify({ id_token: idToken }));
 });
 
-console.log('fakes: model :4555, email :4556, Google token :4557');
+console.log('fakes: model :4555, email :4556, Google token and Drive :4557');

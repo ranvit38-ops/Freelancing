@@ -6,6 +6,9 @@
  * .xlsx Labquill can chart, a Doc a .docx LabBot can read.
  */
 
+/** Google Sheets' own type, the one kind of file that can be linked and refreshed. */
+export const SHEET_MIME = 'application/vnd.google-apps.spreadsheet';
+
 const EXPORTS: Record<string, { mime: string; ext: string }> = {
   'application/vnd.google-apps.document': {
     mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

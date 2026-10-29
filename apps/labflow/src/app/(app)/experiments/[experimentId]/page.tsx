@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { SheetLink, SheetRefresh } from '@/components/sheet-link';
+import { driveAppId } from '@/lib/drive';
 import { maxBytesFor } from '@/server/storage';
 import { RecordLotUseForm, RemoveLotUseButton } from '@/components/inventory-forms';
 import { notFound } from 'next/navigation';
@@ -60,6 +62,12 @@ export default async function ExperimentPage({ params }: { params: { experimentI
   }
 
   const { experiment, conditions, samples, result, notes, files, datasets } = record;
+  // Linking needs the picker (API key and app id); refreshing only a token.
+  const drive = {
+    clientId: process.env.GOOGLE_API_KEY ? (process.env.GOOGLE_CLIENT_ID ?? null) : null,
+    apiKey: process.env.GOOGLE_API_KEY ?? null,
+    appId: driveAppId(process.env.GOOGLE_CLIENT_ID),
+  };
   // Only what was written: an empty Result card is normal, not a gap.
   const resultSections = [
     { label: 'Summary', value: result?.summary ?? null },
@@ -319,6 +327,9 @@ export default async function ExperimentPage({ params }: { params: { experimentI
             <div className="space-y-5 px-5 py-4">
               <FileUpload experimentId={experiment.id} videoMb={maxBytesFor('clip.mp4') / (1024 * 1024)} />
               <div className="border-t border-line pt-5">
+                <SheetLink experimentId={experiment.id} drive={drive} />
+              </div>
+              <div className="border-t border-line pt-5">
                 <AttachLink experimentId={experiment.id} />
               </div>
             </div>
@@ -344,6 +355,13 @@ export default async function ExperimentPage({ params }: { params: { experimentI
                             : formatBytes(f.byteSize)}
                         </span>
                       </div>
+                      {f.driveFileId ? (
+                        <SheetRefresh
+                          fileId={f.id}
+                          clientId={drive.clientId}
+                          syncedAt={f.driveSyncedAt ? f.driveSyncedAt.toISOString() : null}
+                        />
+                      ) : null}
                       {embed ? (
                         <div className="mt-2 aspect-video w-full max-w-xl overflow-hidden rounded-lg border border-line">
                           <iframe
