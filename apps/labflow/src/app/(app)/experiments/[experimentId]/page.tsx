@@ -145,10 +145,10 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
         ) : null}
         <form action={setExperimentStatusAction} className="ml-auto flex items-center gap-2">
           <input type="hidden" name="experimentId" value={experiment.id} />
-          <label htmlFor="status-change" className="whitespace-nowrap text-sm text-muted">
+          <label htmlFor="status-change" className="shrink-0 whitespace-nowrap text-sm text-muted">
             Set status
           </label>
-          <Select id="status-change" name="status" defaultValue={experiment.status} className="w-48">
+          <Select id="status-change" name="status" defaultValue={experiment.status} className="!w-44">
             {(Object.keys(experimentStatusLabel) as ExperimentStatus[]).map((s) => (
               <option key={s} value={s}>
                 {experimentStatusLabel[s]}

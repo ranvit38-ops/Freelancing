@@ -27,7 +27,7 @@ export function CalendarSubscribe({ feedUrl }: { feedUrl: string | null }) {
               href={google}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:opacity-90"
+              className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover"
             >
               Add to Google Calendar
             </a>

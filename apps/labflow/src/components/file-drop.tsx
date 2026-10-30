@@ -109,7 +109,7 @@ export function FileDrop({
           type="button"
           onClick={() => input.current?.click()}
           disabled={progress !== null}
-          className="mt-3 h-9 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="mt-3 h-9 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
         >
           Choose files
         </button>

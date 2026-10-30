@@ -43,7 +43,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
         <button
           type="button"
           onClick={reset}
-          className="h-9 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:opacity-90"
+          className="h-9 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover"
         >
           Try again
         </button>

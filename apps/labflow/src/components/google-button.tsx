@@ -6,7 +6,7 @@ const ERRORS: Record<string, string> = {
   google_state: 'That sign-in attempt expired or did not start here. Try again.',
   google_failed: 'Google could not complete the sign-in. Nothing was changed.',
   google_join_full:
-    'That lab has used all the seats on its plan, so the join link could not add you. Nothing was changed — ask whoever runs the lab.',
+    'That lab has used all the seats on its plan, so the join link could not add you. Nothing was changed. Ask whoever runs the lab.',
 };
 
 /**

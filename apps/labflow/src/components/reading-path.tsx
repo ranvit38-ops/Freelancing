@@ -47,7 +47,7 @@ export function ReadingPath({ steps, storageKey }: { steps: ReadingStep[]; stora
           <span>
             {count} of {steps.length} read
           </span>
-          {count === steps.length && steps.length > 0 ? <span className="font-medium text-ok">All caught up 🎉</span> : null}
+          {count === steps.length && steps.length > 0 ? <span className="font-medium text-ok">All caught up</span> : null}
         </div>
         <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-raised">
           <div

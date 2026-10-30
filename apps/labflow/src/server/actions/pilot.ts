@@ -78,6 +78,6 @@ export async function submitPilotFeedbackAction(
   revalidatePath('/billing');
   return {
     ok: true,
-    message: 'Thank you. That is exactly what this pilot is for — I will be in touch shortly.',
+    message: 'Thank you. That is exactly what this pilot is for. I will be in touch shortly.',
   };
 }

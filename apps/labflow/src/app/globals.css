@@ -19,6 +19,7 @@
   /* Text tokens hold 4.5:1 on every light surface, tinted badges included (WCAG 2.1 AA). */
   --lf-subtle: 104 112 126;
   --lf-accent: 37 78 168;
+  --lf-accent-hover: 29 62 136;
   --lf-accent-fg: 255 255 255;
   --lf-accent-soft: 235 240 251;
   --lf-ok: 18 112 80;
@@ -44,6 +45,8 @@
     --lf-muted: 155 166 180;
     --lf-subtle: 132 142 157;
     --lf-accent: 106 152 240;
+  --lf-accent-hover: 136 174 245;
+    --lf-accent-hover: 136 174 245;
     --lf-accent-fg: 8 12 18;
     --lf-accent-soft: 26 40 66;
     --lf-ok: 63 185 130;
@@ -61,6 +64,7 @@
   --lf-muted: 155 166 180;
   --lf-subtle: 132 142 157;
   --lf-accent: 106 152 240;
+  --lf-accent-hover: 136 174 245;
   --lf-accent-fg: 8 12 18;
   --lf-accent-soft: 26 40 66;
   --lf-ok: 63 185 130;

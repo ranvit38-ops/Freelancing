@@ -94,7 +94,7 @@ export default async function PricingPage() {
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <h2 className="font-medium tracking-tight">{plan.name}</h2>
-                  {highlight ? <Badge tone="accent">Most labs</Badge> : null}
+                  {highlight ? <Badge tone="accent">Recommended</Badge> : null}
                 </div>
                 <p className="mt-1 text-sm text-muted">{plan.blurb}</p>
                 <p className="mt-4">

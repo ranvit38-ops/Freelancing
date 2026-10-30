@@ -91,7 +91,7 @@ export function JoinLink({ link, canManage }: { link: string | null; canManage: 
                 <button
                   name="mode"
                   value="rotate"
-                  className="h-9 rounded-lg bg-brand px-3 text-sm font-medium text-brand-fg transition-opacity hover:opacity-90"
+                  className="h-9 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
                 >
                   Create a join link
                 </button>

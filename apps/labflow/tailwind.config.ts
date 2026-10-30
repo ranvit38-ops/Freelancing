@@ -18,6 +18,7 @@ const config: Config = {
         muted: 'rgb(var(--lf-muted) / <alpha-value>)',
         subtle: 'rgb(var(--lf-subtle) / <alpha-value>)',
         accent: 'rgb(var(--lf-accent) / <alpha-value>)',
+        'accent-hover': 'rgb(var(--lf-accent-hover) / <alpha-value>)',
         'accent-fg': 'rgb(var(--lf-accent-fg) / <alpha-value>)',
         'accent-soft': 'rgb(var(--lf-accent-soft) / <alpha-value>)',
         ok: 'rgb(var(--lf-ok) / <alpha-value>)',
@@ -33,13 +34,6 @@ const config: Config = {
         card: '0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06)',
         pop: '0 8px 28px rgb(15 23 42 / 0.10)',
       },
-      keyframes: {
-        'fade-up': {
-          from: { opacity: '0', transform: 'translateY(4px)' },
-          to: { opacity: '1', transform: 'none' },
-        },
-      },
-      animation: { 'fade-up': 'fade-up 180ms ease-out both' },
     },
   },
   plugins: [],

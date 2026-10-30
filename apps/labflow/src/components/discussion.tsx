@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import { Button, Card, CardHeader, EmptyState, Textarea, cx } from './ui';
+import { Button, Card, CardHeader, EmptyState, PaperclipIcon, Textarea, cx } from './ui';
 import { SubmitButton } from './submit-button';
 import { deleteMessageAction, postMessageAction } from '@/server/actions/collab';
 import { formatBytes, formatDate } from '@/lib/display';
@@ -274,7 +274,7 @@ function Message({
           href={`/api/files/${message.fileId}`}
           className="mt-2 inline-flex max-w-full items-center gap-2 rounded-lg border border-line bg-raised px-3 py-2 text-xs hover:border-accent/50"
         >
-          <span aria-hidden>📎</span>
+          <PaperclipIcon />
           <span className="truncate font-medium">{message.fileName}</span>
           {message.fileSize !== null ? (
             <span className="shrink-0 text-subtle">{formatBytes(message.fileSize)}</span>

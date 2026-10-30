@@ -20,7 +20,7 @@ const buttonBase =
   'transition-colors disabled:cursor-not-allowed disabled:opacity-55 whitespace-nowrap';
 
 const buttonTone: Record<ButtonTone, string> = {
-  primary: 'bg-accent text-accent-fg hover:bg-accent/90',
+  primary: 'bg-accent text-accent-fg hover:bg-accent-hover',
   secondary: 'border border-line bg-surface text-fg hover:bg-raised',
   ghost: 'text-muted hover:bg-raised hover:text-fg',
   danger: 'border border-line bg-surface text-danger hover:bg-danger/5',
@@ -231,6 +231,15 @@ export function Badge({
 }
 
 /* ── empty states ───────────────────────────────────────────────────────── */
+
+/** A file attached to a message. Stroke icon, so it follows the text colour. */
+export function PaperclipIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13.5 7.5 8.2 12.8a3.5 3.5 0 0 1-5-5l5.6-5.6a2.3 2.3 0 0 1 3.3 3.3L6.5 11.1a1.2 1.2 0 0 1-1.7-1.7l5-5" />
+    </svg>
+  );
+}
 
 export function EmptyState({
   title,

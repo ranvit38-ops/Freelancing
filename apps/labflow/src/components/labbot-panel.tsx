@@ -146,7 +146,7 @@ export function LabBotPanel({
         data-labbot-launcher
         hidden={open}
         className={cx(
-          'fixed right-5 z-30 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg shadow-lg transition-opacity hover:opacity-90',
+          'fixed right-5 z-30 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg shadow-lg transition-colors hover:bg-accent-hover',
           inChat ? 'bottom-36' : 'bottom-5',
         )}
       >

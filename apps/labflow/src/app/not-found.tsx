@@ -34,7 +34,7 @@ export default async function NotFound() {
             <input type="hidden" name="then" value={path} />
             <button
               type="submit"
-              className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:opacity-90"
+              className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover"
             >
               Switch to {other.workspaceName}
             </button>
@@ -42,7 +42,7 @@ export default async function NotFound() {
         ) : (
           <Link
             href="/dashboard"
-            className="mt-6 inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:opacity-90"
+            className="mt-6 inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover"
           >
             Go home
           </Link>

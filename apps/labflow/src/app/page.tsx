@@ -26,55 +26,12 @@ const steps = [
   },
 ];
 
-const features = [
-  {
-    title: 'Record check',
-    body: 'Every started run that is missing something, grouped by who ran it, with exactly what is missing. Catch a thin record while the student still remembers.',
-  },
-  {
-    title: 'Activity log',
-    body: 'Who created, edited or deleted what, and when, across the whole lab. Filter by person, download as a spreadsheet. Deleted notes keep their text.',
-  },
-  {
-    title: 'Your lab this week',
-    body: 'One table on Home for whoever runs the lab: runs and notes per person, records to fill in, and who has gone quiet.',
-  },
-  {
-    title: 'Roles you choose',
-    body: 'Make any postdoc or senior student an admin. Members record; admins also invite, remove and see the log; owners decide who is who.',
-  },
-  {
-    title: 'Start here for new people',
-    body: 'One join link, then an ordered reading path through the lab’s own documents, protocols and runs.',
-  },
-  {
-    title: 'Run again',
-    body: 'Repeat a run with one change: the plan is copied, the new run is linked to the old one, and nothing is retyped.',
-  },
-  {
-    title: 'Experiment records',
-    body: 'Purpose, protocol version, conditions, raw data location and notes in one structured record, under the project’s question and hypothesis. Google Sheets open and edit right beside it.',
-  },
-  {
-    title: 'Connected research history',
-    body: 'Every experiment sits in a project timeline, linked to the runs it repeats.',
-  },
-  {
-    title: 'Experiment comparison',
-    body: 'Select any set of runs and see, field by field, what actually differed: 25 °C to 25 °C to 30 °C, protocol v4 to v4 to v5.',
-  },
-  {
-    title: 'Completeness checks',
-    body: 'A mechanical checklist of what the record documents. Green means written down. It never means a result is correct.',
-  },
-  {
-    title: 'Evidence-linked AI',
-    body: 'Answers list the records they drew on, so you can open them and check. AI can still be wrong; the record is what counts.',
-  },
-  {
-    title: 'Research updates',
-    body: 'Draft a presentation from selected experiments, edit every word, and keep data, researcher conclusions and AI observations labelled.',
-  },
+/** Illustrative rows for the hero preview. Labelled as an example on the page. */
+const previewRows = [
+  { name: 'Maya Chen', runs: 4, notes: 7, thin: 0, last: 'Today' },
+  { name: 'Diego Alvarez', runs: 2, notes: 1, thin: 2, last: 'Yesterday' },
+  { name: 'Priya Nair', runs: 3, notes: 5, thin: 0, last: 'Tue' },
+  { name: 'Tom Okafor', runs: 0, notes: 0, thin: 1, last: '12 days ago', quiet: true },
 ];
 
 export default async function LandingPage(props: { searchParams?: Promise<{ account?: string }> }) {
@@ -99,23 +56,23 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
               How it works
             </Link>
             <Link
-              href="#features"
+              href="#why"
               className="hidden rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg sm:block"
             >
-              Features
+              Why not Drive
             </Link>
-            <Link href="/guide" className="rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
+            <Link href="/guide" className="hidden rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg sm:block">
               Tutorial
             </Link>
             <Link href="/pricing" className="rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
               Pricing
             </Link>
             {session ? null : (
-              <Link href="/login" className="rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
+              <Link href="/login" className="whitespace-nowrap rounded-lg px-3 py-1.5 text-muted hover:bg-raised hover:text-fg">
                 Log in
               </Link>
             )}
-            <ButtonLink href={primaryHref} size="sm" className="ml-1">
+            <ButtonLink href={primaryHref} size="sm" className="ml-1 whitespace-nowrap">
               {primaryLabel}
             </ButtonLink>
           </nav>
@@ -129,18 +86,15 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
           </p>
         ) : null}
         {/* Hero */}
-        <section className="mx-auto max-w-6xl px-6 pb-16 pt-20 sm:pt-28">
-          <div className="max-w-3xl animate-fade-up">
-            <p className="mb-4 inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-muted">
-              For university research labs
-            </p>
+        <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-16 pt-16 sm:pt-24 lg:grid-cols-[1fr_1.05fr]">
+          <div>
             <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
               Know what your lab recorded, and what it left out.
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-7 text-muted">
-              Students record each run in one structured place, in their own words if they like:
-              protocol version, conditions, where the raw data lives, what happened at the bench. You see whose records are
-              thin, who changed what, and who has gone quiet, without opening a single file.
+            <p className="mt-5 max-w-xl text-lg leading-7 text-muted">
+              Students record each run in one place, in their own words if they like: protocol version, conditions,
+              where the raw data lives, what happened at the bench. You see whose records are thin and who has gone
+              quiet, without opening a single file.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <ButtonLink href={primaryHref}>{primaryLabel}</ButtonLink>
@@ -149,6 +103,39 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
               </ButtonLink>
             </div>
           </div>
+          <figure>
+            <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-pop">
+              <div className="flex items-baseline justify-between border-b border-line px-4 py-3">
+                <span className="text-sm font-medium">Your lab this week</span>
+                <span className="text-xs text-muted">3 records need more detail</span>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-line text-left text-xs text-subtle">
+                    <th scope="col" className="px-4 py-2 font-medium">Person</th>
+                    <th scope="col" className="px-2 py-2 text-right font-medium">Runs</th>
+                    <th scope="col" className="hidden px-2 py-2 text-right font-medium sm:table-cell">Notes</th>
+                    <th scope="col" className="px-2 py-2 text-right font-medium">To fill in</th>
+                    <th scope="col" className="px-4 py-2 text-right font-medium">Last recorded</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.map((r) => (
+                    <tr key={r.name} className="border-b border-line last:border-0">
+                      <td className="px-4 py-2.5">{r.name}</td>
+                      <td className="px-2 py-2.5 text-right tabular-nums">{r.runs}</td>
+                      <td className="hidden px-2 py-2.5 text-right tabular-nums sm:table-cell">{r.notes}</td>
+                      <td className={`px-2 py-2.5 text-right tabular-nums ${r.thin ? 'font-medium text-warn' : 'text-muted'}`}>{r.thin}</td>
+                      <td className={`px-4 py-2.5 text-right ${r.quiet ? 'font-medium text-warn' : 'text-muted'}`}>{r.last}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <figcaption className="mt-3 text-xs text-subtle">
+              The table on Home for whoever runs the lab. Example data.
+            </figcaption>
+          </figure>
         </section>
 
         {/* The problem */}
@@ -157,26 +144,22 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
             <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">
-                  Research shouldn&rsquo;t require reconstructing your work from scattered files.
+                  What changed between run 12 and run 13?
                 </h2>
                 <p className="mt-4 text-sm leading-6 text-muted">
                   A single study lives across lab notebooks, spreadsheets, instrument exports,
-                  shared drives and slide decks. Six months later, answering &ldquo;what did we
-                  change between run 12 and run 13?&rdquo; means an afternoon of archaeology, and
-                  the answer is often that nobody wrote it down.
+                  shared drives and slide decks. Six months later that question costs an afternoon,
+                  and the answer is often that nobody wrote it down.
                 </p>
               </div>
-              <ul className="grid gap-3 sm:grid-cols-2">
+              <ul className="divide-y divide-line border-y border-line">
                 {[
                   'Conditions recorded in one place, results in another',
                   'Protocol versions that only exist in someone’s memory',
                   'Data files named final_v3_REAL.xlsx',
                   'Slides rebuilt from scratch every group meeting',
                 ].map((item) => (
-                  <li
-                    key={item}
-                    className="rounded-lg border border-line bg-raised px-4 py-3 text-sm text-muted"
-                  >
+                  <li key={item} className="py-3 text-sm text-muted">
                     {item}
                   </li>
                 ))}
@@ -188,13 +171,10 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
         {/* How it works */}
         <section id="how-it-works" className="mx-auto max-w-6xl scroll-mt-16 px-6 py-20">
           <h2 className="text-2xl font-semibold tracking-tight">How Labquill works</h2>
-          <ol className="mt-8 grid gap-4 sm:grid-cols-2">
+          <ol className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
             {steps.map((step) => (
-              <li
-                key={step.n}
-                className="rounded-xl border border-line bg-surface p-5 shadow-card"
-              >
-                <div className="text-xs font-semibold tracking-wider text-accent">{step.n}</div>
+              <li key={step.n} className="border-t border-line pt-4">
+                <div className="text-xs font-semibold tabular-nums text-subtle">{step.n}</div>
                 <h3 className="mt-2 font-medium tracking-tight">{step.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-muted">{step.body}</p>
               </li>
@@ -202,32 +182,19 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
           </ol>
         </section>
 
-        {/* Features */}
-        <section id="features" className="border-y border-line bg-surface scroll-mt-16">
+        {/* Why pay */}
+        <section id="why" className="scroll-mt-16 border-y border-line bg-surface">
           <div className="mx-auto max-w-6xl px-6 py-20">
-            <h2 className="text-2xl font-semibold tracking-tight">Core features</h2>
-            <div className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map((f) => (
-                <div key={f.title}>
-                  <h3 className="font-medium tracking-tight">{f.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted">{f.body}</p>
-                </div>
-              ))}
-            </div>
+            <WhyNotFree />
           </div>
         </section>
 
-        {/* Why pay */}
-        <section id="why" className="mx-auto max-w-6xl scroll-mt-16 px-6 py-20">
-          <WhyNotFree />
-        </section>
-
         {/* Trust */}
-        <section className="border-t border-line mx-auto max-w-6xl px-6 py-20">
+        <section className="mx-auto max-w-6xl px-6 py-20">
           <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">
-                The researcher stays in control
+                What the AI does, and what it doesn&rsquo;t
               </h2>
               <p className="mt-4 text-sm leading-6 text-muted">
                 Labquill structures your record and helps you read it. It does not decide what your
@@ -237,23 +204,23 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
             <dl className="grid gap-5 sm:grid-cols-2">
               {[
                 {
-                  t: 'AI does not replace scientific judgement',
+                  t: 'It does not interpret your results',
                   d: 'It summarises what is documented and asks questions. Interpretation is yours.',
                 },
                 {
-                  t: 'Evidence-linked answers',
-                  d: 'AI answers list the records they drew on. Click through and check.',
+                  t: 'It shows where every answer came from',
+                  d: 'Answers list the records they drew on. Click through and check.',
                 },
                 {
-                  t: 'Transparent uncertainty',
+                  t: 'It says what is missing',
                   d: 'Observations, inferences and suggestions are labelled separately, and missing information is named as missing.',
                 },
                 {
-                  t: 'Your data is not training data',
+                  t: 'It does not train on your records',
                   d: 'We never use your records to train models, and our AI provider\'s terms do not allow it either.',
                 },
               ].map((item) => (
-                <div key={item.t} className="rounded-lg border border-line bg-surface p-4">
+                <div key={item.t}>
                   <dt className="text-sm font-medium">{item.t}</dt>
                   <dd className="mt-1.5 text-sm leading-6 text-muted">{item.d}</dd>
                 </div>
@@ -281,7 +248,7 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <span>Labquill. A research workflow system for labs.</span>
-          <span className="flex items-center gap-4 text-subtle">
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-subtle">
             <Link href="/terms" className="underline underline-offset-2 hover:text-fg">
               Terms
             </Link>

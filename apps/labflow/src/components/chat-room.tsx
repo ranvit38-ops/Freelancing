@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscussionMessage } from '@/server/queries';
 import { formatBytes } from '@/lib/display';
+import { PaperclipIcon } from './ui';
 
 type Channel = { key: string; name: string; projectId: string | null; dm?: boolean };
 
@@ -514,7 +515,7 @@ export function ChatRoom({
                 key={a.id}
                 className="flex max-w-full items-center gap-2 rounded-lg border border-line bg-raised px-3 py-1.5 text-xs"
               >
-                <span aria-hidden>📎</span>
+                <PaperclipIcon />
                 <span className="truncate font-medium">{a.name}</span>
                 <button
                   type="button"
@@ -586,7 +587,7 @@ export function ChatRoom({
             type="button"
             onClick={send}
             disabled={Boolean(uploading)}
-            className="h-10 shrink-0 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="h-10 shrink-0 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             Send
           </button>
@@ -681,8 +682,8 @@ function Message({
                   ) : null}
                   <p className="whitespace-pre-wrap break-words leading-6">{r.body}</p>
                   {r.fileId ? (
-                    <a href={`/api/files/${r.fileId}`} className="text-xs font-medium text-accent hover:underline">
-                      📎 {r.fileName ?? 'File'}
+                    <a href={`/api/files/${r.fileId}`} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+                      <PaperclipIcon /> {r.fileName ?? 'File'}
                     </a>
                   ) : null}
                 </div>
