@@ -40,7 +40,7 @@ export async function redeemOwnerCodeAction(
   const window = { windowMs: 600_000 };
   const blocked = [
     rateLimit(`unlock:user:${session.userId}`, { limit: 5, ...window }),
-    rateLimit(`unlock:ip:${clientIp(headers())}`, { limit: 5, ...window }),
+    rateLimit(`unlock:ip:${clientIp(await headers())}`, { limit: 5, ...window }),
     rateLimit('unlock:all', { limit: 30, ...window }),
   ].find((check) => !check.ok);
   if (blocked) {

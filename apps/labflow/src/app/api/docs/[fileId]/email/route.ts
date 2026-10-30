@@ -9,7 +9,8 @@ import { NotFoundInWorkspaceError } from '@/server/not-found';
 export const runtime = 'nodejs';
 
 /** Emails the document, as a Word attachment, to people in the lab. */
-export async function POST(request: Request, { params }: { params: { fileId: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Sign in again.' }, { status: 401 });
   const limit = rateLimit(`doc-email:${session.userId}`, { limit: 10, windowMs: 10 * 60_000 });

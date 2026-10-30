@@ -35,7 +35,7 @@ export async function createSession(userId: string) {
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000);
   await db.insert(sessions).values({ tokenHash: hashToken(token), userId, expiresAt });
-  cookies().set(env().SESSION_COOKIE_NAME, token, {
+  (await cookies()).set(env().SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -53,8 +53,8 @@ export async function createSession(userId: string) {
  * cookies can be written: server actions and route handlers, not page renders.
  * getSession still re-checks membership, so this grants nothing by itself.
  */
-export function selectWorkspace(workspaceId: string) {
-  cookies().set(WORKSPACE_COOKIE, workspaceId, {
+export async function selectWorkspace(workspaceId: string) {
+  (await cookies()).set(WORKSPACE_COOKIE, workspaceId, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -64,7 +64,7 @@ export function selectWorkspace(workspaceId: string) {
 }
 
 export async function destroySession() {
-  const jar = cookies();
+  const jar = await cookies();
   const token = jar.get(env().SESSION_COOKIE_NAME)?.value;
   if (token) await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
   jar.delete(env().SESSION_COOKIE_NAME);
@@ -79,7 +79,7 @@ export async function destroySession() {
  * as data outside a workspace in Labquill.
  */
 export const getSession = cache(async (): Promise<SessionContext | null> => {
-  const token = cookies().get(env().SESSION_COOKIE_NAME)?.value;
+  const token = (await cookies()).get(env().SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
 
   const rows = await db
@@ -104,7 +104,7 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
 
   // Honour the selected workspace only if the user is still a member of it,
   // so a stale or forged cookie cannot reach another lab's records.
-  const selected = cookies().get(WORKSPACE_COOKIE)?.value;
+  const selected = (await cookies()).get(WORKSPACE_COOKIE)?.value;
   const { emailVerifiedAt, ...row } = rows.find((r) => r.workspaceId === selected) ?? rows[0]!;
   return { ...row, emailVerified: emailVerifiedAt !== null };
 });
@@ -112,7 +112,7 @@ export const getSession = cache(async (): Promise<SessionContext | null> => {
 /** Every workspace the signed-in user belongs to, for the switcher. */
 export const listMyWorkspaces = cache(
   async (): Promise<{ id: string; name: string; role: string }[]> => {
-    const token = cookies().get(env().SESSION_COOKIE_NAME)?.value;
+    const token = (await cookies()).get(env().SESSION_COOKIE_NAME)?.value;
     if (!token) return [];
     return db
       .select({

@@ -11,7 +11,8 @@ import { headerSafeFilename } from '@/lib/rate-limit';
 export const runtime = 'nodejs';
 
 /** Exports the saved (researcher-edited) update as a .pptx. */
-export async function GET(_request: Request, { params }: { params: { updateId: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ updateId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 

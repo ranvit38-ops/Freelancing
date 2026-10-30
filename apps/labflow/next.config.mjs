@@ -1,3 +1,8 @@
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const appRoot = dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 
 /**
@@ -70,7 +75,6 @@ const nextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
-  eslint: { dirs: ['src'] },
   // The guide's screenshots are already sized, and nothing else goes through
   // next/image. Unused, the optimizer endpoint is only attack surface: Next 14
   // carries open advisories against it, remote code execution among them.
@@ -78,10 +82,23 @@ const nextConfig = {
   // Bundles the server and only the dependencies it actually reaches, so the
   // container does not need node_modules or a package manager to boot.
   output: 'standalone',
+  // This app has its own lockfile inside a repository that has another at the
+  // root. Without saying so, Next takes the repository root as the project and
+  // nests the standalone server under apps/labflow/, where the Dockerfile does
+  // not look for it.
+  outputFileTracingRoot: appRoot,
+  // Uploads are stored under paths built at run time, which the tracer cannot
+  // follow, so it would copy the whole folder into the server bundle: secrets
+  // files and uploaded research included. Nothing outside the build is needed.
+  outputFileTracingExcludes: {
+    '*': [
+      '.env*', '.uploads/**', '.git/**', 'e2e/**', 'scripts/**', 'src/**', '*.md',
+      'Dockerfile', 'docker-*', '.dockerignore', '*.config.*', 'tsconfig*', 'package-lock.json',
+    ],
+  },
+  turbopack: { root: appRoot },
+  serverExternalPackages: ['pg'],
   experimental: {
-    // src/instrumentation.ts starts the yearly renewal reminders.
-    instrumentationHook: true,
-    serverComponentsExternalPackages: ['pg'],
     serverActions: {
       allowedOrigins: [...codespace, ...deployed, ...proxyOrigins, ...extra],
       // A protocol PDF or a run's files arrive with the form itself; the 1 MB

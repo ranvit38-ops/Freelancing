@@ -41,7 +41,8 @@ import { getExperimentRecord, listDiscussion,
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: { params: { experimentId: string } }) {
+export async function generateMetadata(props: { params: Promise<{ experimentId: string }> }) {
+  const params = await props.params;
   try {
     const session = await requireSession();
     const { experiment } = await getExperimentRecord(session, params.experimentId);
@@ -51,7 +52,8 @@ export async function generateMetadata({ params }: { params: { experimentId: str
   }
 }
 
-export default async function ExperimentPage({ params }: { params: { experimentId: string } }) {
+export default async function ExperimentPage(props: { params: Promise<{ experimentId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   let record;
   try {

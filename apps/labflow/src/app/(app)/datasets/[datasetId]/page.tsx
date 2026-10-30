@@ -8,13 +8,14 @@ import { getDataset } from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DatasetPage({
-  params,
-  searchParams,
-}: {
-  params: { datasetId: string };
-  searchParams: { x?: string; y?: string; connect?: string };
-}) {
+export default async function DatasetPage(
+  props: {
+    params: Promise<{ datasetId: string }>;
+    searchParams: Promise<{ x?: string; y?: string; connect?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const session = await requireSession();
   let data;
   try {

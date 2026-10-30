@@ -9,10 +9,8 @@ import { UploadRejected, storeExperimentFile } from '@/server/uploads';
 export const runtime = 'nodejs';
 
 /** Attaches an upload to an experiment, parsing it as a dataset when we can. */
-export async function POST(
-  request: Request,
-  { params }: { params: { experimentId: string } },
-) {
+export async function POST(request: Request, props: { params: Promise<{ experimentId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 

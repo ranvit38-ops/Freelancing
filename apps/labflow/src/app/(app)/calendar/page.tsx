@@ -25,11 +25,12 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
  * A grid on a wide screen, an agenda on a phone: seven columns at phone width
  * leaves each day too narrow to read a title in.
  */
-export default async function CalendarPage({
-  searchParams,
-}: {
-  searchParams: { m?: string; d?: string };
-}) {
+export default async function CalendarPage(
+  props: {
+    searchParams: Promise<{ m?: string; d?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
   const today = todayIso();
   const day = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.d ?? '') ? searchParams.d! : null;
@@ -43,7 +44,7 @@ export default async function CalendarPage({
     listCalendar(session, days[0]!, days.at(-1)!),
     getCalendarToken(session),
   ]);
-  const feedUrl = calendarToken ? linkForViewer(`/api/calendar/${calendarToken}.ics`) : null;
+  const feedUrl = calendarToken ? await linkForViewer(`/api/calendar/${calendarToken}.ics`) : null;
 
   const byDay = new Map<string, Item[]>();
   const add = (day: string, item: Item) => byDay.set(day, [...(byDay.get(day) ?? []), item]);

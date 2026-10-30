@@ -18,11 +18,12 @@ import { getSubscription, myPilotFeedback, seatUsage } from '@/server/queries';
 export const metadata = { title: 'Billing' };
 export const dynamic = 'force-dynamic';
 
-export default async function BillingPage({
-  searchParams,
-}: {
-  searchParams: { checkout?: string };
-}) {
+export default async function BillingPage(
+  props: {
+    searchParams: Promise<{ checkout?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
 
   // A pilot deployment has nothing to bill, so this route asks the only

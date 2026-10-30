@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic';
  * the whole credential, and it opens one person's view of one lab's calendar
  * and nothing else. "Make a new link" on the Calendar page replaces it.
  */
-export async function GET(request: Request, { params }: { params: { token: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const token = params.token.replace(/\.ics$/, '');
   const feed = await calendarFeed(token, todayIso());
   if (!feed) return new NextResponse('This calendar link has been replaced or switched off.', { status: 404 });

@@ -15,7 +15,8 @@ import { removeProtocolFileAction } from '@/server/actions/records';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ProtocolPage({ params }: { params: { protocolId: string } }) {
+export default async function ProtocolPage(props: { params: Promise<{ protocolId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   try {
     const { protocol, versions } = await getProtocolWithVersions(session, params.protocolId);

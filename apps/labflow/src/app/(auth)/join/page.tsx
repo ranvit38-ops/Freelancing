@@ -20,11 +20,12 @@ export const dynamic = 'force-dynamic';
  * happens without that press: joining on page load could not switch them into
  * the lab, so it looked like the link had done nothing.
  */
-export default async function JoinPage({
-  searchParams,
-}: {
-  searchParams: { token?: string; code?: string; have?: string };
-}) {
+export default async function JoinPage(
+  props: {
+    searchParams: Promise<{ token?: string; code?: string; have?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const code = searchParams.code ?? '';
   const token = code ? '' : (searchParams.token ?? '');
   const haveAccount = searchParams.have === '1';

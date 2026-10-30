@@ -15,7 +15,8 @@ const typeLabel = {
   file: 'File',
 } as const;
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
+export default async function SearchPage(props: { searchParams: Promise<{ q?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
   const query = (searchParams.q ?? '').trim();
   const results = query.length >= 2 ? await search(session, query) : [];

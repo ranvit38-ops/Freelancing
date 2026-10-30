@@ -10,7 +10,8 @@ import { getProject, listExperiments } from '@/server/queries';
 export const metadata = { title: 'Timeline' };
 export const dynamic = 'force-dynamic';
 
-export default async function TimelinePage({ params }: { params: { projectId: string } }) {
+export default async function TimelinePage(props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   let project;
   try {

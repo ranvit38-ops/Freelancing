@@ -5,7 +5,6 @@ import { env } from '@/lib/env';
 import { isConnectFailure } from './connection-errors';
 
 declare global {
-  // eslint-disable-next-line no-var
   var __labflowPool: Pool | undefined;
 }
 

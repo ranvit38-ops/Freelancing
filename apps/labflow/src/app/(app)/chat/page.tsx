@@ -17,11 +17,12 @@ export const dynamic = 'force-dynamic';
  * project's Discussion tab, gathered in the one place people expect to talk.
  * Nothing moved in the database; only where you read it.
  */
-export default async function ChatPage({
-  searchParams,
-}: {
-  searchParams: { c?: string; dm?: string; with?: string };
-}) {
+export default async function ChatPage(
+  props: {
+    searchParams: Promise<{ c?: string; dm?: string; with?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
 
   // Without this, a plan that does not include conversation would show a
@@ -180,11 +181,9 @@ export default async function ChatPage({
 
 /** "PFAS Removal Study" reads as #pfas-removal-study, the way channels are named. */
 function slug(name: string) {
-  return (
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 40) || 'project'
-  );
+  return (name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'project');
 }

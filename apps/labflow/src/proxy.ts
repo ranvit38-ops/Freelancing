@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * Only on record pages, and the header is always overwritten here, never
  * taken from the request as sent.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.set('x-labquill-path', request.nextUrl.pathname + request.nextUrl.search);
   return NextResponse.next({ request: { headers } });

@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     path: '/',
     maxAge: 600,
   };
-  const jar = cookies();
+  const jar = await cookies();
   jar.set('g_state', state, options);
   jar.set('g_verifier', verifier, options);
   if (invite) jar.set('g_invite', invite, options);

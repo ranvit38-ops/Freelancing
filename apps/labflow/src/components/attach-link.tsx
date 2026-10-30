@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Field, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import { attachLinkAction } from '@/server/actions/collab';
@@ -13,7 +13,7 @@ import { noState } from '@/server/actions/types';
  * document needs OAuth per deployment, and almost every lab file is private.
  */
 export function AttachLink({ experimentId }: { experimentId: string }) {
-  const [state, action] = useFormState(attachLinkAction, noState);
+  const [state, action] = useActionState(attachLinkAction, noState);
 
   return (
     <form action={action} className="space-y-3">

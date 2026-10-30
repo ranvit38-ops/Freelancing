@@ -9,7 +9,8 @@ import { listWorkspaceMembers } from '@/server/queries';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Document' };
 
-export default async function DocumentPage({ params }: { params: { fileId: string } }) {
+export default async function DocumentPage(props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   let doc;
   try {

@@ -9,11 +9,12 @@ import { PLANS } from '@/lib/plans';
 
 export const metadata = { title: 'Start a lab' };
 
-export default async function SignupPage({
-  searchParams,
-}: {
-  searchParams: { error?: string };
-}) {
+export default async function SignupPage(
+  props: {
+    searchParams: Promise<{ error?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   if (await getSession()) redirect('/dashboard');
   return (
     <>

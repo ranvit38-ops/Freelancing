@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import { submitPilotFeedbackAction } from '@/server/actions/pilot';
@@ -24,7 +24,7 @@ type Existing = {
  * after two weeks of use, not the one given on day one.
  */
 export function PilotFeedbackForm({ existing }: { existing: Existing }) {
-  const [state, action] = useFormState(submitPilotFeedbackAction, noState);
+  const [state, action] = useActionState(submitPilotFeedbackAction, noState);
 
   return (
     <form action={action} className="space-y-4 px-5 py-4">

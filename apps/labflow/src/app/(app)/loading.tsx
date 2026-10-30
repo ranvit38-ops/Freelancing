@@ -14,19 +14,20 @@
  */
 export default function Loading() {
   return (
-    <div className="animate-pulse" aria-hidden>
-      {/* Screen readers get the announcement; the bars are decoration. */}
+    <div className="animate-pulse" data-loading>
+      {/* Screen readers get the announcement; the bars are decoration. The
+          announcement must not sit inside anything aria-hidden, or it is never read. */}
       <span className="sr-only" role="status" aria-live="polite">
         Loading
       </span>
 
-      <div className="mb-8">
+      <div className="mb-8" aria-hidden>
         <div className="h-3 w-24 rounded bg-raised" />
         <div className="mt-3 h-7 w-64 max-w-full rounded bg-raised" />
         <div className="mt-3 h-4 w-96 max-w-full rounded bg-raised" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
+      <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0" aria-hidden>
         <div className="space-y-5 lg:col-span-2">
           <div className="rounded-xl border border-line bg-surface">
             <div className="border-b border-line px-5 py-4">

@@ -22,7 +22,7 @@ export async function switchWorkspaceAction(formData: FormData) {
   const mine = await listMyWorkspaces();
   if (!mine.some((w) => w.id === target)) return;
 
-  selectWorkspace(target);
+  await selectWorkspace(target);
   revalidatePath('/', 'layout');
   redirect('/dashboard');
 }
@@ -52,7 +52,7 @@ export async function createWorkspaceAction(
   // so this one starts on the free plan. Never a locked door either way.
   await startTrial(workspaceId, TRIAL_DAYS, session.userEmail);
 
-  selectWorkspace(workspaceId);
+  await selectWorkspace(workspaceId);
   revalidatePath('/', 'layout');
   redirect('/dashboard');
 }

@@ -17,10 +17,10 @@ import { absoluteUrl, publicBaseUrl } from './mailer';
  * person forging it. Anything that leaves the page — an email, a redirect to
  * a payment provider — must keep using absoluteUrl() directly.
  */
-export function linkForViewer(path: string): string {
+export async function linkForViewer(path: string): Promise<string> {
   if (publicBaseUrl()) return absoluteUrl(path);
 
-  const h = headers();
+  const h = await headers();
   const host = h.get('x-forwarded-host') ?? h.get('host');
   if (!host) return absoluteUrl(path);
 

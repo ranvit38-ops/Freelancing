@@ -14,11 +14,12 @@ const PAGE = 200;
  * owners and the admins they choose. Written as changes happen, so it is a
  * ledger rather than a reconstruction; deleted notes keep their text here.
  */
-export default async function ActivityPage({
-  searchParams,
-}: {
-  searchParams: { person?: string; before?: string };
-}) {
+export default async function ActivityPage(
+  props: {
+    searchParams: Promise<{ person?: string; before?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
   if (session.role === 'member') {
     return (

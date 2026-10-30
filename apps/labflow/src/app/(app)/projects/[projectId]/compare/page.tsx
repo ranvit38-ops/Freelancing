@@ -20,13 +20,14 @@ function selectedIds(ids: string | string[] | undefined): string[] {
   return Array.from(new Set(list.map((s) => s.trim()).filter(Boolean))).slice(0, 6);
 }
 
-export default async function ComparePage({
-  params,
-  searchParams,
-}: {
-  params: { projectId: string };
-  searchParams: { ids?: string | string[] };
-}) {
+export default async function ComparePage(
+  props: {
+    params: Promise<{ projectId: string }>;
+    searchParams: Promise<{ ids?: string | string[] }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const session = await requireSession();
   const { limits } = await workspacePlan(session);
   if (!limits.compare) {

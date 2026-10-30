@@ -9,7 +9,8 @@ import { getProject, listSamples } from '@/server/queries';
 export const metadata = { title: 'Project samples' };
 export const dynamic = 'force-dynamic';
 
-export default async function ProjectSamplesPage({ params }: { params: { projectId: string } }) {
+export default async function ProjectSamplesPage(props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   try {
     const project = await getProject(session, params.projectId);

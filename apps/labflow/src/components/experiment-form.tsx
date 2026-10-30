@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { Button, Card, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import { PendingFiles } from './experiment-dropzone';
@@ -97,7 +96,7 @@ function SectionCard({
 export function ExperimentForm(props: ExperimentFormProps) {
   const initial = props.initial ?? blank;
   const action = props.mode === 'create' ? createExperimentAction : updateExperimentAction;
-  const [state, formAction] = useFormState(action, noState);
+  const [state, formAction] = useActionState(action, noState);
   const [conditions, setConditions] = useState<ConditionRow[]>(
     initial.conditions.length > 0 ? initial.conditions : [emptyRow],
   );
@@ -119,7 +118,7 @@ export function ExperimentForm(props: ExperimentFormProps) {
     props.experimentId ?? `new:${props.projectId}:${initial.repeatsExperimentId}`
   }`;
   const [unsaved, setUnsaved] = useState<FormDraft | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     setUnsaved(readDraft(draftKey));
     return () => clearTimeout(timer.current);

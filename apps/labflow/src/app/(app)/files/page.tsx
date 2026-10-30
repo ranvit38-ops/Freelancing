@@ -36,11 +36,12 @@ const PROTOCOL_LIKE = /\.(pdf|docx?|odt|rtf)$/i;
  * shared with the lab shows in both, and a private one only under yours. The
  * privacy itself is enforced in the query, not here — this page just asks.
  */
-export default async function FilesPage({
-  searchParams,
-}: {
-  searchParams: { q?: string; view?: string };
-}) {
+export default async function FilesPage(
+  props: {
+    searchParams: Promise<{ q?: string; view?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
   const view = searchParams.view === 'mine' ? 'mine' : searchParams.view === 'shared' ? 'shared' : 'lab';
   const mine = view === 'mine';

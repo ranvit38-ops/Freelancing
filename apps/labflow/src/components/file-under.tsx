@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import { SubmitButton } from './submit-button';
 import { FileDrop } from './file-drop';
 import { fileUnderAction } from '@/server/actions/records';
@@ -22,7 +21,7 @@ export type FilingTargets = {
  * and before this a file uploaded in Files could never reach a project.
  */
 export function FileUnder({ fileId, targets }: { fileId: string; targets: FilingTargets }) {
-  const [state, action] = useFormState(fileUnderAction, noState);
+  const [state, action] = useActionState(fileUnderAction, noState);
   const [open, setOpen] = useState(false);
   const [target, setTarget] = useState('');
   if (!open) {

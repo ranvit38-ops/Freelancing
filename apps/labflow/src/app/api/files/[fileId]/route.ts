@@ -26,7 +26,8 @@ const RENDERABLE = new Set([
  * Files are served through the app, never from a public bucket URL, so
  * workspace membership is checked on every download.
  */
-export async function GET(_request: Request, { params }: { params: { fileId: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 

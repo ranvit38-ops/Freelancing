@@ -21,7 +21,8 @@ import { getProject, listExperiments, listProjectFiles, listSamples } from '@/se
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: { params: { projectId: string } }) {
+export async function generateMetadata(props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   try {
     const session = await requireSession();
     return { title: (await getProject(session, params.projectId)).name };
@@ -30,7 +31,8 @@ export async function generateMetadata({ params }: { params: { projectId: string
   }
 }
 
-export default async function ProjectOverviewPage({ params }: { params: { projectId: string } }) {
+export default async function ProjectOverviewPage(props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   let project;
   try {

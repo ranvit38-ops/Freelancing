@@ -26,7 +26,8 @@ export const dynamic = 'force-dynamic';
  * has already recorded: what to read, in what order, and who to ask about
  * what, so the professor does not have to explain it all from scratch.
  */
-export default async function StartPage({ searchParams }: { searchParams: { joined?: string } }) {
+export default async function StartPage(props: { searchParams: Promise<{ joined?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
   const [projects, experiments, protocols, updates, files, members] = await Promise.all([
     listProjects(session),

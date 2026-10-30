@@ -24,6 +24,6 @@ export async function POST(request: Request) {
   const then = sameSitePath(String(form.get('then') ?? '')) ?? '/dashboard';
   const mine = await listMyWorkspaces();
   if (mine.length === 0) return NextResponse.redirect(absoluteUrl('/login'), 303);
-  if (mine.some((w) => w.id === target)) selectWorkspace(target);
+  if (mine.some((w) => w.id === target)) await selectWorkspace(target);
   return NextResponse.redirect(absoluteUrl(then), 303);
 }

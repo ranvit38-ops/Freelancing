@@ -9,11 +9,12 @@ import { getExperimentRecord, listExperiments, listProtocolVersionOptions } from
 export const metadata = { title: 'Edit experiment' };
 export const dynamic = 'force-dynamic';
 
-export default async function EditExperimentPage({
-  params,
-}: {
-  params: { experimentId: string };
-}) {
+export default async function EditExperimentPage(
+  props: {
+    params: Promise<{ experimentId: string }>;
+  }
+) {
+  const params = await props.params;
   const session = await requireSession();
   try {
     const record = await getExperimentRecord(session, params.experimentId);

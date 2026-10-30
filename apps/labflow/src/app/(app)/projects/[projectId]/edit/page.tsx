@@ -9,7 +9,8 @@ import { getProject } from '@/server/queries';
 export const metadata = { title: 'Edit project' };
 export const dynamic = 'force-dynamic';
 
-export default async function EditProjectPage({ params }: { params: { projectId: string } }) {
+export default async function EditProjectPage(props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   try {
     const project = await getProject(session, params.projectId);

@@ -38,7 +38,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: apps/labflow/package-lock.json
 
@@ -107,7 +107,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: apps/labflow/package-lock.json
 
@@ -126,7 +126,11 @@ jobs:
       - name: Start the stand-ins and the app
         run: |
           node e2e/fakes.mjs > fakes.log 2>&1 &
-          npx next start -p 3001 > server.log 2>&1 &
+          # The standalone server, laid out as the Dockerfile lays it out, so
+          # CI tests what is deployed rather than the development server.
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+          (cd .next/standalone && PORT=3001 HOSTNAME=127.0.0.1 node server.js) > server.log 2>&1 &
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:3001/api/version >/dev/null && break; sleep 1; done
 
       - name: Run every pipeline
@@ -148,9 +152,9 @@ jobs:
           PAYPAL_PLAN_DEPARTMENT_MONTHLY: P-DEPM
           PAYPAL_PLAN_DEPARTMENT_YEARLY: P-DEPY
         run: |
-          pkill -f next-server || true
+          pkill -f "node server.js" || true
           sleep 2
-          npx next start -p 3001 > server-billing.log 2>&1 &
+          (cd .next/standalone && PORT=3001 HOSTNAME=127.0.0.1 node server.js) > server-billing.log 2>&1 &
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:3001/api/version >/dev/null && break; sleep 1; done
 
       - name: Pay, change plan, cancel, end to end

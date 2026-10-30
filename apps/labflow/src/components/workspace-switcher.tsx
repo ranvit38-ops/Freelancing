@@ -1,13 +1,13 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Card, CardHeader, Field, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import { createWorkspaceAction } from '@/server/actions/workspace';
 import { noState } from '@/server/actions/types';
 
 export function CreateWorkspaceForm() {
-  const [state, action] = useFormState(createWorkspaceAction, noState);
+  const [state, action] = useActionState(createWorkspaceAction, noState);
   return (
     <Card>
       <CardHeader

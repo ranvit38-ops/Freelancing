@@ -25,11 +25,12 @@ export const dynamic = 'force-dynamic';
  * This is the same form one click from Home, with the project chosen here, and
  * it can start from a file already in the lab's Files (?file=).
  */
-export default async function RecordExperimentPage({
-  searchParams,
-}: {
-  searchParams: { project?: string; file?: string; from?: string };
-}) {
+export default async function RecordExperimentPage(
+  props: {
+    searchParams: Promise<{ project?: string; file?: string; from?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
   // The example project is there to be looked at. Real work never lands in it
   // by default, and it is not offered as a place to put a new record.

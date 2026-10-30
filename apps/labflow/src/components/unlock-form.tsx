@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Card, CardHeader, Field, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import { redeemOwnerCodeAction } from '@/server/actions/unlock';
@@ -8,7 +8,7 @@ import { noState } from '@/server/actions/types';
 
 /** Shown only when the deployment has an owner code configured. */
 export function UnlockForm() {
-  const [state, action] = useFormState(redeemOwnerCodeAction, noState);
+  const [state, action] = useActionState(redeemOwnerCodeAction, noState);
   return (
     <Card>
       <CardHeader title="Owner code" description="Redeem a code to comp this lab." />

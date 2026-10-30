@@ -25,7 +25,8 @@ const VIEWS = {
 } as const;
 type View = keyof typeof VIEWS;
 
-export default async function TasksPage({ searchParams }: { searchParams: { view?: string } }) {
+export default async function TasksPage(props: { searchParams: Promise<{ view?: string }> }) {
+  const searchParams = await props.searchParams;
   const view: View | null = searchParams.view && searchParams.view in VIEWS ? (searchParams.view as View) : null;
   const session = await requireSession();
   const [tasks, members, projects] = await Promise.all([

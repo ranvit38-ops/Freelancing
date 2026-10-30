@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useEffect, useRef } from 'react';
 import { Card, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import {
@@ -22,7 +21,7 @@ export function SampleForm({
   projects: ProjectOption[];
   parents: { id: string; code: string }[];
 }) {
-  const [state, action] = useFormState(createSampleAction, noState);
+  const [state, action] = useActionState(createSampleAction, noState);
   return (
     <form action={action} className="space-y-5">
       <FormError>{state.error}</FormError>
@@ -82,7 +81,7 @@ export function ProtocolForm({
   /** The uploaded PDF or Word file this protocol is, when made from Files. */
   file?: { id: string; filename: string } | null;
 }) {
-  const [state, action] = useFormState(createProtocolAction, noState);
+  const [state, action] = useActionState(createProtocolAction, noState);
   return (
     <form action={action} className="space-y-5">
       <FormError>{state.error}</FormError>
@@ -160,7 +159,7 @@ export function ProtocolVersionForm({
   /** The latest version, which the next one starts from. */
   current?: { body: string | null; fileId: string | null };
 }) {
-  const [state, action] = useFormState(addProtocolVersionAction, noState);
+  const [state, action] = useActionState(addProtocolVersionAction, noState);
   const form = useRef<HTMLFormElement>(null);
   // After a save the page re-renders with the new version as "current", and
   // the form starts again from it rather than from the old text.
@@ -234,7 +233,7 @@ export function ProtocolVersionForm({
  * under the example project for want of somewhere else to put it.
  */
 export function QuickProjectForm({ file }: { file?: string }) {
-  const [state, action] = useFormState(createProjectAction, noState);
+  const [state, action] = useActionState(createProjectAction, noState);
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="then" value="record" />

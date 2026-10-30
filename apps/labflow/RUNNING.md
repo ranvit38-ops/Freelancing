@@ -135,7 +135,8 @@ NEXT_PUBLIC_APP_URL=http://127.0.0.1:3001 LABFLOW_PILOT_MODE=1 \
   EMAIL_FROM="Labquill <hello@labquill.test>" LABFLOW_OWNER_EMAIL=owner@labquill.test \
   GOOGLE_CLIENT_ID=fake GOOGLE_CLIENT_SECRET=fake GOOGLE_OAUTH_TOKEN_URL=http://127.0.0.1:4557/token \
   GOOGLE_API_KEY=fake GOOGLE_API_BASE=http://127.0.0.1:4557 \
-  npx next start -p 3001 &
+  sh -c 'cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public &&
+         cd .next/standalone && PORT=3001 HOSTNAME=127.0.0.1 node server.js' &
 npm run e2e
 ```
 
@@ -143,8 +144,9 @@ Paying is checked separately, because a pilot never bills: restart the server
 without `LABFLOW_PILOT_MODE` and with PayPal pointed at the stand-in, then run
 `npm run e2e:billing`. The variables are in `e2e/billing.mjs` and in CI.
 
-It prints one line per step and a count at the end. CI runs the same thing on
-every push.
+It runs the standalone server, laid out as the Dockerfile lays it out, so it
+tests what is deployed. It prints one line per step and a count at the end. CI
+runs the same thing on every push.
 
 ## If something goes wrong
 

@@ -9,7 +9,8 @@ import { DocumentConflictError } from '@/server/queries';
 export const runtime = 'nodejs';
 
 /** Saves a new version of a document anyone who can open it may edit. */
-export async function PUT(request: Request, { params }: { params: { fileId: string } }) {
+export async function PUT(request: Request, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Sign in again. Your text is still on screen.' }, { status: 401 });
   const blocked = await blockedReason(session);

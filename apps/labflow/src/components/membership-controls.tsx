@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { deleteAccountAction } from '@/server/actions/auth';
 import { deleteLabAction, leaveLabAction, removeMemberAction, setMemberRoleAction } from '@/server/actions/membership';
 import { noState } from '@/server/actions/types';
@@ -21,8 +21,8 @@ export function MemberControls({
   canRemove: boolean;
   name: string;
 }) {
-  const [roleState, roleAction] = useFormState(setMemberRoleAction, noState);
-  const [removeState, removeAction] = useFormState(removeMemberAction, noState);
+  const [roleState, roleAction] = useActionState(setMemberRoleAction, noState);
+  const [removeState, removeAction] = useActionState(removeMemberAction, noState);
   const error = roleState.error ?? removeState.error;
   return (
     <div className="flex flex-col items-end gap-1">
@@ -78,9 +78,9 @@ export function DangerZone({
   email: string;
   hasOtherLabs: boolean;
 }) {
-  const [leaveState, leaveAction] = useFormState(leaveLabAction, noState);
-  const [deleteLabState, deleteLab] = useFormState(deleteLabAction, noState);
-  const [accountState, deleteAccount] = useFormState(deleteAccountAction, noState);
+  const [leaveState, leaveAction] = useActionState(leaveLabAction, noState);
+  const [deleteLabState, deleteLab] = useActionState(deleteLabAction, noState);
+  const [accountState, deleteAccount] = useActionState(deleteAccountAction, noState);
 
   return (
     <Card className="border-danger/30 p-5 lg:col-span-2">

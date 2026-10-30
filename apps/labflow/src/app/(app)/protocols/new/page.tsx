@@ -7,7 +7,8 @@ export const metadata = { title: 'New protocol' };
 export const dynamic = 'force-dynamic';
 
 /** `?file=` comes from Files → “Use as a protocol”: the PDF or Word file becomes version 1. */
-export default async function NewProtocolPage({ searchParams }: { searchParams: { file?: string } }) {
+export default async function NewProtocolPage(props: { searchParams: Promise<{ file?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
   const projects = await listProjects(session);
   let file: { id: string; filename: string } | null = null;

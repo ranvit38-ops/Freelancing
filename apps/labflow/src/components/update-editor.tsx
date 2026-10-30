@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import { Badge, Card, CardHeader, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import { ConfirmSubmit } from './file-upload';
@@ -33,7 +32,7 @@ export function UpdateEditor({
   /** False on a plan without PowerPoint export. */
   canExport: boolean;
 }) {
-  const [state, action] = useFormState(saveUpdateAction, noState);
+  const [state, action] = useActionState(saveUpdateAction, noState);
   const [rows, setRows] = useState(sections);
 
   const update = (i: number, patch: Partial<UpdateSection>) =>

@@ -9,7 +9,8 @@ import { deleteInventoryItemAction } from '@/server/actions/inventory';
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: { params: { itemId: string } }) {
+export async function generateMetadata(props: { params: Promise<{ itemId: string }> }) {
+  const params = await props.params;
   try {
     const session = await requireSession();
     return { title: (await getInventoryItem(session, params.itemId)).item.name };
@@ -18,7 +19,8 @@ export async function generateMetadata({ params }: { params: { itemId: string } 
   }
 }
 
-export default async function InventoryItemPage({ params }: { params: { itemId: string } }) {
+export default async function InventoryItemPage(props: { params: Promise<{ itemId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   let data;
   try {

@@ -19,7 +19,8 @@ export const dynamic = 'force-dynamic';
  * scrolls away, so that the person who inherits this in a year can read what
  * happened rather than ask someone who has graduated.
  */
-export default async function TaskPage({ params }: { params: { taskId: string } }) {
+export default async function TaskPage(props: { params: Promise<{ taskId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
 
   let task;

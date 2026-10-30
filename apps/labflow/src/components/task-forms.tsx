@@ -1,7 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useRef } from 'react';
 import { Card, CardHeader, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import { createTaskAction } from '@/server/actions/tasks';
@@ -28,7 +27,7 @@ export function TaskComposer({
   projects: Project[];
   currentUserId: string;
 }) {
-  const [state, action] = useFormState(createTaskAction, noState);
+  const [state, action] = useActionState(createTaskAction, noState);
   const form = useRef<HTMLFormElement>(null);
 
   // Cleared on success so the next one can be typed straight away; a board is

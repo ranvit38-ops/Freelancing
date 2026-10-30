@@ -24,7 +24,8 @@ You are given a document and an instruction. Return the complete revised documen
  * the current text and the researcher accepts or discards it, because AI
  * output never changes the record on its own.
  */
-export async function POST(request: Request, { params }: { params: { fileId: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Sign in again.' }, { status: 401 });
   const access = await aiAccess(session);

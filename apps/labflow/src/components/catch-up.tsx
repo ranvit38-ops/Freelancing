@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useEffect, useState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { catchUpAction, type CatchUpState } from '@/server/actions/ai';
 import { SubmitButton } from './submit-button';
 
@@ -9,7 +9,7 @@ const empty: CatchUpState = {};
 
 /** "Catch me up": LabBot's plain-language briefing on the whole lab. */
 export function CatchUp({ configured }: { configured: boolean }) {
-  const [state, action] = useFormState(catchUpAction, empty);
+  const [state, action] = useActionState(catchUpAction, empty);
   if (!configured) {
     return (
       <p className="px-5 pb-5 text-sm text-muted">

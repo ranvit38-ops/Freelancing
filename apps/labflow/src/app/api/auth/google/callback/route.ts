@@ -43,7 +43,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const jar = cookies();
+  const jar = await cookies();
   // absoluteUrl, not request.url. Behind a proxy the incoming URL carries the
   // address the server is bound to (0.0.0.0:10000 on a typical host), so a
   // redirect built from it sends the browser somewhere that does not exist.
@@ -195,7 +195,7 @@ export async function GET(request: Request) {
 
   await createSession(userId);
   if (landIn) {
-    selectWorkspace(landIn);
+    await selectWorkspace(landIn);
     return NextResponse.redirect(absoluteUrl('/start?joined=1'));
   }
   // A link that brought them here but could not add them (the lab filled up

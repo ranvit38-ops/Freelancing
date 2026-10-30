@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Field, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import {
@@ -14,7 +14,7 @@ import {
 import { noState } from '@/server/actions/types';
 
 export function LoginForm({ inviteToken, joinCode }: { inviteToken?: string; joinCode?: string }) {
-  const [state, action] = useFormState(loginAction, noState);
+  const [state, action] = useActionState(loginAction, noState);
   return (
     <form action={action} className="space-y-4">
       {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
@@ -47,7 +47,7 @@ export function SignupForm({
   invitedEmail?: string;
   joinCode?: string;
 }) {
-  const [state, action] = useFormState(signupAction, noState);
+  const [state, action] = useActionState(signupAction, noState);
   // Either one means they are joining a lab that already exists, so the form
   // must not ask them to name one.
   const joining = Boolean(inviteToken || joinCode);
@@ -139,7 +139,7 @@ export function SignupForm({
 }
 
 export function ForgotPasswordForm() {
-  const [state, action] = useFormState(requestPasswordResetAction, noState);
+  const [state, action] = useActionState(requestPasswordResetAction, noState);
   if (state.ok) {
     return (
       <p className="rounded-lg border border-line bg-raised px-4 py-3 text-sm text-muted">
@@ -161,7 +161,7 @@ export function ForgotPasswordForm() {
 }
 
 export function ResetPasswordForm({ token }: { token: string }) {
-  const [state, action] = useFormState(resetPasswordAction, noState);
+  const [state, action] = useActionState(resetPasswordAction, noState);
   if (state.ok) {
     return (
       <div className="space-y-4">
@@ -211,7 +211,7 @@ export function JoinLabForm({
   inviteToken?: string;
   label: string;
 }) {
-  const [state, action] = useFormState(joinLabAction, noState);
+  const [state, action] = useActionState(joinLabAction, noState);
   return (
     <form action={action} className="space-y-3">
       {joinCode ? <input type="hidden" name="joinCode" value={joinCode} /> : null}

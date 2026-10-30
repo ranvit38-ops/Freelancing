@@ -1,13 +1,13 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Card, CardHeader, Field, FormError, Input, Select } from './ui';
 import { SubmitButton } from './submit-button';
 import { inviteMemberAction } from '@/server/actions/invites';
 import { noState } from '@/server/actions/types';
 
 export function InviteForm({ canInvite }: { canInvite: boolean }) {
-  const [state, action] = useFormState(inviteMemberAction, noState);
+  const [state, action] = useActionState(inviteMemberAction, noState);
 
   return (
     <Card>

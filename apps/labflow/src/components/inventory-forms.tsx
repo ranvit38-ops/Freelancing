@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Button, Card, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import {
@@ -28,7 +28,7 @@ type Item = {
 
 /** Create and edit share one set of fields; only the action differs. */
 export function InventoryItemForm({ item }: { item?: Item }) {
-  const [state, action] = useFormState(
+  const [state, action] = useActionState(
     item ? updateInventoryItemAction : createInventoryItemAction,
     noState,
   );
@@ -108,7 +108,7 @@ export function InventoryItemForm({ item }: { item?: Item }) {
 }
 
 export function AddLotForm({ itemId, unit }: { itemId: string; unit: string }) {
-  const [state, action] = useFormState(addLotAction, noState);
+  const [state, action] = useActionState(addLotAction, noState);
   return (
     <form action={action} className="space-y-4 px-5 py-4">
       <FormError>{state.error}</FormError>
@@ -136,7 +136,7 @@ export function AddLotForm({ itemId, unit }: { itemId: string; unit: string }) {
 }
 
 export function LotQuantityForm({ lotId, quantity }: { lotId: string; quantity: string }) {
-  const [state, action] = useFormState(adjustLotAction, noState);
+  const [state, action] = useActionState(adjustLotAction, noState);
   return (
     <form action={action} className="flex items-center gap-2">
       <input type="hidden" name="lotId" value={lotId} />
@@ -184,7 +184,7 @@ export function RecordLotUseForm({
   experimentId: string;
   options: LotOption[];
 }) {
-  const [state, action] = useFormState(recordLotUseAction, noState);
+  const [state, action] = useActionState(recordLotUseAction, noState);
   if (options.length === 0) {
     return (
       <p className="px-5 py-4 text-sm text-muted">

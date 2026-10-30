@@ -7,11 +7,12 @@ import { listExperiments, listProjects } from '@/server/queries';
 export const metadata = { title: 'Experiments' };
 export const dynamic = 'force-dynamic';
 
-export default async function ExperimentsPage({
-  searchParams,
-}: {
-  searchParams: { project?: string; status?: string };
-}) {
+export default async function ExperimentsPage(
+  props: {
+    searchParams: Promise<{ project?: string; status?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
   const [projects, all] = await Promise.all([
     listProjects(session),

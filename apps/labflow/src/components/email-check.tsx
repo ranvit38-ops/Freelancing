@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Badge, Card, FormError } from './ui';
 import { SubmitButton } from './submit-button';
 import { sendTestEmailAction } from '@/server/actions/email';
@@ -17,7 +17,7 @@ export function EmailCheck({
   from: string | null;
   you: string;
 }) {
-  const [state, action] = useFormState(sendTestEmailAction, noState);
+  const [state, action] = useActionState(sendTestEmailAction, noState);
 
   return (
     <Card className="p-5">

@@ -10,7 +10,8 @@ import { getResearchUpdate } from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
-export default async function UpdatePage({ params }: { params: { updateId: string } }) {
+export default async function UpdatePage(props: { params: Promise<{ updateId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   const canExport = await hasFeature(session, 'pptxExport');
   try {

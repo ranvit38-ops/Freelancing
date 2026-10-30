@@ -11,7 +11,8 @@ import { getExperimentRecord } from '@/server/queries';
 export const metadata = { title: 'Analysis' };
 export const dynamic = 'force-dynamic';
 
-export default async function AnalysisPage({ params }: { params: { experimentId: string } }) {
+export default async function AnalysisPage(props: { params: Promise<{ experimentId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   let record;
   try {

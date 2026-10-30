@@ -69,7 +69,6 @@ export function resetRateLimits() {
  */
 export function headerSafeFilename(name: string): string {
   const cleaned = name
-    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f"\\]/g, '')
     .trim();
   return cleaned.slice(0, 200) || 'download';

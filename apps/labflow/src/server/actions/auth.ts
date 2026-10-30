@@ -40,7 +40,7 @@ import { fieldErrorsFrom, formObject, type ActionState } from './types';
  * server-wide per hour, so a bot cannot mint labs and spend the sending
  * domain's reputation on welcome emails to strangers.
  */
-function throttle(
+async function throttle(
   bucket: string,
   {
     perAccount,
@@ -55,8 +55,8 @@ function throttle(
     perAccountHourly?: number;
     serverHourly?: number;
   },
-): ActionState | null {
-  const ip = clientIp(headers());
+): Promise<ActionState | null> {
+  const ip = clientIp(await headers());
   const hour = 3_600_000;
   const checks = [
     account ? rateLimit(`${bucket}:acct:${account}`, { limit: perAccount, windowMs: 60_000 }) : null,
@@ -85,7 +85,7 @@ const decoyHash = hashPassword('labflow-decoy-password-never-matches');
 
 export async function signupAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const attempted = normaliseEmail(String(formData.get('email') ?? ''));
-  const limited = throttle('signup', { perAccount: 5, perIp: 20, account: attempted, serverHourly: 60 });
+  const limited = await throttle('signup', { perAccount: 5, perIp: 20, account: attempted, serverHourly: 60 });
   if (limited) return limited;
 
   const parsed = signupSchema.safeParse(formObject(formData));
@@ -168,7 +168,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
   let joined = false;
   if (invite) {
     await acceptInvite(invite.id, invite.workspaceId, userId, invite.role);
-    selectWorkspace(invite.workspaceId);
+    await selectWorkspace(invite.workspaceId);
     joined = true;
   } else if (joinTarget) {
     const outcome = await joinByCode(joinCode, userId);
@@ -176,7 +176,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     // The account exists by now, so a refusal has to leave them somewhere. The
     // login page with the reason beats a dead end on a form they just passed.
     if (refusal) return { error: refusal };
-    selectWorkspace(joinTarget.id);
+    await selectWorkspace(joinTarget.id);
     joined = true;
   } else {
     await startTrial(workspaceIdCreated, TRIAL_DAYS, parsed.data.email);
@@ -199,7 +199,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const attempted = normaliseEmail(String(formData.get('email') ?? ''));
-  const limited = throttle('login', { perAccount: 10, perIp: 60, account: attempted });
+  const limited = await throttle('login', { perAccount: 10, perIp: 60, account: attempted });
   if (limited) return limited;
 
   const parsed = loginSchema.safeParse(formObject(formData));
@@ -242,7 +242,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     if (invite) {
       await acceptInvite(invite.id, invite.workspaceId, user.id, invite.role);
       if (normaliseEmail(invite.email) === email) await markEmailVerified(user.id);
-      selectWorkspace(invite.workspaceId);
+      await selectWorkspace(invite.workspaceId);
       joined = true;
       confirmJoined(email, user.name, invite.workspaceName);
     }
@@ -254,7 +254,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     const refusal = joinRefusalMessage(outcome);
     if (refusal) return { error: refusal };
     if (outcome.status === 'joined' || outcome.status === 'already') {
-      selectWorkspace(outcome.workspaceId);
+      await selectWorkspace(outcome.workspaceId);
       joined = true;
     }
     if (outcome.status === 'joined') confirmJoined(email, user.name, outcome.workspaceName);
@@ -285,13 +285,13 @@ export async function joinLabAction(_prev: ActionState, formData: FormData): Pro
     if (!invite) return { error: 'That invitation has already been used or has expired.' };
     await acceptInvite(invite.id, invite.workspaceId, session.userId, invite.role);
     if (normaliseEmail(invite.email) === normaliseEmail(session.userEmail)) await markEmailVerified(session.userId);
-    selectWorkspace(invite.workspaceId);
+    await selectWorkspace(invite.workspaceId);
     confirmJoined(session.userEmail, session.userName, invite.workspaceName);
   } else {
     const outcome = await joinByCode(joinCode, session.userId);
     const refusal = joinRefusalMessage(outcome);
     if (refusal) return { error: refusal };
-    if (outcome.status === 'joined' || outcome.status === 'already') selectWorkspace(outcome.workspaceId);
+    if (outcome.status === 'joined' || outcome.status === 'already') await selectWorkspace(outcome.workspaceId);
     if (outcome.status === 'joined') confirmJoined(session.userEmail, session.userName, outcome.workspaceName);
   }
   revalidatePath('/', 'layout');
@@ -327,7 +327,7 @@ export async function requestPasswordResetAction(
   formData: FormData,
 ): Promise<ActionState> {
   const email = normaliseEmail(String(formData.get('email') ?? ''));
-  const limited = throttle('reset', {
+  const limited = await throttle('reset', {
     perAccount: 5,
     perIp: 30,
     account: email,
@@ -403,7 +403,7 @@ export async function resetPasswordAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const limited = throttle('reset-confirm', { perAccount: 10, perIp: 40 });
+  const limited = await throttle('reset-confirm', { perAccount: 10, perIp: 40 });
   if (limited) return limited;
 
   const token = String(formData.get('token') ?? '');

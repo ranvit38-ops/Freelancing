@@ -7,11 +7,12 @@ import { getSession } from '@/server/auth';
 
 export const metadata = { title: 'Log in' };
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: { invite?: string; code?: string; error?: string };
-}) {
+export default async function LoginPage(
+  props: {
+    searchParams: Promise<{ invite?: string; code?: string; error?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   if (await getSession()) redirect('/dashboard');
   return (
     <>

@@ -11,7 +11,8 @@ import { getProject, memoryInputs } from '@/server/queries';
 export const metadata = { title: 'Research memory' };
 export const dynamic = 'force-dynamic';
 
-export default async function MemoryPage({ params }: { params: { projectId: string } }) {
+export default async function MemoryPage(props: { params: Promise<{ projectId: string }> }) {
+  const params = await props.params;
   const session = await requireSession();
   const { limits } = await workspacePlan(session);
   if (!limits.researchMemory) {

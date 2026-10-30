@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Card, Field, FormError, Input, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import { createProjectAction, updateProjectAction } from '@/server/actions/records';
@@ -22,7 +22,7 @@ export function ProjectForm({
     tags: string;
   };
 }) {
-  const [state, action] = useFormState(projectId ? updateProjectAction : createProjectAction, noState);
+  const [state, action] = useActionState(projectId ? updateProjectAction : createProjectAction, noState);
   const value = initial ?? {
     name: '',
     description: '',

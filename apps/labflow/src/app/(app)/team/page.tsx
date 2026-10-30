@@ -79,7 +79,7 @@ export default async function PeoplePage() {
 
         <div className="space-y-5">
           <JoinLink
-            link={joinCode ? linkForViewer(`/join?code=${encodeURIComponent(joinCode)}`) : null}
+            link={joinCode ? await linkForViewer(`/join?code=${encodeURIComponent(joinCode)}`) : null}
             canManage={canManage}
           />
           <InviteForm canInvite={canManage} />

@@ -76,7 +76,7 @@ export async function inviteMemberAction(
 
   // Shown to the inviter, who passes it on themselves: the address they are
   // using right now is the right one, whether or not it is configured.
-  const handOver = linkForViewer(`/join?token=${token}`);
+  const handOver = await linkForViewer(`/join?token=${token}`);
   if (!mailConfigured()) {
     return {
       ok: true,

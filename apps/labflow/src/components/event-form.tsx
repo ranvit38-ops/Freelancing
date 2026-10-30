@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useEffect, useRef } from 'react';
 import { Card, CardHeader, Field, FormError, Input, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import { createEventAction } from '@/server/actions/calendar';
@@ -13,7 +12,7 @@ import { noState } from '@/server/actions/types';
  * a fresh form with that date already in it.
  */
 export function EventForm({ defaultDate }: { defaultDate: string }) {
-  const [state, action] = useFormState(createEventAction, noState);
+  const [state, action] = useActionState(createEventAction, noState);
   const form = useRef<HTMLFormElement>(null);
 
   useEffect(() => {

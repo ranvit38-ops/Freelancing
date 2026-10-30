@@ -54,7 +54,7 @@ export async function leaveLabAction(_prev: ActionState, _formData: FormData): P
   } catch (error) {
     return refused(error);
   }
-  selectWorkspace(next);
+  await selectWorkspace(next);
   revalidatePath('/', 'layout');
   redirect('/dashboard');
 }
@@ -69,7 +69,7 @@ export async function deleteLabAction(_prev: ActionState, formData: FormData): P
     return refused(error);
   }
   await removeWorkspaceFiles(session.workspaceId);
-  selectWorkspace(next);
+  await selectWorkspace(next);
   revalidatePath('/', 'layout');
   redirect('/dashboard');
 }

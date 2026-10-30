@@ -77,7 +77,8 @@ const features = [
   },
 ];
 
-export default async function LandingPage({ searchParams }: { searchParams?: { account?: string } }) {
+export default async function LandingPage(props: { searchParams?: Promise<{ account?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await getSession();
   const primaryHref = session ? '/dashboard' : '/signup';
   const primaryLabel = session ? 'Open your lab' : 'Start a lab';

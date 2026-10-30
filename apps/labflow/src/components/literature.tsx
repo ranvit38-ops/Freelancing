@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Badge, Card, CardHeader, EmptyState, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import {
@@ -18,7 +18,7 @@ const emptyLiteratureState: LiteratureState = {};
  * generated, and a failed lookup shows an error rather than a plausible list.
  */
 export function LiteratureSearch({ projectId }: { projectId: string }) {
-  const [state, action] = useFormState(searchLiteratureAction, emptyLiteratureState);
+  const [state, action] = useActionState(searchLiteratureAction, emptyLiteratureState);
 
   return (
     <div className="space-y-5">

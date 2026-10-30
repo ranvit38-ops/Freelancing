@@ -93,6 +93,11 @@ async function bodyText(page) {
 
 const NOT_FOUND = 'This page isn’t here';
 
+/** Pages stream in after the browser's load event; wait for the real content, not the skeleton. */
+async function settled(page) {
+  await page.waitForFunction(() => !document.querySelector('[data-loading]'), null, { timeout: 15_000 }).catch(() => {});
+}
+
 /** Waits for visible text; hidden copies (closed menus, select options) do not count. */
 async function expectText(page, text, timeout = 10_000) {
   await page.getByText(text, { exact: false }).and(page.locator(':visible')).first().waitFor({ timeout });
@@ -1073,6 +1078,7 @@ await step('the real owner proves the inbox and then gets the owner dashboard', 
   await expectText(A, 'Password updated');
   await logIn(A, OWNER_EMAIL, 'the-owner-real-password');
   await A.goto(`${BASE}/owner`);
+  await settled(A);
   const text = await bodyText(A);
   assert(!text.includes(NOT_FOUND), 'the verified owner cannot open the owner dashboard');
   assert(text.includes('Pipeline Lab') && text.includes('Other Lab'), 'owner dashboard does not list the labs');
@@ -1186,6 +1192,7 @@ for (const [who, page] of [['PI', P], ['admin (the student)', S]]) {
     const broken = [];
     for (const path of everyPage()) {
       const r = await page.goto(BASE + path);
+      await settled(page);
       const text = await bodyText(page);
       if ((r && r.status() >= 400) || text.includes(NOT_FOUND) || /Something went wrong|Application error/i.test(text)) {
         broken.push(`${path} → ${r?.status()}`);
@@ -1213,6 +1220,7 @@ await step('every page passes an automated accessibility check (WCAG 2.1 AA), li
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
       for (const path of paths) {
         await page.goto(BASE + path);
+        await settled(page);
         await page.addScriptTag({ content: axe });
         const violations = await page.evaluate(async () =>
           (await window.axe.run(document, { iframes: false, runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] })).violations.map(
@@ -1236,6 +1244,7 @@ await step('every page fits a phone screen without sideways scrolling', async ()
   const wide = [];
   for (const path of everyPage()) {
     await page.goto(BASE + path);
+    await settled(page);
     const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     if (over > 2) wide.push(`${path} (${over}px too wide)`);
   }

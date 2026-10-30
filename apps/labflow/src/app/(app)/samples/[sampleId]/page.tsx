@@ -10,13 +10,14 @@ import { experimentsForSample, getSample } from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SamplePage({
-  params,
-  searchParams,
-}: {
-  params: { sampleId: string };
-  searchParams?: { error?: string };
-}) {
+export default async function SamplePage(
+  props: {
+    params: Promise<{ sampleId: string }>;
+    searchParams?: Promise<{ error?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const session = await requireSession();
   try {
     const sample = await getSample(session, params.sampleId);

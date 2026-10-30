@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Badge, Card, CardHeader, FormError, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import {
@@ -117,7 +117,7 @@ function LabelledList({
 }
 
 export function ExperimentAnalysisPanel({ experimentId }: { experimentId: string }) {
-  const [state, action] = useFormState(analyseExperimentAction, emptyAnalysisState);
+  const [state, action] = useActionState(analyseExperimentAction, emptyAnalysisState);
 
   return (
     <div className="space-y-5">
@@ -177,7 +177,7 @@ const examples = [
 ];
 
 export function ProjectAssistantPanel({ projectId }: { projectId: string }) {
-  const [state, action] = useFormState(askProjectAction, emptyAnswerState);
+  const [state, action] = useActionState(askProjectAction, emptyAnswerState);
 
   return (
     <div className="space-y-5">

@@ -11,13 +11,14 @@ import { getProject, listExperiments, listResearchUpdates } from '@/server/queri
 export const metadata = { title: 'Research updates' };
 export const dynamic = 'force-dynamic';
 
-export default async function ProjectUpdatesPage({
-  params,
-  searchParams,
-}: {
-  params: { projectId: string };
-  searchParams: { ids?: string };
-}) {
+export default async function ProjectUpdatesPage(
+  props: {
+    params: Promise<{ projectId: string }>;
+    searchParams: Promise<{ ids?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const session = await requireSession();
   let project;
   try {

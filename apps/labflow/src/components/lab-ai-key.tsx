@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Field, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import { removeLabAiKeyAction, saveLabAiKeyAction } from '@/server/actions/ai-key';
@@ -8,8 +8,8 @@ import { noState } from '@/server/actions/types';
 
 /** Add, replace or remove the lab's own Claude key. Owners and admins only. */
 export function LabAiKeyForm({ hint, readable }: { hint: string | null; readable: boolean }) {
-  const [saved, save] = useFormState(saveLabAiKeyAction, noState);
-  const [removed, remove] = useFormState(removeLabAiKeyAction, noState);
+  const [saved, save] = useActionState(saveLabAiKeyAction, noState);
+  const [removed, remove] = useActionState(removeLabAiKeyAction, noState);
   const message = saved.ok ? saved.message : removed.ok ? removed.message : null;
   return (
     <div className="space-y-3">

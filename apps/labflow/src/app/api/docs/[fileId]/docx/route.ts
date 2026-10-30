@@ -7,7 +7,8 @@ import { NotFoundInWorkspaceError } from '@/server/not-found';
 export const runtime = 'nodejs';
 
 /** The document as a Word file, for people who live in Word. */
-export async function GET(_request: Request, { params }: { params: { fileId: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   try {

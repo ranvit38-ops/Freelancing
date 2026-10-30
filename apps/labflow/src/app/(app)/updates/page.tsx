@@ -8,11 +8,12 @@ import { listExperiments, listProjects, listResearchUpdates } from '@/server/que
 export const metadata = { title: 'Research updates' };
 export const dynamic = 'force-dynamic';
 
-export default async function UpdatesPage({
-  searchParams,
-}: {
-  searchParams: { project?: string };
-}) {
+export default async function UpdatesPage(
+  props: {
+    searchParams: Promise<{ project?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await requireSession();
   const [projects, updates] = await Promise.all([
     listProjects(session),

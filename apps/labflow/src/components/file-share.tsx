@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { AudiencePicker, useAudience, type AudienceKind, type Member } from './audience-picker';
 import { SubmitButton } from './submit-button';
 import { shareFileAction } from '@/server/actions/sharing';
@@ -18,7 +18,7 @@ export function FileShare({
   current: AudienceKind;
   sharedWith: string[];
 }) {
-  const [state, action] = useFormState(shareFileAction, noState);
+  const [state, action] = useActionState(shareFileAction, noState);
   const audience = useAudience(current, sharedWith);
   return (
     <details className="group shrink-0">

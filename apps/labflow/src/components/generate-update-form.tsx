@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { FormError } from './ui';
 import { SubmitButton } from './submit-button';
 import { generateUpdateAction } from '@/server/actions/updates';
@@ -16,7 +16,7 @@ export function GenerateUpdateForm({
   experiments: { id: string; number: number; title: string; performedOn: Date | string | null }[];
   preselected?: string[];
 }) {
-  const [state, action] = useFormState(generateUpdateAction, noState);
+  const [state, action] = useActionState(generateUpdateAction, noState);
 
   return (
     <form action={action} className="space-y-4 px-5 py-4">

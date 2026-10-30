@@ -12,7 +12,7 @@ export const metadata = { title: 'Not found' };
  * two and opened a link from the other one.
  */
 export default async function NotFound() {
-  const path = headers().get('x-labquill-path') ?? '';
+  const path = (await headers()).get('x-labquill-path') ?? '';
   const session = path ? await getSession().catch(() => null) : null;
   const other = session ? await findLinkInMyOtherLabs(session, path).catch(() => null) : null;
 

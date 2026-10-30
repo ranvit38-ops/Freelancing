@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Badge, Card, FormError, cx } from './ui';
 import { SubmitButton } from './submit-button';
 import { cancelPlanAction, startCheckoutAction, syncBillingAction } from '@/server/actions/billing';
@@ -19,7 +19,7 @@ export function PlanPicker({
   currentInterval: 'month' | 'year' | null;
   canManage: boolean;
 }) {
-  const [state, action] = useFormState(startCheckoutAction, noState);
+  const [state, action] = useActionState(startCheckoutAction, noState);
 
   return (
     <div className="space-y-4">
@@ -113,7 +113,7 @@ export function PlanPicker({
 
 /** Cancel inside Labquill, in one step, without hunting through PayPal. */
 export function CancelPlanForm({ activeUntil }: { activeUntil: string | null }) {
-  const [state, action] = useFormState(cancelPlanAction, noState);
+  const [state, action] = useActionState(cancelPlanAction, noState);
   if (state.ok) {
     return (
       <p role="status" className="text-sm text-ok">
@@ -145,7 +145,7 @@ export function CancelPlanForm({ activeUntil }: { activeUntil: string | null }) 
  * otherwise, which is what a lost webhook looks like from the inside.
  */
 export function SyncBillingButton() {
-  const [state, action] = useFormState(syncBillingAction, noState);
+  const [state, action] = useActionState(syncBillingAction, noState);
   return (
     <form action={action} className="space-y-2">
       <FormError>{state.error}</FormError>
