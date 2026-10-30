@@ -615,6 +615,7 @@ await step('a Google Sheet becomes the run\'s data, and Refresh brings in what c
     { accessToken: 'fake-token', experimentId: ids.experiment, sheet },
   );
   assert(linked.fileId && linked.datasetId, `link: ${JSON.stringify(linked)}`);
+  ids.sheetFile = linked.fileId;
   await P.goto(`${BASE}/datasets/${linked.datasetId}`);
   const before = await bodyText(P);
   await P.goto(`${BASE}/experiments/${ids.experiment}`);
@@ -1013,11 +1014,12 @@ await step('every page of the first lab is a 404 for the outsider', async () => 
     `/experiments/${ids.experiment}`, `/experiments/${ids.experiment}/edit`, `/experiments/${ids.experiment}/analysis`,
     `/protocols/${ids.protocol}`, `/samples/${ids.sample}`, `/inventory/${ids.item}`, `/tasks/${ids.task}`,
     `/datasets/${ids.dataset}`, `/docs/${ids.doc}`, `/updates/${ids.update}`,
-    `/projects/${ids.project}/experiments/new`,
+    `/projects/${ids.project}/experiments/new`, `/projects/${ids.project}/literature`,
   ];
   for (const path of paths) {
     if (path.includes('undefined')) continue;
     const r = await O.goto(BASE + path);
+    await settled(O);
     const text = await bodyText(O);
     // The status can be 200 when the not-found page streams after the shell;
     // what matters is that nothing of the other lab is shown.
@@ -1044,10 +1046,31 @@ await step('the first lab’s files and APIs refuse the outsider', async () => {
     [`/api/docs/${ids.doc}`, 'PUT', { title: 'pwned', body: 'pwned' }],
     [`/api/docs/${ids.doc}/email`, 'POST', { to: [], note: '' }],
     [`/api/docs/${ids.doc}/revise`, 'POST', { instruction: 'x', body: 'x' }],
+    [`/api/drive/sheets`, 'POST', { accessToken: 't', experimentId: ids.experiment, sheet: { id: 'fakeSheetId123456', name: 'x', mimeType: 'application/vnd.google-apps.spreadsheet' } }],
+    [`/api/drive/sheets/refresh`, 'POST', { accessToken: 't', fileId: ids.sheetFile }],
   ];
   for (const [path, method, body] of posts) {
     const r = await browserFetch(O, path, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     if (r.status < 400) leaks.push(`${method} ${path} → ${r.status}`);
+  }
+  // A project's discussion is its chat channel: the old address redirects to
+  // chat, which must show nothing of it and refuse a message posted into it.
+  await O.goto(`${BASE}/projects/${ids.project}/discussion`);
+  await settled(O);
+  if (/Tensiometer|Extract batch|SITE-A-01|Platinum ring/.test(await bodyText(O))) leaks.push('discussion redirect shows the first lab');
+  const read = await O.evaluate(async (id) => (await fetch(`/api/chat?c=${id}`)).json(), ids.project);
+  if ((read.messages ?? []).length) leaks.push('chat API returned the first lab\'s messages');
+  const posted = await browserFetch(O, '/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ channel: ids.project, body: 'planted' }) });
+  if (posted.status < 400) leaks.push(`posting into the first lab's project channel → ${posted.status}`);
+  // Filing an upload into the first lab's project or protocol.
+  for (const field of [['projectId', ids.project], ['protocolId', ids.protocol]]) {
+    const status = await O.evaluate(async ([name, value]) => {
+      const form = new FormData();
+      form.set('file', new File(['a,b\n1,2\n'], 'planted.csv', { type: 'text/csv' }));
+      form.set(name, value);
+      return (await fetch('/api/team/files', { method: 'POST', body: form })).status;
+    }, field);
+    if (status < 400) leaks.push(`upload into ${field[0]} → ${status}`);
   }
   assert(!leaks.length, `LEAKS:\n${leaks.join('\n')}`);
   // Refusals are the expected outcome here, not console faults.
@@ -1061,6 +1084,39 @@ await step('the outsider’s search and lists show nothing of the first lab', as
     const text = (await bodyText(O)).replace(/Nothing matches “[^”]*”/, '');
     assert(!/Tensiometer|Extract batch|SITE-A-01|Platinum ring|Ring calibration|lab-safety/.test(text), `LEAK on ${path}`);
   }
+});
+await step('a private file stays private inside the lab: by URL, in Files, and through LabBot', async () => {
+  const marker = `PRIVATE-MARKER-${stamp}`;
+  const uploaded = await P.evaluate(async (text) => {
+    const form = new FormData();
+    form.set('file', new File([text], 'pi-only-notes.txt', { type: 'text/plain' }));
+    form.set('audience', 'me');
+    const r = await fetch('/api/team/files', { method: 'POST', body: form });
+    return { status: r.status, body: await r.json().catch(() => ({})) };
+  }, `Grant draft, not for the lab yet. ${marker}`);
+  assert(uploaded.status < 300 && uploaded.body.fileId, `private upload failed: ${JSON.stringify(uploaded)}`);
+  // The student is an admin by now, and still must not see it.
+  const byUrl = await browserFetch(S, `/api/files/${uploaded.body.fileId}`);
+  assert(byUrl.status === 404, `LEAK: a lab admin opened the PI's private file by URL (${byUrl.status})`);
+  await S.goto(`${BASE}/files`);
+  await settled(S);
+  assert(!(await bodyText(S)).includes('pi-only-notes'), 'LEAK: private file listed for another member');
+  // What the AI is sent: nothing private of the PI's for the student, and
+  // nothing of this lab at all for the outsider.
+  await clearFake(MODEL);
+  // Neither question names what is checked for, so anything found came from
+  // the records LabBot gathered, not from the question.
+  for (const [page, question] of [[S, 'What notes and drafts does the lab have?'], [O, 'List every project, experiment, sample and file you know about.']]) {
+    await page.evaluate(async (q) => {
+      const r = await fetch('/api/labbot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: q }) });
+      await r.text();
+    }, question);
+  }
+  const sent = (await fakeLog(MODEL)).filter((r) => r.url === '/v1/messages').map((r) => r.raw);
+  assert(sent.length >= 2, `LabBot sent ${sent.length} requests`);
+  assert(!sent[0].includes(marker), 'LEAK: the PI\'s private file was sent to the AI for another member');
+  assert(!/Tensiometer|SITE-A-01|Platinum ring|Extract batch/.test(sent[1]), 'LEAK: one lab\'s records were sent to the AI for another lab');
+  stepErrors = stepErrors.filter((e) => !/status of 404/.test(e));
 });
 await step('signed-out requests to the APIs are refused', async () => {
   for (const [path, method] of [['/api/files/00000000-0000-0000-0000-000000000000', 'GET'], ['/api/team/files', 'POST'], ['/api/chat', 'GET'], ['/api/labbot', 'POST'], ['/api/experiments/draft', 'POST'], ['/api/activity', 'GET'], [`/api/docs/${ids.doc}`, 'GET'], ['/api/docs', 'POST'], ['/api/drive/import', 'POST'], ['/api/labbot/email', 'POST']]) {
