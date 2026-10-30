@@ -132,10 +132,11 @@ await step('cancelling inside Labquill stops payment but keeps the plan until th
   assert(await page.locator('input[name=confirm][required]').count(), 'cancel needs no confirmation');
   await page.locator('input[name=confirm]').check();
   await page.getByRole('button', { name: 'Cancel plan' }).click();
-  // The page redraws as cancelled: the form goes, and the notice says until when.
-  await expectText('stays active until');
+  // The page redraws as cancelled: the form goes, and the notice says until
+  // when. Not "stays active until" alone: the tick box's own label says that.
+  await expectText('The plan is cancelled');
   await page.reload();
-  await expectText('stays active until');
+  await expectText('The plan is cancelled');
   assert(!(await page.getByRole('button', { name: 'Cancel plan' }).count()), 'still offers to cancel a cancelled plan');
   assert(!(await page.locator('body').innerText()).includes('read-only because'), 'cancelled lab went read-only at once');
   const cancelled = (await mailTo()).filter((m) => /is cancelled/.test(m.body.subject));

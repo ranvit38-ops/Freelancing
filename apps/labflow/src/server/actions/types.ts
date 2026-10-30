@@ -9,7 +9,7 @@ export type ActionState = {
 export const noState: ActionState = {};
 
 /** Flattens a Zod error into the per-field map the forms render. */
-export function fieldErrorsFrom(issues: { path: (string | number)[]; message: string }[]) {
+export function fieldErrorsFrom(issues: { path: PropertyKey[]; message: string }[]) {
   const fieldErrors: Record<string, string> = {};
   for (const issue of issues) {
     const key = String(issue.path[0] ?? '_');
