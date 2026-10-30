@@ -27,7 +27,11 @@ suite('files kept in the database', () => {
   });
 
   it('stores, reads back byte for byte, and deletes', async () => {
-    const bytes = Buffer.from([0, 1, 2, 255, 254, 10, 13, 0]);
+    // A real PNG: uploads are checked against what they claim to be.
+    const bytes = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
     const key = await storage.putFile(workspace, 'gel.png', bytes);
     expect(key.startsWith(`${workspace}/`)).toBe(true);
     expect(Buffer.compare(await storage.getFile(key), bytes)).toBe(0);
@@ -38,10 +42,18 @@ suite('files kept in the database', () => {
   it('refuses an upload that would fill the database, rather than letting it stop all writes', async () => {
     const { usedBytes } = await storage.databaseStorageUse();
     process.env.LABFLOW_DB_STORAGE_MB = String((usedBytes + 1024) / (1024 * 1024));
-    await expect(storage.putFile(workspace, 'big.pdf', Buffer.alloc(4096))).rejects.toBeInstanceOf(
+    await expect(storage.putFile(workspace, 'big.txt', Buffer.alloc(4096, 'a'))).rejects.toBeInstanceOf(
       storage.StorageFullError,
     );
     delete process.env.LABFLOW_DB_STORAGE_MB;
+  });
+
+  it('refuses a file whose contents are not what its name says, and stores nothing', async () => {
+    const { usedBytes } = await storage.databaseStorageUse();
+    await expect(storage.putFile(workspace, 'gel.png', Buffer.from('MZ not a picture'))).rejects.toBeInstanceOf(
+      storage.FileRejectedError,
+    );
+    expect((await storage.databaseStorageUse()).usedBytes).toBe(usedBytes);
   });
 
   it('still finds a file written to disk before the switch', async () => {

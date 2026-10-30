@@ -41,9 +41,9 @@ const proxyOrigins = [
  * Drive, YouTube and PayPal, and is left until it can be tested against all
  * of them; frame-ancestors is the part that guards against clickjacking.
  */
+const frameAncestors = { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" };
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-  { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
@@ -73,7 +73,12 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // Downloads set a stricter policy of their own (a sandbox), which this
+      // one would otherwise replace.
+      { source: '/((?!api/files/).*)', headers: [frameAncestors] },
+    ];
   },
   // The guide's screenshots are already sized, and nothing else goes through
   // next/image. Unused, the optimizer endpoint is only attack surface: Next 14

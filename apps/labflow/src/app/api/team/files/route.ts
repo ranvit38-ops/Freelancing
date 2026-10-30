@@ -4,7 +4,7 @@ import { getSession } from '@/server/auth';
 import { blockedReason } from '@/server/paywall';
 import * as q from '@/server/queries';
 import { NotFoundInWorkspaceError } from '@/server/not-found';
-import { StorageFullError, isAllowedUpload, maxBytesFor, putFile } from '@/server/storage';
+import { FileRejectedError, StorageFullError, isAllowedUpload, maxBytesFor, putFile } from '@/server/storage';
 import { audienceFrom, shareFile, type Audience } from '@/server/sharing';
 import { dmParticipants } from '@/lib/dm';
 
@@ -81,6 +81,7 @@ export async function POST(request: Request) {
     storageKey = await putFile(session.workspaceId, file.name, bytes);
   } catch (error) {
     if (error instanceof StorageFullError) return NextResponse.json({ error: error.message }, { status: 507 });
+    if (error instanceof FileRejectedError) return NextResponse.json({ error: error.message }, { status: 415 });
     throw error;
   }
   const fileId = await q.recordFile(session, {

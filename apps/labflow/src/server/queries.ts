@@ -1,4 +1,5 @@
 import { and, count, desc, eq, gt, ilike, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { contentTypeFor } from '@/lib/file-check';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/db';
 import { normaliseEmail } from '@/lib/trial-eligibility';
@@ -1163,6 +1164,9 @@ export async function recordFile(
     .insert(files)
     .values({
       ...input,
+      // The browser's claimed type is not trusted: an upload was checked
+      // against its extension on the way in, so the extension decides.
+      contentType: contentTypeFor(input.filename),
       ...(input.driveFileId ? { driveSyncedAt: new Date() } : {}),
       workspaceId: s.workspaceId,
       uploadedById: s.userId,

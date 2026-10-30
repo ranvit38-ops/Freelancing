@@ -2,7 +2,7 @@ import { DRIVE_FILE_ID, SHEET_MIME, driveExport, importedName, isUnimportable } 
 import type { SessionContext } from './auth';
 import * as q from './queries';
 import { shareFile, type Audience } from './sharing';
-import { StorageFullError, isAllowedUpload, maxBytesFor, putFile, removeFile } from './storage';
+import { FileRejectedError, StorageFullError, isAllowedUpload, maxBytesFor, putFile, removeFile } from './storage';
 import { UploadRejected, readTable, storeExperimentBytes, type StoredUpload } from './uploads';
 
 /**
@@ -110,6 +110,10 @@ export async function importDriveFiles(
         results.push({ name, error: error.message });
         break;
       }
+      if (error instanceof FileRejectedError) {
+        results.push({ name, error: error.message });
+        continue;
+      }
       throw error;
     }
   }
@@ -163,6 +167,7 @@ export async function refreshSheet(
     storageKey = await putFile(s.workspaceId, linked.filename, got.bytes);
   } catch (error) {
     if (error instanceof StorageFullError) throw new UploadRejected(error.message, 507);
+    if (error instanceof FileRejectedError) throw new UploadRejected(error.message, 415);
     throw error;
   }
   const table = await readTable(linked.filename, got.bytes);

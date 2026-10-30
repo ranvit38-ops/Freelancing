@@ -15,7 +15,7 @@ import {
 import { requireSession, NotFoundInWorkspaceError } from '../authz';
 import type { SessionContext } from '../auth';
 import { InUseError } from '../not-found';
-import { StorageFullError, isAllowedUpload, maxBytesFor, putFile, removeFile } from '../storage';
+import { FileRejectedError, StorageFullError, isAllowedUpload, maxBytesFor, putFile, removeFile } from '../storage';
 import { UploadRejected, attachStoredFile, storeExperimentFile } from '../uploads';
 import { blockedReason } from '../paywall';
 import * as q from '../queries';
@@ -297,7 +297,7 @@ async function storeProtocolUpload(
     });
     return { fileId };
   } catch (error) {
-    if (error instanceof StorageFullError) return { error: error.message };
+    if (error instanceof StorageFullError || error instanceof FileRejectedError) return { error: error.message };
     throw error;
   }
 }

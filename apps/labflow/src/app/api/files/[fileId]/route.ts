@@ -4,6 +4,7 @@ import { NotFoundInWorkspaceError } from '@/server/authz';
 import { getFileForDownload } from '@/server/queries';
 import { FileGoneError, getFile } from '@/server/storage';
 import { headerSafeFilename } from '@/lib/rate-limit';
+import { contentTypeFor } from '@/lib/file-check';
 
 export const runtime = 'nodejs';
 
@@ -52,19 +53,29 @@ export async function GET(_request: Request, props: { params: Promise<{ fileId: 
       return NextResponse.redirect(target.toString(), 302);
     }
     const body = await getFile(file.storageKey);
-    return new NextResponse(body, {
+    // From the extension, which uploads are checked against, rather than the
+    // type stored with older files, which came from the uploader's browser.
+    const type = contentTypeFor(file.filename);
+    return new NextResponse(new Uint8Array(body), {
       headers: {
-        'Content-Type': file.contentType,
+        'Content-Type': type,
         'Content-Length': String(file.byteSize),
         // `attachment` by default, because uploaded HTML or SVG served inline
         // would execute on our origin. Only the media types below are shown in
         // place, and only when the stored type is exactly one of them: a file
         // named .mp4 carrying HTML still arrives as a download.
         'Content-Disposition': `${
-          RENDERABLE.has(file.contentType) ? 'inline' : 'attachment'
+          RENDERABLE.has(type) ? 'inline' : 'attachment'
         }; filename="${headerSafeFilename(file.filename)}"`,
         'Cache-Control': 'private, no-store',
         'X-Content-Type-Options': 'nosniff',
+        // A second wall behind the checks: opened directly, a file runs no
+        // script and reaches nothing. PDFs are left out because the browser's
+        // own viewer will not open inside a sandbox.
+        'Content-Security-Policy':
+          type === 'application/pdf'
+            ? "frame-ancestors 'self'"
+            : "sandbox; default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'",
       },
     });
   } catch (error) {

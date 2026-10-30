@@ -1,4 +1,5 @@
 import { mkdir, readFile, rm, unlink, writeFile } from 'node:fs/promises';
+import { inspectFile } from '@/lib/file-check';
 import { dirname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { env } from '@/lib/env';
@@ -24,6 +25,14 @@ export class StorageFullError extends Error {
 }
 
 /** The record exists but its bytes do not, typically lost with an old disk. */
+/** The bytes are not what the file's name says, or are damaged. See lib/file-check. */
+export class FileRejectedError extends Error {
+  constructor(filename: string, reason: string) {
+    super(`${filename} ${reason}.`);
+    this.name = 'FileRejectedError';
+  }
+}
+
 export class FileGoneError extends Error {
   constructor() {
     super('This file is no longer stored on the server. Whoever uploaded it will need to upload it again.');
@@ -56,7 +65,15 @@ export async function putFile(
   workspaceId: string,
   originalName: string,
   data: Buffer,
+  /** Only for text written in Labquill's own editor, which never was an upload. */
+  options: { written?: boolean } = {},
 ): Promise<string> {
+  // Every upload, from any route, passes here, so this is the one place the
+  // contents are checked against the name. A failing file is never stored.
+  if (!options.written) {
+    const verdict = await inspectFile(originalName, data);
+    if (!verdict.ok) throw new FileRejectedError(originalName, verdict.reason);
+  }
   const extension = originalName.includes('.') ? originalName.split('.').pop()!.slice(0, 12) : 'bin';
   const key = `${workspaceId}/${randomUUID()}.${extension.replace(/[^a-zA-Z0-9]/g, '')}`;
 

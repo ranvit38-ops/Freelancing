@@ -794,7 +794,12 @@ suite('importing from Google Drive', () => {
     const fake = (async (url: string, init: RequestInit) => {
       requested.push(`${url} ${(init.headers as Record<string, string>).authorization}`);
       if (url.includes('/nope1234567')) return new Response('no', { status: 403 });
-      return new Response(Buffer.from('bytes-of-the-file'), { status: 200 });
+      // A real (minimal) workbook, as Google exports it: uploads are checked.
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      zip.file('[Content_Types].xml', '<Types/>');
+      zip.file('xl/workbook.xml', '<workbook/>');
+      return new Response(new Uint8Array(await zip.generateAsync({ type: 'nodebuffer' })), { status: 200 });
     }) as unknown as typeof fetch;
 
     const results = await importDriveFiles(

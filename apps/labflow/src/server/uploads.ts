@@ -3,7 +3,7 @@ import { XlsxError } from '@/lib/xlsx';
 import type { SessionContext } from './auth';
 import * as q from './queries';
 import { buildDraft, type ExperimentDraft } from '@/lib/experiment-draft';
-import { FileGoneError, StorageFullError, extensionOf, getFile, isAllowedUpload, maxBytesFor, putFile } from './storage';
+import { FileGoneError, FileRejectedError, StorageFullError, extensionOf, getFile, isAllowedUpload, maxBytesFor, putFile } from './storage';
 
 /**
  * Storing one upload against an experiment, and reading it as a dataset when
@@ -71,6 +71,7 @@ export async function storeExperimentBytes(
     storageKey = await putFile(session.workspaceId, file.name, bytes);
   } catch (error) {
     if (error instanceof StorageFullError) throw new UploadRejected(error.message, 507);
+    if (error instanceof FileRejectedError) throw new UploadRejected(error.message, 415);
     throw error;
   }
   const fileId = await q.recordFile(session, {

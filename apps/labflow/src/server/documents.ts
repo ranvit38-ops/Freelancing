@@ -26,7 +26,7 @@ export async function createDocument(
 ): Promise<string> {
   const filename = documentFilename(input.title);
   const bytes = Buffer.from(input.body.slice(0, MAX_DOCUMENT_CHARS), 'utf8');
-  const storageKey = await putFile(s.workspaceId, filename, bytes);
+  const storageKey = await putFile(s.workspaceId, filename, bytes, { written: true });
   return q.recordFile(s, {
     filename,
     contentType: 'text/markdown; charset=utf-8',
@@ -62,7 +62,7 @@ export async function saveDocument(
 ): Promise<{ updatedAt: string; title: string }> {
   const filename = documentFilename(input.title);
   const bytes = Buffer.from(input.body.slice(0, MAX_DOCUMENT_CHARS), 'utf8');
-  const storageKey = await putFile(s.workspaceId, filename, bytes);
+  const storageKey = await putFile(s.workspaceId, filename, bytes, { written: true });
   try {
     const { replacedKey, updatedAt } = await q.saveDocumentVersion(s, fileId, {
       filename,
