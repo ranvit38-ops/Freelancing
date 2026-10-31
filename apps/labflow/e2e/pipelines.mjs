@@ -510,6 +510,9 @@ await step('upload a CSV to the experiment and get a dataset', async () => {
 });
 await step('upload an image and a PDF to the experiment', async () => {
   await P.goto(`${BASE}/experiments/${ids.experiment}`);
+  // Choosing files before the page's scripts attach would be lost, as for a person.
+  await P.waitForLoadState('networkidle');
+  await settled(P);
   await P.setInputFiles(`#upload-${ids.experiment}`, [file('cuvette.png', 'image/png', png), file('notes.pdf', 'application/pdf', pdf)]);
   await expectText(P, 'notes.pdf', 20_000);
   await P.reload();
@@ -962,6 +965,8 @@ await step('an invite the email provider rejects says so instead of pretending',
 });
 await step('a file over the size limit is refused with the limit named', async () => {
   await P.goto(`${BASE}/experiments/${ids.experiment}`);
+  await P.waitForLoadState('networkidle');
+  await settled(P);
   const big = Buffer.alloc(26 * 1024 * 1024, 65);
   await P.setInputFiles(`#upload-${ids.experiment}`, file('huge.csv', 'text/csv', big));
   await expectText(P, 'MB', 30_000);

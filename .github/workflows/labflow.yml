@@ -163,6 +163,17 @@ jobs:
       - name: Pay, change plan, cancel, end to end
         run: npm run e2e:billing
 
+      # Render sets the public address only at run time. Next inlines
+      # NEXT_PUBLIC_ variables at build, so prove the built server uses the
+      # address it is started with, not the one this build had.
+      - name: The public address is read at run time
+        run: |
+          pkill -f "next-server|node server.js" || true
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3001/api/version >/dev/null || break; sleep 1; done
+          (cd .next/standalone && NEXT_PUBLIC_APP_URL=https://runtime-check.example PORT=3001 HOSTNAME=127.0.0.1 node server.js) > server-runtime.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3001/api/version >/dev/null && break; sleep 1; done
+          curl -s http://127.0.0.1:3001/robots.txt | grep -q "https://runtime-check.example/sitemap.xml"
+
       - name: Server log
         if: failure()
         run: tail -200 server.log; tail -100 server-billing.log 2>/dev/null || true
