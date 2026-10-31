@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscussionMessage } from '@/server/queries';
 import { formatBytes } from '@/lib/display';
 import { PaperclipIcon } from './ui';
+import { StoredImage } from './stored-image';
 
 type Channel = { key: string; name: string; projectId: string | null; dm?: boolean };
 
@@ -343,6 +344,7 @@ export function ChatRoom({
 
   return (
     <div
+      data-chat-room
       className="relative flex h-[calc(100dvh-13rem)] min-h-[26rem] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       onDragEnter={(e) => {
         if (!hasFiles(e)) return;
@@ -647,8 +649,7 @@ function Message({
           <p className="whitespace-pre-wrap break-words text-sm leading-6">{message.body}</p>
           {message.fileId && isImage(message.fileName) ? (
             <a href={`/api/files/${message.fileId}`} target="_blank" rel="noreferrer" className="mt-1 block w-fit">
-              {/* eslint-disable-next-line @next/next/no-img-element -- a private, authenticated file; next/image would proxy it */}
-              <img
+              <StoredImage
                 src={`/api/files/${message.fileId}`}
                 alt={message.fileName ?? 'Shared image'}
                 onLoad={onMediaLoad}

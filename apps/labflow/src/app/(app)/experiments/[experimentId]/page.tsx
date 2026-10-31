@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { StoredImage } from '@/components/stored-image';
 import { SheetLink, SheetRefresh } from '@/components/sheet-link';
 import { driveAppId } from '@/lib/drive';
 import { maxBytesFor } from '@/server/storage';
@@ -409,8 +410,7 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
                         </video>
                       ) : null}
                       {!f.sourceUrl && f.contentType.startsWith('image/') ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
+                        <StoredImage
                           src={`/api/files/${f.id}`}
                           alt={f.filename}
                           loading="lazy"
