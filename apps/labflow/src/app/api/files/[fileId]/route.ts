@@ -1,0 +1,94 @@
+import { NextResponse } from 'next/server';
+import { getSession } from '@/server/auth';
+import { NotFoundInWorkspaceError } from '@/server/authz';
+import { getFileForDownload } from '@/server/queries';
+import { FileGoneError, getFile } from '@/server/storage';
+import { headerSafeFilename } from '@/lib/rate-limit';
+import { contentTypeFor } from '@/lib/file-check';
+
+export const runtime = 'nodejs';
+
+/**
+ * Types safe to render in the page rather than download. Deliberately narrow:
+ * no HTML, no SVG, nothing the browser will execute.
+ */
+const RENDERABLE = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+]);
+
+/**
+ * Files are served through the app, never from a public bucket URL, so
+ * workspace membership is checked on every download.
+ */
+export async function GET(_request: Request, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+  try {
+    const file = await getFileForDownload(session, params.fileId);
+    // Links have no bytes of their own, send the viewer to the source.
+    if (!file.storageKey) {
+      if (!file.sourceUrl) {
+        return NextResponse.json({ error: 'This attachment has no content' }, { status: 404 });
+      }
+      // Re-check the scheme at redirect time. The URL was validated on the way
+      // in, but a redirect to attacker-chosen content is worth guarding twice.
+      let target: URL;
+      try {
+        target = new URL(file.sourceUrl);
+      } catch {
+        return NextResponse.json({ error: 'This attachment has an unusable link' }, { status: 400 });
+      }
+      if (target.protocol !== 'https:' && target.protocol !== 'http:') {
+        return NextResponse.json({ error: 'This attachment has an unusable link' }, { status: 400 });
+      }
+      return NextResponse.redirect(target.toString(), 302);
+    }
+    const body = await getFile(file.storageKey);
+    // From the extension, which uploads are checked against, rather than the
+    // type stored with older files, which came from the uploader's browser.
+    const type = contentTypeFor(file.filename);
+    return new NextResponse(new Uint8Array(body), {
+      headers: {
+        'Content-Type': type,
+        'Content-Length': String(file.byteSize),
+        // `attachment` by default, because uploaded HTML or SVG served inline
+        // would execute on our origin. Only the media types below are shown in
+        // place, and only when the stored type is exactly one of them: a file
+        // named .mp4 carrying HTML still arrives as a download.
+        'Content-Disposition': `${
+          RENDERABLE.has(type) ? 'inline' : 'attachment'
+        }; filename="${headerSafeFilename(file.filename)}"`,
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
+        // A second wall behind the checks: opened directly, a file runs no
+        // script and reaches nothing. PDFs are left out because the browser's
+        // own viewer will not open inside a sandbox.
+        'Content-Security-Policy':
+          type === 'application/pdf'
+            ? "frame-ancestors 'self'"
+            : "sandbox; default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'",
+      },
+    });
+  } catch (error) {
+    if (error instanceof NotFoundInWorkspaceError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    // Opened from a link in the browser, so a readable page beats raw JSON.
+    if (error instanceof FileGoneError) {
+      return new NextResponse(error.message, {
+        status: 410,
+        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+      });
+    }
+    throw error;
+  }
+}

@@ -1,0 +1,180 @@
+name: LabFlow CI
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["apps/labflow/**", ".github/workflows/labflow.yml"]
+  pull_request:
+    paths: ["apps/labflow/**", ".github/workflows/labflow.yml"]
+
+defaults:
+  run:
+    working-directory: apps/labflow
+
+jobs:
+  verify:
+    name: Typecheck · Lint · Test · Build
+    runs-on: ubuntu-latest
+
+    # A real database, so the workspace-isolation tests actually run.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: labflow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/labflow
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/labflow/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply schema
+        run: npm run db:push
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  pipelines:
+    name: Every pipeline, end to end
+    runs-on: ubuntu-latest
+    # Drives the built app in a real browser: sign-up to deleting an account,
+    # every record type, two labs that must not see each other, AI, email and
+    # Google sign-in against stand-ins (e2e/fakes.mjs), on a laptop and a phone.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: labflow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/labflow
+      # Inlined at build time, and must match the address the browser uses so
+      # sign-in cookies and redirects land on the same host.
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3001
+      E2E_BASE_URL: http://127.0.0.1:3001
+      LABFLOW_PILOT_MODE: "1"
+      LABFLOW_EPHEMERAL_UPLOADS: "1"
+      ANTHROPIC_API_KEY: sk-ant-fake
+      ANTHROPIC_BASE_URL: http://127.0.0.1:4555
+      # Encrypts a lab's own Claude key. A fixed test value, not a secret.
+      LABFLOW_ENCRYPTION_KEY: e2e-only-not-a-secret
+      RESEND_API_KEY: re_fake
+      RESEND_BASE_URL: http://127.0.0.1:4556
+      EMAIL_FROM: Labquill <hello@labquill.test>
+      LABFLOW_OWNER_EMAIL: owner@labquill.test
+      GOOGLE_CLIENT_ID: fake-client
+      GOOGLE_CLIENT_SECRET: fake-secret
+      GOOGLE_OAUTH_TOKEN_URL: http://127.0.0.1:4557/token
+      # Drive and Sheets: the fake on :4557 serves a Sheet export.
+      GOOGLE_API_KEY: fake-api-key
+      GOOGLE_API_BASE: http://127.0.0.1:4557
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/labflow/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Apply schema
+        run: npm run db:push
+
+      - name: Build
+        run: npm run build
+
+      - name: Start the stand-ins and the app
+        run: |
+          node e2e/fakes.mjs > fakes.log 2>&1 &
+          # The standalone server, laid out as the Dockerfile lays it out, so
+          # CI tests what is deployed rather than the development server.
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+          (cd .next/standalone && PORT=3001 HOSTNAME=127.0.0.1 node server.js) > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3001/api/version >/dev/null && break; sleep 1; done
+
+      - name: Run every pipeline
+        run: npm run e2e
+
+      # Paying needs a server that is not a pilot, with PayPal pointed at the
+      # stand-in on :4558.
+      - name: Restart outside pilot mode, with PayPal
+        env:
+          LABFLOW_PILOT_MODE: ""
+          PAYPAL_API_BASE: http://127.0.0.1:4558
+          PAYPAL_CLIENT_ID: fake
+          PAYPAL_CLIENT_SECRET: fake
+          PAYPAL_WEBHOOK_ID: WH-FAKE
+          PAYPAL_PLAN_LAB_MONTHLY: P-LABM
+          PAYPAL_PLAN_LAB_YEARLY: P-LABY
+          PAYPAL_PLAN_GROUP_MONTHLY: P-GRPM
+          PAYPAL_PLAN_GROUP_YEARLY: P-GRPY
+          PAYPAL_PLAN_DEPARTMENT_MONTHLY: P-DEPM
+          PAYPAL_PLAN_DEPARTMENT_YEARLY: P-DEPY
+        run: |
+          # Next 16 renames its process to "next-server (v…)", so match both.
+          pkill -f "next-server|node server.js" || true
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3001/api/version >/dev/null || break; sleep 1; done
+          (cd .next/standalone && PORT=3001 HOSTNAME=127.0.0.1 node server.js) > server-billing.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3001/api/version >/dev/null && break; sleep 1; done
+          # The billing run must be against this server, not a leftover one.
+          kill -0 $! 2>/dev/null || { cat server-billing.log; exit 1; }
+
+      - name: Pay, change plan, cancel, end to end
+        run: npm run e2e:billing
+
+      # Render sets the public address only at run time. Next inlines
+      # NEXT_PUBLIC_ variables at build, so prove the built server uses the
+      # address it is started with, not the one this build had.
+      - name: The public address is read at run time
+        run: |
+          pkill -f "next-server|node server.js" || true
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3001/api/version >/dev/null || break; sleep 1; done
+          (cd .next/standalone && NEXT_PUBLIC_APP_URL=https://runtime-check.example PORT=3001 HOSTNAME=127.0.0.1 node server.js) > server-runtime.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3001/api/version >/dev/null && break; sleep 1; done
+          curl -s http://127.0.0.1:3001/robots.txt | grep -q "https://runtime-check.example/sitemap.xml"
+
+      - name: Server log
+        if: failure()
+        run: tail -200 server.log; tail -100 server-billing.log 2>/dev/null || true
+
