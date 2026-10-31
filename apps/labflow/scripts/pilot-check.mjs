@@ -177,6 +177,12 @@ if (terms.error || terms.status >= 400) {
 } else {
   ok('The Terms and Privacy statement name who runs the site and how to reach them.');
 }
+if (!terms.error && terms.status < 400 && !terms.body.includes('designated agent')) {
+  off(
+    'No copyright agent is named, so the safe harbour for files people upload does not apply.',
+    'Register a DMCA agent at dmca.copyright.gov, then set LABFLOW_COPYRIGHT_AGENT on Render to the name, postal address and phone you registered.',
+  );
+}
 
 // ── What only you can check ────────────────────────────────────────────────
 console.log('');

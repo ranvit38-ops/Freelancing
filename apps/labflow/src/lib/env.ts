@@ -22,6 +22,7 @@ const schema = z.object({
   LABFLOW_LEGAL_NAME: z.string().optional(),
   LABFLOW_CONTACT_EMAIL: z.string().optional(),
   LABFLOW_GOVERNING_LAW: z.string().optional(),
+  LABFLOW_COPYRIGHT_AGENT: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),

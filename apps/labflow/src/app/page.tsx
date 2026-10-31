@@ -258,6 +258,9 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
             <Link href="/pricing" className="underline underline-offset-2 hover:text-fg">
               Pricing
             </Link>
+            <a href="/third-party-notices.txt" className="underline underline-offset-2 hover:text-fg">
+              Open-source licences
+            </a>
             <span>Records stay yours. Nothing here is used to train models.</span>
           </span>
         </div>

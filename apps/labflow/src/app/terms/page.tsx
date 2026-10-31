@@ -134,7 +134,7 @@ export default function TermsPage() {
     {
       title: 'Copyright complaints',
       body: [
-        `If you believe something in Labquill infringes your copyright, send a notice to ${id.contact ?? 'the contact address below'} with: your contact details; the work you say is infringed; where it is in Labquill; a statement that you believe in good faith the use is not authorised; a statement, under penalty of perjury, that your notice is accurate and that you are the owner or authorised to act for them; and your physical or electronic signature.`,
+        `If you believe something in Labquill infringes your copyright, send a notice to ${id.copyrightAgent ? `our designated agent, ${id.copyrightAgent}${id.contact ? `, or ${id.contact}` : ''},` : (id.contact ?? 'the contact address below')} with: your contact details; the work you say is infringed; where it is in Labquill; a statement that you believe in good faith the use is not authorised; a statement, under penalty of perjury, that your notice is accurate and that you are the owner or authorised to act for them; and your physical or electronic signature.`,
         'We will remove or disable access to material that is the subject of a valid notice, tell the person who uploaded it, and close the accounts of people who repeatedly infringe. Someone whose material was removed by mistake may send a counter-notice to the same address.',
       ],
     },

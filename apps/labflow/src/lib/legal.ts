@@ -8,11 +8,15 @@
  *
  * SETUP REQUIRED: set LABFLOW_LEGAL_NAME (the person or company that runs this
  * site, ideally a company rather than a person), LABFLOW_CONTACT_EMAIL, and
- * LABFLOW_GOVERNING_LAW (a US state, e.g. "Illinois").
+ * LABFLOW_GOVERNING_LAW (a US state, e.g. "Illinois"). Before anyone can upload
+ * files, also register a DMCA designated agent with the US Copyright Office
+ * (dmca.copyright.gov) and set LABFLOW_COPYRIGHT_AGENT to exactly what was
+ * registered: name, postal address and phone. Without that registration the
+ * safe harbour for what users upload does not apply.
  */
 
 /** Bump whenever either document changes in substance. */
-export const LEGAL_EFFECTIVE = '29 October 2026';
+export const LEGAL_EFFECTIVE = '31 October 2026';
 
 export type LegalIdentity = {
   /** Who "we" are. Falls back to a description when not set. */
@@ -21,6 +25,8 @@ export type LegalIdentity = {
   contact: string | null;
   /** A US state, or null to leave the governing-law clause out. */
   law: string | null;
+  /** The registered DMCA agent's name, postal address and phone, or null. */
+  copyrightAgent: string | null;
   configured: boolean;
 };
 
@@ -33,6 +39,7 @@ export function legalIdentity(): LegalIdentity {
     name: name ?? 'the operator of this Labquill site',
     contact,
     law,
+    copyrightAgent: process.env.LABFLOW_COPYRIGHT_AGENT?.trim() || null,
     configured: Boolean(name && contact),
   };
 }

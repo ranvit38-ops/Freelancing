@@ -7,6 +7,7 @@
     "dev": "next dev -p 3001 -H 0.0.0.0",
     "pilot": "LABFLOW_PILOT_MODE=1 next dev -p 3001 -H 0.0.0.0",
     "pilot:check": "node scripts/pilot-check.mjs",
+    "prebuild": "node scripts/notices.mjs",
     "build": "next build",
     "start": "next start -p 3001 -H 0.0.0.0",
     "lint": "eslint src",

@@ -6,3 +6,4 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 e2e/.tmp-upload.xlsx
+public/third-party-notices.txt

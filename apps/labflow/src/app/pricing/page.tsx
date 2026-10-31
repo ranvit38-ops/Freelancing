@@ -217,13 +217,16 @@ export default async function PricingPage() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <span>Records stay yours. Nothing here is used to train models.</span>
-          <span className="flex items-center gap-4 text-subtle">
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-subtle">
             <Link href="/terms" className="underline underline-offset-2 hover:text-fg">
               Terms
             </Link>
             <Link href="/privacy" className="underline underline-offset-2 hover:text-fg">
               Privacy
             </Link>
+            <a href="/third-party-notices.txt" className="underline underline-offset-2 hover:text-fg">
+              Open-source licences
+            </a>
           </span>
         </div>
       </footer>

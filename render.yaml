@@ -110,6 +110,9 @@ services:
         sync: false
       - key: LABFLOW_GOVERNING_LAW
         sync: false
+      # The DMCA agent registered at dmca.copyright.gov: name, postal address, phone.
+      - key: LABFLOW_COPYRIGHT_AGENT
+        sync: false
       # Google sign-in. Leave both blank and the button is hidden rather than
       # shown broken.
       - key: GOOGLE_CLIENT_ID
