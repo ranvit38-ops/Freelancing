@@ -83,6 +83,17 @@ export function FileUpload({ experimentId, videoMb = 250 }: { experimentId: stri
     [experimentId, router],
   );
 
+  // Files chosen before this page's scripts loaded (a slow phone, a busy
+  // laptop) sit in the input without a change event ever reaching us; pick
+  // them up once, or the upload is silently lost.
+  const pickedUp = useRef(false);
+  useEffect(() => {
+    const files = inputRef.current?.files;
+    if (pickedUp.current || !files?.length) return;
+    pickedUp.current = true;
+    void uploadAll(files);
+  }, [uploadAll]);
+
   // Dropping anywhere on the page counts. Without this the target is a small
   // rectangle people have to find, which is the thing that makes file upload
   // feel like a form instead of a drive.

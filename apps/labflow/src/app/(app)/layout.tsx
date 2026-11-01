@@ -164,7 +164,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {identity}
       </aside>
 
-      <main data-app-main className="min-w-0 flex-1 pb-20 has-[[data-chat-room]]:pb-0">
+      <main data-app-main className="min-w-0 flex-1">
         {pilotMode() ? (
           <div className="border-b border-accent/25 bg-accent/5 px-5 py-2.5 text-sm text-accent sm:px-8">
             {pilotBanner()}{' '}
@@ -214,8 +214,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         ) : null}
         {/* Bottom padding clears the floating Ask LabBot button, so it never
-            sits on top of the last row of a page. */}
-        <div className="mx-auto max-w-6xl px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
+            sits on top of the last row of a page. Chat fills the window and
+            lifts the button above its message box instead. */}
+        <div className="mx-auto max-w-6xl px-5 pb-24 pt-6 has-[[data-chat-room]]:pb-6 sm:px-8 sm:pt-8">
           <BackBar />
           {children}
         </div>

@@ -46,6 +46,7 @@ export function ChatRoom({
   currentUserName: string;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<DiscussionMessage[]>(initial);
@@ -81,6 +82,24 @@ export function ChatRoom({
 
   // Times are shown in the reader's own timezone, which only the browser knows.
   useEffect(() => setMounted(true), []);
+
+  // Fill the window from wherever the room starts, so the message box sits at
+  // the bottom of the screen. What is above it (the phone header, a trial or
+  // read-only banner, the channel list) varies, so a fixed height left the
+  // box below the fold on phones.
+  useEffect(() => {
+    const fit = () => {
+      const el = frame.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      // The page's own padding below the room, so the page ends at the window.
+      const below = document.documentElement.scrollHeight - (top + el.offsetHeight);
+      el.style.height = `calc(100dvh - ${Math.round(top + Math.max(below, 0))}px)`;
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, []);
 
   /* ── reading ── */
 
@@ -335,6 +354,18 @@ export function ChatRoom({
     }
   }
 
+  // A file chosen before the page's scripts loaded is still in the input but
+  // never fired a change event; attach it once, or it is silently lost.
+  const pickedUp = useRef(false);
+  useEffect(() => {
+    const files = fileInput.current?.files;
+    if (pickedUp.current || !files?.length) return;
+    pickedUp.current = true;
+    void attach(Array.from(files));
+    // Once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Dragging over the chat shows where to let go. Counting enters and leaves
   // stops the highlight flickering as the pointer crosses child elements.
   const dragDepth = useRef(0);
@@ -344,8 +375,9 @@ export function ChatRoom({
 
   return (
     <div
+      ref={frame}
       data-chat-room
-      className="relative flex h-[calc(100dvh-13rem)] min-h-[26rem] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+      className="relative flex h-[calc(100dvh-13rem)] min-h-[18rem] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       onDragEnter={(e) => {
         if (!hasFiles(e)) return;
         e.preventDefault();

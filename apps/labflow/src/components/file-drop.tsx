@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AudiencePicker, useAudience, type Member } from './audience-picker';
 import { DriveImport } from './drive-import';
 
@@ -30,6 +30,19 @@ export function FileDrop({
   const [notice, setNotice] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Files chosen before this page's scripts loaded (a slow phone, a busy
+  // laptop) sit in the input without a change event ever reaching us; pick
+  // them up once, or the upload is silently lost.
+  const pickedUp = useRef(false);
+  useEffect(() => {
+    const files = input.current?.files;
+    if (pickedUp.current || !files?.length) return;
+    pickedUp.current = true;
+    void upload(Array.from(files));
+    // Once, on mount: upload only reads state that is already initial here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function upload(files: File[]) {
     if (files.length === 0) return;
