@@ -178,3 +178,40 @@ jobs:
         if: failure()
         run: tail -200 server.log; tail -100 server-billing.log 2>/dev/null || true
 
+
+  image:
+    name: The image Render deploys builds and boots
+    runs-on: ubuntu-latest
+    # Render builds apps/labflow/Dockerfile, which nothing above exercises:
+    # a clean install with scripts off, the prebuild step, the standalone copy,
+    # migrations on boot, running as a non-root user.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: labflow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t labquill .
+      - name: Boot it, sign-up page and public address included
+        run: |
+          docker run -d --name labquill --network host \
+            -e PORT=3001 \
+            -e DATABASE_URL=postgres://postgres:postgres@localhost:5432/labflow \
+            -e NEXT_PUBLIC_APP_URL=https://image-check.example \
+            -e LABFLOW_ENCRYPTION_KEY=ci-only-not-a-secret \
+            labquill
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3001/api/version >/dev/null && break; sleep 1; done
+          docker logs labquill
+          curl -sf http://127.0.0.1:3001/signup >/dev/null
+          curl -sf http://127.0.0.1:3001/third-party-notices.txt | head -1
+          curl -s http://127.0.0.1:3001/robots.txt | grep -q "https://image-check.example/sitemap.xml"
+          test "$(docker exec labquill id -u)" != "0"
