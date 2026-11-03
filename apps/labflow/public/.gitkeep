@@ -1,0 +1,4 @@
+Static files placed here are served from the site root.
+
+The directory is kept even while empty because the container image copies it,
+and a build that fails on a missing folder is a confusing way to learn that.

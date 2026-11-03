@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: ["**"]
+    paths-ignore: ["apps/**"]
   pull_request:
+    paths-ignore: ["apps/**"]
 
 jobs:
   verify:
