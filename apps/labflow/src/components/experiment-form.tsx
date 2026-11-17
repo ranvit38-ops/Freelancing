@@ -211,8 +211,18 @@ export function ExperimentForm(props: ExperimentFormProps) {
     setConditions((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
   const isFilled = (r: ConditionRow) => Boolean(r.name.trim() || r.value.trim() || r.unit.trim());
-  const focusCell = (row: number, column: keyof ConditionRow) =>
-    requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-condition="${row}-${column}"]`)?.focus());
+  // Focus moves once React has drawn the rows, which a new row may not be by
+  // the next animation frame on a slow machine.
+  const pendingFocus = useRef<string | null>(null);
+  const focusCell = (row: number, column: keyof ConditionRow) => {
+    pendingFocus.current = `${row}-${column}`;
+  };
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (!target) return;
+    pendingFocus.current = null;
+    document.querySelector<HTMLInputElement>(`[data-condition="${target}"]`)?.focus();
+  }, [conditions]);
 
   // Several lines pasted into one box fill several rows, as in a spreadsheet.
   // Into the name column, each line is a whole condition ("Temperature 25 °C",
@@ -243,8 +253,12 @@ export function ExperimentForm(props: ExperimentFormProps) {
   const nextRowOnEnter = (index: number, column: keyof ConditionRow, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
     e.preventDefault();
-    if (index === conditions.length - 1) setConditions((rows) => [...rows, emptyRow]);
-    focusCell(index + 1, column);
+    if (index === conditions.length - 1) {
+      focusCell(index + 1, column);
+      setConditions((rows) => [...rows, emptyRow]);
+    } else {
+      document.querySelector<HTMLInputElement>(`[data-condition="${index + 1}-${column}"]`)?.focus();
+    }
   };
 
   return (

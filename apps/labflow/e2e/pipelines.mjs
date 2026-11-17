@@ -499,6 +499,7 @@ await step('record an experiment with conditions and a protocol', async () => {
 });
 await step('conditions pasted from a spreadsheet fill one row each, and Enter moves down', async () => {
   await P.goto(`${BASE}/projects/${ids.project}/experiments/new`);
+  try {
   const first = P.locator('input[name=conditionName]').first();
   await first.waitFor();
   await first.evaluate((el, text) => {
@@ -516,11 +517,14 @@ await step('conditions pasted from a spreadsheet fill one row each, and Enter mo
   const count = await names.count();
   await P.locator('input[name=conditionUnit]').nth(count - 1).press('Enter');
   await P.waitForFunction((n) => document.querySelectorAll('input[name=conditionName]').length === n + 1, count);
-  const focused = await P.evaluate(() => document.activeElement?.getAttribute('data-condition'));
+  const focused = await P.waitForFunction((want) => document.activeElement?.getAttribute('data-condition') === want, `${count}-unit`, { timeout: 5_000 })
+    .then(() => `${count}-unit`, async () => P.evaluate(() => document.activeElement?.getAttribute('data-condition')));
   assert(focused === `${count}-unit`, `focus after Enter: ${focused}`);
   assert(P.url().endsWith('/experiments/new'), 'Enter submitted the form');
-  // The next steps carry on from the saved experiment.
-  await P.goto(`${BASE}/experiments/${ids.experiment}`);
+  } finally {
+    // The next steps carry on from the saved experiment, pass or fail.
+    await P.goto(`${BASE}/experiments/${ids.experiment}`);
+  }
 });
 await step('upload a CSV to the experiment and get a dataset', async () => {
   await P.setInputFiles(`#upload-${ids.experiment}`, file('run1.csv', 'text/csv', csv));
