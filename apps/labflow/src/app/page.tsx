@@ -79,7 +79,7 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
         </div>
       </header>
 
-      <main>
+      <main id="main" tabIndex={-1} className="outline-none">
         {searchParams?.account === 'deleted' ? (
           <p role="status" className="mx-auto mt-4 max-w-3xl rounded-lg border border-line bg-raised px-4 py-2 text-center text-sm text-muted">
             Your account has been deleted. Thank you for trying Labquill.

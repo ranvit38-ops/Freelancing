@@ -2551,6 +2551,35 @@ export async function deleteMessage(s: SessionContext, messageId: string) {
   assertFound(rows[0], 'Message');
 }
 
+/**
+ * One message, for saving to a record: only from this lab, and a direct
+ * message only for the people in it.
+ */
+export async function getMessageForRecord(s: SessionContext, messageId: string) {
+  assertId(messageId, 'Message');
+  const rows = await db
+    .select({
+      id: discussions.id,
+      body: discussions.body,
+      createdAt: discussions.createdAt,
+      dmKey: discussions.dmKey,
+      projectId: discussions.projectId,
+      fileId: discussions.fileId,
+      authorName: users.name,
+      projectName: projects.name,
+    })
+    .from(discussions)
+    .leftJoin(users, eq(users.id, discussions.authorId))
+    .leftJoin(projects, and(eq(projects.id, discussions.projectId), eq(projects.workspaceId, discussions.workspaceId)))
+    .where(and(eq(discussions.id, messageId), eq(discussions.workspaceId, s.workspaceId)))
+    .limit(1);
+  const message = assertFound(rows[0], 'Message');
+  if (message.dmKey && !dmParticipants(message.dmKey)?.includes(s.userId)) {
+    throw new NotFoundInWorkspaceError('Message');
+  }
+  return message;
+}
+
 /* ── literature ─────────────────────────────────────────────────────────── */
 
 export async function listLiterature(s: SessionContext, projectId: string) {

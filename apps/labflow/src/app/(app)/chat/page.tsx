@@ -4,7 +4,7 @@ import { PageHeader, cx } from '@/components/ui';
 import { UpgradePanel } from '@/components/upgrade-panel';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
-import { listDiscussion, listDmThreads, listProjects, listWorkspaceMembers } from '@/server/queries';
+import { listDiscussion, listDmThreads, listExperiments, listProjects, listWorkspaceMembers } from '@/server/queries';
 import { dmKey, dmParticipants } from '@/lib/dm';
 
 export const metadata = { title: 'Chat' };
@@ -41,10 +41,11 @@ export default async function ChatPage(
     );
   }
 
-  const [projects, members, threads] = await Promise.all([
+  const [projects, members, threads, runs] = await Promise.all([
     listProjects(session),
     listWorkspaceMembers(session),
     listDmThreads(session),
+    listExperiments(session),
   ]);
   const nameOf = new Map(members.map((m) => [m.id, m.name || m.email]));
   const others = members.filter((m) => m.id !== session.userId);
@@ -86,7 +87,10 @@ export default async function ChatPage(
 
   return (
     <>
-      <PageHeader title="Chat" />
+      <PageHeader
+        title="Chat"
+        description="Talk about the work, and keep what matters with it: EXP numbers link to the run, and any message can be saved to an experiment's record."
+      />
       <div className="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <nav aria-label="Channels" className="min-w-0">
           <p className="mb-2 hidden px-2 text-xs font-medium text-subtle lg:block">
@@ -173,6 +177,7 @@ export default async function ChatPage(
           messages={messages}
           currentUserId={session.userId}
           currentUserName={session.userName}
+          records={runs.map((r) => ({ id: r.id, number: r.number, title: r.title, projectId: r.projectId }))}
         />
       </div>
     </>

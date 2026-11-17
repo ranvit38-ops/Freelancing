@@ -17,7 +17,7 @@ export default async function NotFound() {
   const other = session ? await findLinkInMyOtherLabs(session, path).catch(() => null) : null;
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-bg px-4">
+    <main id="main" tabIndex={-1} className="grid min-h-dvh place-items-center bg-bg px-4 outline-none">
       <div className="max-w-md text-center">
         <p className="text-sm font-medium text-accent">Not found</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">

@@ -30,6 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeScript />
       </head>
       <body className="min-h-dvh font-sans antialiased">
+        {/* The first thing a keyboard reaches: past the navigation, straight to the page. */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-fg focus:shadow-pop"
+        >
+          Skip to main content
+        </a>
         {children}
         <StaleTabGuard />
       </body>

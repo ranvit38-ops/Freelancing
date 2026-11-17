@@ -789,6 +789,35 @@ await step('post in #lab chat and attach a file', async () => {
   await P.reload();
   await expectText(P, 'Tensiometer is free after 3pm');
 });
+await step('a chat message links its EXP number and is saved to the experiment it is about', async () => {
+  await P.goto(`${BASE}/chat?c=${ids.project}`);
+  const said = `EXP-001 drifted after sample 6, ring was dirty ${stamp}`;
+  await P.fill('#chat-box', said);
+  await P.getByRole('button', { name: 'Send' }).click();
+  // The number is a link to the run, in this project's channel.
+  const link = P.locator('a', { hasText: 'EXP-001' }).first();
+  await link.waitFor({ timeout: 15_000 });
+  assert((await link.getAttribute('href')) === `/experiments/${ids.experiment}`, `EXP-001 links to ${await link.getAttribute('href')}`);
+  // Keyboard reachable: focusing the message shows its actions.
+  const message = P.locator('div[tabindex="-1"]', { hasText: said }).last();
+  await message.focus();
+  await message.getByRole('button', { name: 'Save to record' }).click();
+  await P.locator(`select[id^="save-"]`).selectOption(ids.experiment);
+  await P.getByRole('button', { name: 'Save as a note' }).click();
+  await expectText(P, 'Saved to EXP-001');
+  await P.goto(`${BASE}/experiments/${ids.experiment}`);
+  await expectText(P, said);
+  await expectText(P, 'From the Tensiometer Surface Study channel');
+});
+await step('the first Tab reaches "Skip to main content", which lands on the page', async () => {
+  await P.goto(`${BASE}/dashboard`);
+  await P.keyboard.press('Tab');
+  const first = await P.evaluate(() => document.activeElement?.textContent?.trim());
+  assert(first === 'Skip to main content', `first Tab reached: ${first}`);
+  await P.keyboard.press('Enter');
+  const landed = await P.evaluate(() => document.activeElement?.id);
+  assert(landed === 'main', `skip link landed on: ${landed}`);
+});
 await step('upload to Files, then file it under the project', async () => {
   await P.goto(`${BASE}/files`);
   await P.locator('input[aria-label="Choose files to upload"]').setInputFiles(file('lab-safety.txt', 'text/plain', Buffer.from('Wear goggles.')));

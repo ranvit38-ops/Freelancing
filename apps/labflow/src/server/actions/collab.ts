@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { InvalidLinkError, parseLink } from '@/lib/links';
 import { PubMedError, searchPubMed, type Article, fetchAbstracts } from '@/lib/pubmed';
 import { requireSession } from '../authz';
+import { attachStoredFile } from '../uploads';
+import { experimentCode } from '@/lib/display';
 import { NotFoundInWorkspaceError } from '../not-found';
 import { blockedReason, hasFeature } from '../paywall';
 import * as q from '../queries';
@@ -157,4 +159,33 @@ export async function removeLiteratureAction(formData: FormData) {
   const session = await requireSession();
   await q.removeLiterature(session, String(formData.get('refId') ?? ''));
   revalidatePath(`/projects/${String(formData.get('projectId') ?? '')}/literature`);
+}
+
+/**
+ * Keeps a chat message with the run it is about: saved as a dated note on the
+ * experiment, credited to whoever wrote it. A file shared in a lab channel
+ * comes along; one from a direct message does not, because attaching it
+ * would show the whole lab something only the people in that conversation
+ * could see.
+ */
+export async function saveMessageToRecordAction(
+  messageId: string,
+  experimentId: string,
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { ok: false, error: blocked };
+  try {
+    const m = await q.getMessageForRecord(session, messageId);
+    const experiment = await q.getExperiment(session, experimentId);
+    const where = m.dmKey ? 'a direct message' : m.projectName ? `the ${m.projectName} channel` : 'the #lab channel';
+    const day = new Date(m.createdAt).toISOString().slice(0, 10);
+    await q.addNote(session, experiment.id, `${m.body}\n\n(From ${where}: ${m.authorName ?? 'a former member'}, ${day})`);
+    if (m.fileId && !m.dmKey) await attachStoredFile(session, experiment.id, m.fileId).catch(() => undefined);
+    revalidatePath(`/experiments/${experiment.id}`);
+    return { ok: true, message: `Saved to ${experimentCode(experiment.number)}.` };
+  } catch (error) {
+    if (error instanceof NotFoundInWorkspaceError) return { ok: false, error: 'That message or experiment is not available.' };
+    throw error;
+  }
 }

@@ -19,7 +19,7 @@ export function LegalPage({
   identity: LegalIdentity;
 }) {
   return (
-    <div className="mx-auto max-w-3xl px-5 py-14 sm:px-8" data-legal-configured={identity.configured ? 'yes' : 'no'}>
+    <main id="main" tabIndex={-1} className="mx-auto max-w-3xl px-5 py-14 outline-none sm:px-8" data-legal-configured={identity.configured ? 'yes' : 'no'}>
       <Link href="/" className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
         <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
           <path d="M10 3 5 8l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -76,6 +76,6 @@ export function LegalPage({
           </p>
         </section>
       </div>
-    </div>
+    </main>
   );
 }

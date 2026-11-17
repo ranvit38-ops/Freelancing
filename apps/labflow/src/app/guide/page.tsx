@@ -288,7 +288,7 @@ export default async function GuidePage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-5xl px-4 py-12 outline-none sm:px-6">
         <p className="text-xs font-semibold text-accent">Tutorial</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Labquill, page by page</h1>
         <p className="mt-3 max-w-2xl text-muted">

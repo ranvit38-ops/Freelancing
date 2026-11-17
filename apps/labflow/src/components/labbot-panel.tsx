@@ -147,11 +147,14 @@ export function LabBotPanel({
         hidden={open}
         className={cx(
           'fixed right-5 z-30 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg shadow-lg transition-colors hover:bg-accent-hover',
-          inChat ? 'bottom-36' : 'bottom-5',
+          // Over a phone's chat it sits on the messages, so it takes less room there.
+          inChat ? 'bottom-36 max-sm:right-3 max-sm:px-3 max-sm:py-1.5 max-sm:text-xs' : 'bottom-5',
         )}
       >
         <span aria-hidden className="h-2 w-2 rounded-full bg-accent-fg/80" />
-        Ask LabBot
+        <span>
+          <span className={inChat ? 'max-sm:sr-only' : undefined}>Ask </span>LabBot
+        </span>
       </button>
 
       {/* Display is controlled by classes, not the hidden attribute: a

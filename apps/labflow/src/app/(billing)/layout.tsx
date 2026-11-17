@@ -36,7 +36,7 @@ export default async function BillingLayout({ children }: { children: React.Reac
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-10">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-5xl px-6 py-10 outline-none">
         {children}
         <p className="mt-10 text-center">
           <Link href="/dashboard" className="text-sm font-medium text-accent underline-offset-2 hover:underline">

@@ -32,9 +32,9 @@ const ROWS: { need: string; free: string; ours: string }[] = [
     ours: 'Each run records where its original data lives, and uploads sit on the run that produced them.',
   },
   {
-    need: 'Talking about the work',
-    free: 'Chat, tasks and the calendar live in three other apps, away from the records.',
-    ours: 'Lab chat, direct messages, tasks with deadlines, and a calendar that shows up in Google Calendar, all beside the records.',
+    need: 'Keeping the reasoning',
+    free: 'Why a run was changed is decided in Slack or a group chat, and scrolls away. Six months later nobody can find it.',
+    ours: 'Chat where EXP numbers link to the run, and any message can be saved to that experiment as a dated note. The decision stays with the data.',
   },
 ];
 

@@ -55,7 +55,7 @@ export default async function PricingPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-16">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-6 py-16 outline-none">
         {/* A lab invited to a free pilot clicks the link, lands here, and sees
             four prices. Without this line they conclude the pilot costs money,
             which is the opposite of what they were told. The prices stay

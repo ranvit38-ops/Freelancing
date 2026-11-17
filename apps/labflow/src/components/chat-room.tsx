@@ -5,6 +5,9 @@ import type { DiscussionMessage } from '@/server/queries';
 import { formatBytes } from '@/lib/display';
 import { PaperclipIcon, XIcon } from './ui';
 import { StoredImage } from './stored-image';
+import { linkRecords, type RecordRef } from '@/lib/record-links';
+import { experimentCode } from '@/lib/display';
+import { saveMessageToRecordAction } from '@/server/actions/collab';
 
 type Channel = { key: string; name: string; projectId: string | null; dm?: boolean };
 
@@ -39,11 +42,14 @@ export function ChatRoom({
   messages: initial,
   currentUserId,
   currentUserName,
+  records = [],
 }: {
   channel: Channel;
   messages: DiscussionMessage[];
   currentUserId: string;
   currentUserName: string;
+  /** The lab's experiments, for linking EXP numbers and saving to a record. */
+  records?: RecordRef[];
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -487,6 +493,8 @@ export function ChatRoom({
                     }}
                     onDelete={(id) => void remove(id)}
                     onMediaLoad={repin}
+                    records={records}
+                    projectId={channel.projectId}
                   />
                 ))}
               </section>
@@ -642,6 +650,8 @@ function Message({
   onReply,
   onDelete,
   onMediaLoad,
+  records,
+  projectId,
 }: {
   message: DiscussionMessage;
   compact: boolean;
@@ -650,8 +660,11 @@ function Message({
   onReply: () => void;
   onDelete: (id: string) => void;
   onMediaLoad: () => void;
+  records: RecordRef[];
+  projectId: string | null;
 }) {
   const mine = message.authorId === currentUserId;
+  const [saving, setSaving] = useState(false);
   const name = message.authorName ?? 'Former member';
   return (
     // tabIndex -1: a tap on a phone focuses the message, which shows its
@@ -678,7 +691,9 @@ function Message({
               <span className="ml-2 text-xs text-subtle">{mounted ? time(message.createdAt) : ''}</span>
             </p>
           )}
-          <p className="whitespace-pre-wrap break-words text-sm leading-6">{message.body}</p>
+          <p className="whitespace-pre-wrap break-words text-sm leading-6">
+            <LinkedText text={message.body} records={records} projectId={projectId} />
+          </p>
           {message.fileId && isImage(message.fileName) ? (
             <a href={`/api/files/${message.fileId}`} target="_blank" rel="noreferrer" className="mt-1 block w-fit">
               <StoredImage
@@ -713,7 +728,9 @@ function Message({
                       Delete
                     </button>
                   ) : null}
-                  <p className="whitespace-pre-wrap break-words leading-6">{r.body}</p>
+                  <p className="whitespace-pre-wrap break-words leading-6">
+                    <LinkedText text={r.body} records={records} projectId={projectId} />
+                  </p>
                   {r.fileId ? (
                     <a href={`/api/files/${r.fileId}`} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
                       <PaperclipIcon /> {r.fileName ?? 'File'}
@@ -730,12 +747,20 @@ function Message({
             <button type="button" onClick={onReply} className="hover:text-fg">
               Reply
             </button>
+            {records.length ? (
+              <button type="button" onClick={() => setSaving(true)} className="hover:text-fg">
+                Save to record
+              </button>
+            ) : null}
             {mine ? (
               <button type="button" onClick={() => onDelete(message.id)} className="hover:text-danger">
                 Delete
               </button>
             ) : null}
           </div>
+          {saving ? (
+            <SaveToRecord messageId={message.id} body={message.body} records={records} projectId={projectId} onClose={() => setSaving(false)} />
+          ) : null}
         </div>
       </div>
     </div>
@@ -781,4 +806,112 @@ function initials(name: string) {
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join('');
+}
+
+/** Message text with experiment numbers linked to the run. */
+function LinkedText({ text, records, projectId }: { text: string; records: RecordRef[]; projectId: string | null }) {
+  if (!records.length) return <>{text}</>;
+  return (
+    <>
+      {linkRecords(text, records, projectId).map((part, i) =>
+        part.href ? (
+          <a key={i} href={part.href} title={part.title} className="font-medium text-accent underline underline-offset-2">
+            {part.text}
+          </a>
+        ) : (
+          <span key={i}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * Picks the run a message belongs to and files it there as a note. A run the
+ * message names is chosen already; otherwise the channel's project comes
+ * first in the list.
+ */
+function SaveToRecord({
+  messageId,
+  body,
+  records,
+  projectId,
+  onClose,
+}: {
+  messageId: string;
+  body: string;
+  records: RecordRef[];
+  projectId: string | null;
+  onClose: () => void;
+}) {
+  const ordered = [...records].sort(
+    (a, b) => Number(b.projectId === projectId) - Number(a.projectId === projectId) || b.number - a.number,
+  );
+  const named = linkRecords(body, records, projectId)
+    .map((part) => part.href?.match(/^\/experiments\/(.+)$/)?.[1])
+    .find(Boolean);
+  const [target, setTarget] = useState(named ?? ordered[0]?.id ?? '');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const id = `save-${messageId}`;
+
+  async function save() {
+    setBusy(true);
+    const r = await saveMessageToRecordAction(messageId, target).catch(() => ({ ok: false as const, error: 'Could not save it. Check your connection and try again.' }));
+    setBusy(false);
+    setResult(r.ok ? { ok: true, text: r.message } : { ok: false, text: r.error });
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface p-2 text-xs">
+      {result?.ok ? (
+        <>
+          <span role="status" className="text-ok">
+            {result.text}{' '}
+            <a href={`/experiments/${target}`} className="underline underline-offset-2">
+              Open it
+            </a>
+          </span>
+          <button type="button" onClick={onClose} className="ml-auto text-subtle hover:text-fg">
+            Done
+          </button>
+        </>
+      ) : (
+        <>
+          <label htmlFor={id} className="text-muted">
+            Save to
+          </label>
+          <select
+            id={id}
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            autoFocus
+            className="w-full min-w-0 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-fg sm:w-auto sm:flex-1"
+          >
+            {ordered.map((r) => (
+              <option key={r.id} value={r.id}>
+                {experimentCode(r.number)}: {r.title}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={busy || !target}
+            className="rounded-md bg-accent px-2.5 py-1 font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+          >
+            {busy ? 'Saving…' : 'Save as a note'}
+          </button>
+          <button type="button" onClick={onClose} className="text-subtle hover:text-fg">
+            Cancel
+          </button>
+          {result && !result.ok ? (
+            <span role="alert" className="w-full text-danger">
+              {result.text}
+            </span>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
 }
