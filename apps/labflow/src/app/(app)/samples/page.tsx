@@ -7,9 +7,10 @@ import { listSamples } from '@/server/queries';
 export const metadata = { title: 'Samples' };
 export const dynamic = 'force-dynamic';
 
-export default async function SamplesPage() {
+export default async function SamplesPage(props: { searchParams: Promise<{ created?: string; existing?: string }> }) {
   const session = await requireSession();
-  const samples = await listSamples(session);
+  const [samples, params] = await Promise.all([listSamples(session), props.searchParams]);
+  const created = Number(params.created ?? NaN);
 
   return (
     <>
@@ -18,6 +19,12 @@ export default async function SamplesPage() {
         description="A light register of what was used where, not a full inventory system."
         actions={<ButtonLink href="/samples/new">New sample</ButtonLink>}
       />
+      {Number.isFinite(created) ? (
+        <p role="status" className="mb-4 rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+          {created === 0 ? 'No new samples were created.' : `Created ${pluralise(created, 'sample')}.`}
+          {params.existing ? <span className="text-muted"> Already in the lab, left as they were: {params.existing}.</span> : null}
+        </p>
+      ) : null}
       <Card>
         {samples.length === 0 ? (
           <EmptyState

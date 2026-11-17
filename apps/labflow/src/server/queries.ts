@@ -642,7 +642,7 @@ export async function listSamples(s: SessionContext, opts: { projectId?: string 
       )`,
     })
     .from(samples)
-    .leftJoin(projects, eq(projects.id, samples.projectId))
+    .leftJoin(projects, and(eq(projects.id, samples.projectId), eq(projects.workspaceId, samples.workspaceId)))
     .where(where)
     .orderBy(samples.code);
 }
@@ -657,16 +657,24 @@ export async function getSample(s: SessionContext, sampleId: string) {
   return assertFound(rows[0], 'Sample');
 }
 
-export async function createSample(
-  s: SessionContext,
-  input: {
-    code: string;
-    description: string | null;
-    notes: string | null;
-    projectId: string | null;
-    parentSampleId: string | null;
-  },
-) {
+type SampleInput = {
+  description: string | null;
+  notes: string | null;
+  projectId: string | null;
+  parentSampleId: string | null;
+};
+
+/**
+ * The project and parent a sample points at must be this lab's own: the ids
+ * arrive from a form, and anyone can edit a form.
+ */
+async function assertSampleLinks(s: SessionContext, input: SampleInput) {
+  if (input.projectId) await getProject(s, input.projectId);
+  if (input.parentSampleId) await getSample(s, input.parentSampleId);
+}
+
+export async function createSample(s: SessionContext, input: SampleInput & { code: string }) {
+  await assertSampleLinks(s, input);
   const rows = await db
     .insert(samples)
     .values({ ...input, workspaceId: s.workspaceId })
@@ -679,6 +687,26 @@ export async function createSample(
     .where(and(eq(samples.workspaceId, s.workspaceId), eq(samples.code, input.code)))
     .limit(1);
   return assertFound(existing[0], 'Sample').id;
+}
+
+/**
+ * Several samples sharing one description, project and parent. IDs the lab
+ * already has are left untouched and reported back, never overwritten.
+ */
+export async function createSamples(
+  s: SessionContext,
+  codes: string[],
+  input: SampleInput,
+): Promise<{ created: string[]; existing: string[] }> {
+  if (codes.length === 0) return { created: [], existing: [] };
+  await assertSampleLinks(s, input);
+  const rows = await db
+    .insert(samples)
+    .values(codes.map((code) => ({ ...input, code, workspaceId: s.workspaceId })))
+    .onConflictDoNothing({ target: [samples.workspaceId, samples.code] })
+    .returning({ code: samples.code });
+  const created = new Set(rows.map((r) => r.code));
+  return { created: codes.filter((c) => created.has(c)), existing: codes.filter((c) => !created.has(c)) };
 }
 
 /** Creates any sample codes that don't exist yet, then returns all their ids. */

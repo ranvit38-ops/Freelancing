@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscussionMessage } from '@/server/queries';
 import { formatBytes } from '@/lib/display';
-import { PaperclipIcon } from './ui';
+import { PaperclipIcon, XIcon } from './ui';
 import { StoredImage } from './stored-image';
 
 type Channel = { key: string; name: string; projectId: string | null; dm?: boolean };
@@ -557,7 +557,7 @@ export function ChatRoom({
                   aria-label={`Remove ${a.name}`}
                   className="shrink-0 text-subtle hover:text-fg"
                 >
-                  ✕
+                  <XIcon />
                 </button>
               </li>
             ))}

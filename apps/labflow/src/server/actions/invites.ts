@@ -6,6 +6,7 @@ import { normaliseEmail } from '@/lib/normalise';
 import { rateLimit } from '@/lib/rate-limit';
 import { PLANS } from '@/lib/plans';
 import { isValidEmail } from '@/lib/validation';
+import { parseEmails } from '@/lib/bulk-input';
 import { MailNotConfiguredError, MailSendError, absoluteUrl, mailConfigured, publicBaseUrl, sendEmail } from '../mailer';
 import { linkForViewer } from '../origin';
 import { requireSession } from '../authz';
@@ -31,16 +32,16 @@ export async function inviteMemberAction(
     return { error: 'Only an owner or admin can invite people to this lab.' };
   }
 
-  // Each invitation is an email sent in the lab's name, so a runaway form or a
-  // compromised admin account cannot turn this into a way to send spam.
-  const limit = rateLimit(`invite:${session.workspaceId}`, { limit: 30, windowMs: 10 * 60_000 });
-  if (!limit.ok) {
-    return { error: `That is a lot of invitations at once. Try again in ${limit.retryAfterSec} seconds.` };
-  }
-
-  const email = normaliseEmail(String(formData.get('email') ?? ''));
-  if (!isValidEmail(email)) {
-    return { fieldErrors: { email: 'Enter a valid email address' } };
+  // One address, or a list pasted from anywhere: commas, spaces, new lines,
+  // or "Name <name@uni.edu>" straight out of a mail client.
+  const emails = parseEmails(String(formData.get('email') ?? '')).map(normaliseEmail);
+  const invalid = emails.filter((e) => !isValidEmail(e));
+  if (emails.length === 0 || invalid.length) {
+    return {
+      fieldErrors: {
+        email: invalid.length ? `Not a valid address: ${invalid.slice(0, 3).join(', ')}` : 'Enter a valid email address',
+      },
+    };
   }
   const role = formData.get('role') === 'admin' ? 'admin' : 'member';
 
@@ -58,12 +59,54 @@ export async function inviteMemberAction(
     return { error: 'This lab needs an active plan before you can invite people.' };
   }
   const seats = PLANS[plan].seats;
-  if (usage.members + usage.pending >= seats) {
+  const free = seats - usage.members - usage.pending;
+  if (free <= 0) {
     return {
       error: `All ${seats} seats on this plan are taken. Upgrade, or revoke a pending invitation, to add someone.`,
     };
   }
+  // A list is all or nothing, so nobody has to work out who got in.
+  if (emails.length > free) {
+    return {
+      error: `That is ${emails.length} people, and this plan has room for ${free} more. Upgrade, revoke a pending invitation, or invite fewer at once.`,
+    };
+  }
 
+  const results: Invited[] = [];
+  for (const email of emails) {
+    // Each invitation is an email sent in the lab's name, so a runaway form or
+    // a compromised admin account cannot turn this into a way to send spam.
+    const limit = rateLimit(`invite:${session.workspaceId}`, { limit: 30, windowMs: 10 * 60_000 });
+    if (!limit.ok) {
+      results.push({ email, error: `Not invited: too many invitations at once. Try again in ${limit.retryAfterSec} seconds.` });
+      continue;
+    }
+    results.push(await inviteOne(session, email, role));
+  }
+  revalidatePath('/settings');
+
+  if (results.length === 1) {
+    const [only] = results as [Invited];
+    return only.error ? { error: only.error } : { ok: true, message: only.message };
+  }
+  const sent = results.filter((r) => !r.error);
+  const failed = results.filter((r) => r.error);
+  const lines = [
+    sent.length ? `Invited ${sent.length}: ${sent.map((r) => r.email).join(', ')}.` : '',
+    ...sent.filter((r) => r.handOver).map((r) => `${r.email}: send them ${r.handOver}`),
+    ...failed.map((r) => `${r.email}: ${r.error}`),
+  ].filter(Boolean);
+  return failed.length ? { error: lines.join(' ') } : { ok: true, message: lines.join(' ') };
+}
+
+type Invited = { email: string; message?: string; error?: string; handOver?: string };
+
+/** One invitation: saved, then emailed, or handed back as a link to pass on. */
+async function inviteOne(
+  session: Awaited<ReturnType<typeof requireSession>>,
+  email: string,
+  role: 'admin' | 'member',
+): Promise<Invited> {
   const token = randomBytes(32).toString('base64url');
   await q.createInvite(session, {
     email,
@@ -72,14 +115,13 @@ export async function inviteMemberAction(
     expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000),
   });
 
-  revalidatePath('/settings');
-
   // Shown to the inviter, who passes it on themselves: the address they are
   // using right now is the right one, whether or not it is configured.
   const handOver = await linkForViewer(`/join?token=${token}`);
   if (!mailConfigured()) {
     return {
-      ok: true,
+      email,
+      handOver,
       message: `Email is not set up on this deployment, so nothing was sent. The invitation is saved: send them this link yourself: ${handOver}`,
     };
   }
@@ -88,7 +130,8 @@ export async function inviteMemberAction(
   // address and never one read off this request.
   if (!publicBaseUrl() && process.env.NODE_ENV === 'production') {
     return {
-      ok: true,
+      email,
+      handOver,
       message: `The invitation is saved but was not emailed, because this server does not know its public address (set NEXT_PUBLIC_APP_URL). Send them this link yourself: ${handOver}`,
     };
   }
@@ -110,19 +153,20 @@ export async function inviteMemberAction(
     });
   } catch (error) {
     if (error instanceof MailNotConfiguredError) {
-      return { ok: true, message: `${error.message} Send them this link yourself: ${link}` };
+      return { email, handOver: link, message: `${error.message} Send them this link yourself: ${link}` };
     }
     // The inviter runs the lab, so they get the real reason, and the link so
     // the invitation is not lost while email gets fixed.
     const reason = error instanceof MailSendError ? error.reason : (error as Error).message;
     console.error(`[labflow] invitation email to ${email} failed: ${reason}`);
     return {
+      email,
       error: `The invitation is saved, but the email did not go out. ${reason} Meanwhile, send them this link yourself: ${link}`,
     };
   }
 
   return {
-    ok: true,
+    email,
     message: `Invitation emailed to ${email}. If it is not in their inbox in a few minutes, ask them to check spam, or send them this link: ${link}`,
   };
 }

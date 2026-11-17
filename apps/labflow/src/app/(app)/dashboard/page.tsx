@@ -147,7 +147,7 @@ export default async function HomePage() {
                 <li key={u.key}>
                   <Link href={u.href} className="flex gap-3 px-5 py-2.5 hover:bg-raised">
                     <span className="w-10 shrink-0 text-center">
-                      <span className="block text-[11px] uppercase text-subtle">
+                      <span className="block text-[11px] text-subtle">
                         {new Date(`${u.day}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })}
                       </span>
                       <span className={cx('block text-sm font-semibold tabular-nums', u.day === today && 'text-accent')}>

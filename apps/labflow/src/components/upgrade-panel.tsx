@@ -25,7 +25,7 @@ export function UpgradePanel({
   const target = PLANS[plan];
   return (
     <Card className="p-6 sm:p-8">
-      <p className="text-xs font-medium uppercase tracking-wider text-subtle">
+      <p className="text-xs font-medium text-subtle">
         Included from {target.name}, ${target.monthly} a month
       </p>
       <h2 className="mt-2 text-lg font-semibold tracking-tight">{title}</h2>

@@ -27,12 +27,20 @@ export function SampleForm({
       <FormError>{state.error}</FormError>
       <Card className="space-y-4 p-5 sm:p-6">
         <Field
-          label="Sample ID"
+          label="Sample IDs"
           htmlFor="code"
-          hint="However your lab labels samples: S-104, BATCH-7, anything."
+          hint="However your lab labels samples. For several at once, put one per line, separate them with commas, or give a range like S-101 to S-120. Everything below applies to all of them."
           error={state.fieldErrors?.code}
         >
-          <Input id="code" name="code" placeholder="S-104" required autoFocus className="font-mono" />
+          <Textarea
+            id="code"
+            name="code"
+            placeholder={'S-104\nor S-101 to S-120'}
+            required
+            autoFocus
+            rows={2}
+            className="!min-h-0 font-mono"
+          />
         </Field>
         <Field label="Description" htmlFor="description" optional>
           <Input id="description" name="description" placeholder="Spiked groundwater matrix, 10 ppb PFOA" />
@@ -64,7 +72,7 @@ export function SampleForm({
         </Field>
       </Card>
       <div className="flex items-center gap-3">
-        <SubmitButton pendingLabel="Saving…">Create sample</SubmitButton>
+        <SubmitButton pendingLabel="Saving…">Create samples</SubmitButton>
         <Link href="/samples" className="text-sm text-muted underline underline-offset-2 hover:text-fg">
           Cancel
         </Link>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useActionState, useEffect, useRef, useState } from 'react';
-import { Button, Card, Field, FormError, Input, Select, Textarea } from './ui';
+import { Button, Card, Field, FormError, Input, Select, Textarea, XIcon } from './ui';
 import { SubmitButton } from './submit-button';
 import { PendingFiles } from './experiment-dropzone';
 import { createExperimentAction, updateExperimentAction } from '@/server/actions/records';
@@ -12,6 +12,7 @@ import { experimentCode, experimentStatusLabel } from '@/lib/display';
 import type { ExperimentStatus } from '@/db/schema';
 
 import { draftFromFormData, readDraft, writeDraft, type ConditionRow, type FormDraft } from '@/lib/form-draft';
+import { isMultiEntry, parseConditionLines } from '@/lib/bulk-input';
 
 export type { ConditionRow };
 
@@ -209,6 +210,43 @@ export function ExperimentForm(props: ExperimentFormProps) {
   const updateRow = (index: number, patch: Partial<ConditionRow>) =>
     setConditions((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
+  const isFilled = (r: ConditionRow) => Boolean(r.name.trim() || r.value.trim() || r.unit.trim());
+  const focusCell = (row: number, column: keyof ConditionRow) =>
+    requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-condition="${row}-${column}"]`)?.focus());
+
+  // Several lines pasted into one box fill several rows, as in a spreadsheet.
+  // Into the name column, each line is a whole condition ("Temperature 25 °C",
+  // or name, value and unit columns copied from Excel); into the value or
+  // unit column, the lines fill that column downwards.
+  const pasteRows = (index: number, column: keyof ConditionRow, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    if (!isMultiEntry(text)) return;
+    e.preventDefault();
+    if (column === 'name' || text.includes('\t')) {
+      const pasted = parseConditionLines(text);
+      setConditions((rows) => [...rows.slice(0, index), ...pasted, ...rows.slice(index + 1).filter(isFilled)]);
+      focusCell(index + pasted.length - 1, 'name');
+      return;
+    }
+    const values = text.split(/\r?\n/).map((v) => v.trim()).filter(Boolean);
+    setConditions((rows) => {
+      const next = [...rows];
+      values.forEach((v, k) => {
+        next[index + k] = { ...(next[index + k] ?? emptyRow), [column]: v };
+      });
+      return next;
+    });
+  };
+
+  // Enter moves to the same box in the next row, adding one at the end,
+  // instead of submitting the whole experiment by accident.
+  const nextRowOnEnter = (index: number, column: keyof ConditionRow, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    if (index === conditions.length - 1) setConditions((rows) => [...rows, emptyRow]);
+    focusCell(index + 1, column);
+  };
+
   return (
     <form
       ref={formRef}
@@ -249,6 +287,8 @@ export function ExperimentForm(props: ExperimentFormProps) {
 
       <FormError>{state.error}</FormError>
 
+      {/* Without AI the card can only show a dead button, so it is left out. */}
+      {props.aiConfigured ? (
       <SectionCard
         title="Describe it in your own words"
         description="Type or paste what you did, the way you would tell a labmate. The form below fills itself in; you check it and save."
@@ -265,14 +305,11 @@ export function ExperimentForm(props: ExperimentFormProps) {
             type="button"
             tone="secondary"
             size="sm"
-            disabled={!props.aiConfigured || filling || description.trim().length < 10}
+            disabled={filling || description.trim().length < 10}
             onClick={fillFromDescription}
           >
             {filling ? 'Filling in…' : 'Fill in the form'}
           </Button>
-          {!props.aiConfigured ? (
-            <span className="text-xs text-muted">AI is not switched on for this server yet, so fill the form in by hand.</span>
-          ) : null}
         </div>
         {fillMessage ? (
           <p role="status" className={fillMessage.tone === 'ok' ? 'text-sm text-ok' : 'text-sm text-danger'}>
@@ -280,6 +317,7 @@ export function ExperimentForm(props: ExperimentFormProps) {
           </p>
         ) : null}
       </SectionCard>
+      ) : null}
 
       {props.startFrom}
 
@@ -385,10 +423,10 @@ export function ExperimentForm(props: ExperimentFormProps) {
 
       <SectionCard
         title="Conditions"
-        description="Whatever variables matter in your field. Add as many rows as you need."
+        description="Whatever variables matter in your field. Paste rows straight from a spreadsheet or a list (one condition per line, like “Temperature 25 °C”), or type them; Enter moves to the next row."
       >
         <div className="space-y-2">
-          <div className="hidden gap-2 px-1 text-xs font-medium uppercase tracking-wider text-subtle sm:grid sm:grid-cols-[1fr_1fr_120px_40px]">
+          <div className="hidden gap-2 px-1 text-xs font-medium text-subtle sm:grid sm:grid-cols-[1fr_1fr_120px_40px]">
             <span>Condition</span>
             <span>Value</span>
             <span>Unit</span>
@@ -400,22 +438,31 @@ export function ExperimentForm(props: ExperimentFormProps) {
                 name="conditionName"
                 value={row.name}
                 onChange={(e) => updateRow(i, { name: e.target.value })}
+                onPaste={(e) => pasteRows(i, 'name', e)}
+                onKeyDown={(e) => nextRowOnEnter(i, 'name', e)}
+                data-condition={`${i}-name`}
                 aria-label={`Condition ${i + 1} name`}
-                placeholder="Temperature"
+                placeholder={i === 0 ? 'Temperature' : undefined}
               />
               <Input
                 name="conditionValue"
                 value={row.value}
                 onChange={(e) => updateRow(i, { value: e.target.value })}
+                onPaste={(e) => pasteRows(i, 'value', e)}
+                onKeyDown={(e) => nextRowOnEnter(i, 'value', e)}
+                data-condition={`${i}-value`}
                 aria-label={`Condition ${i + 1} value`}
-                placeholder="25"
+                placeholder={i === 0 ? '25' : undefined}
               />
               <Input
                 name="conditionUnit"
                 value={row.unit}
                 onChange={(e) => updateRow(i, { unit: e.target.value })}
+                onPaste={(e) => pasteRows(i, 'unit', e)}
+                onKeyDown={(e) => nextRowOnEnter(i, 'unit', e)}
+                data-condition={`${i}-unit`}
                 aria-label={`Condition ${i + 1} unit`}
-                placeholder="°C"
+                placeholder={i === 0 ? '°C' : undefined}
               />
               <Button
                 type="button"
@@ -428,7 +475,7 @@ export function ExperimentForm(props: ExperimentFormProps) {
                   )
                 }
               >
-                ✕
+                <XIcon />
               </Button>
             </div>
           ))}

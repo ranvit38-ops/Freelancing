@@ -70,7 +70,7 @@ export default async function OwnerPage() {
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((s) => (
           <Card key={s.label} className="p-5">
-            <p className="text-xs font-medium uppercase tracking-wider text-subtle">{s.label}</p>
+            <p className="text-xs font-medium text-subtle">{s.label}</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{s.value}</p>
             <p className="mt-1 text-xs text-muted">{s.note}</p>
           </Card>
@@ -84,7 +84,7 @@ export default async function OwnerPage() {
         />
         <div tabIndex={0} role="region" aria-label="Labs" className="overflow-x-auto">
           <table className="w-full min-w-[52rem] text-sm">
-            <thead className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
+            <thead className="border-b border-line text-left text-xs text-subtle">
               <tr>
                 <th className="px-5 py-2.5 font-medium">Workspace</th>
                 <th className="px-5 py-2.5 font-medium">Plan</th>
@@ -149,7 +149,7 @@ export default async function OwnerPage() {
         />
         <div tabIndex={0} role="region" aria-label="Signups" className="overflow-x-auto">
           <table className="w-full min-w-[42rem] text-sm">
-            <thead className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
+            <thead className="border-b border-line text-left text-xs text-subtle">
               <tr>
                 <th className="px-5 py-2.5 font-medium">Person</th>
                 <th className="px-5 py-2.5 font-medium">Workspace</th>
@@ -190,7 +190,7 @@ export default async function OwnerPage() {
           />
           <div tabIndex={0} role="region" aria-label="Feedback" className="overflow-x-auto">
             <table className="w-full min-w-[48rem] text-sm">
-              <thead className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
+              <thead className="border-b border-line text-left text-xs text-subtle">
                 <tr>
                   <th className="px-5 py-2.5 font-medium">Person</th>
                   <th className="px-5 py-2.5 font-medium">Workspace</th>

@@ -113,7 +113,7 @@ export default async function SettingsPage() {
           </ul>
           {invites.length > 0 ? (
             <div className="border-t border-line px-5 py-3">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+              <h3 className="text-xs font-medium text-subtle">
                 Pending invitations
               </h3>
               <ul className="mt-2 space-y-2">

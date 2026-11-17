@@ -119,7 +119,7 @@ export function PageHeader({
           </Link>
         ) : null}
         {eyebrow ? (
-          <div className="mb-1 text-xs font-medium uppercase tracking-wider text-subtle">
+          <div className="mb-1 text-xs font-medium text-subtle">
             {eyebrow}
           </div>
         ) : null}
@@ -232,6 +232,15 @@ export function Badge({
 
 /* ── empty states ───────────────────────────────────────────────────────── */
 
+/** Remove or close. Stroke icon, so it follows the text colour. */
+export function XIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </svg>
+  );
+}
+
 /** A file attached to a message. Stroke icon, so it follows the text colour. */
 export function PaperclipIcon() {
   return (
@@ -270,7 +279,7 @@ export function DefinitionList({
     <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
       {items.map((item, i) => (
         <div key={i}>
-          <dt className="text-xs font-medium uppercase tracking-wider text-subtle">{item.term}</dt>
+          <dt className="text-xs font-medium text-subtle">{item.term}</dt>
           <dd className="mt-1 text-sm">{item.value}</dd>
         </div>
       ))}

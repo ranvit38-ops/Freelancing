@@ -153,7 +153,7 @@ export default async function PricingPage() {
             <caption className="sr-only">Feature comparison across Labquill plans</caption>
             <thead>
               <tr className="border-b border-line text-left">
-                <th scope="col" className="w-56 px-5 py-3 text-xs font-medium uppercase tracking-wider text-subtle">
+                <th scope="col" className="w-56 px-5 py-3 text-xs font-medium text-subtle">
                   Feature
                 </th>
                 {PLAN_ORDER.map((id) => (

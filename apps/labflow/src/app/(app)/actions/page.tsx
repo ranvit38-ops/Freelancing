@@ -24,7 +24,7 @@ export default async function ActionsPage() {
       <div className="mb-5 grid gap-4 sm:grid-cols-3">
         {ORDER.map((severity) => (
           <Card key={severity} className="p-4">
-            <div className="text-xs font-medium uppercase tracking-wider text-subtle">
+            <div className="text-xs font-medium text-subtle">
               {severityLabel[severity]}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">

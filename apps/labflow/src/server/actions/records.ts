@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { normaliseSampleCode } from '@/lib/normalise';
+import { parseSampleIdList } from '@/lib/bulk-input';
 import {
   experimentSchema,
   parseSampleCodes,
@@ -258,15 +259,25 @@ export async function createSampleAction(
   const session = await requireSession();
   const blocked = await blockedReason(session);
   if (blocked) return { error: blocked };
-  const parsed = sampleSchema.safeParse(formObject(formData));
+  // One ID, a list (one per line or comma separated) or a range such as
+  // "S-101 to S-120": the rest of the form applies to every one of them.
+  const codes = [...new Set(parseSampleIdList(String(formData.get('code') ?? '')).map(normaliseSampleCode))];
+  const parsed = sampleSchema.safeParse({ ...formObject(formData), code: codes[0] ?? '' });
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
+  const tooLong = codes.find((c) => c.length > 64);
+  if (tooLong) return { fieldErrors: { code: `${tooLong.slice(0, 20)}… is longer than 64 characters.` } };
 
-  const sampleId = await q.createSample(session, {
-    ...parsed.data,
-    code: normaliseSampleCode(parsed.data.code),
-  });
+  const { code: _first, ...shared } = parsed.data;
+  if (codes.length === 1) {
+    const sampleId = await q.createSample(session, { ...shared, code: codes[0]! });
+    revalidatePath('/samples');
+    redirect(`/samples/${sampleId}`);
+  }
+  const { created, existing } = await q.createSamples(session, codes, shared);
   revalidatePath('/samples');
-  redirect(`/samples/${sampleId}`);
+  const params = new URLSearchParams({ created: String(created.length) });
+  if (existing.length) params.set('existing', existing.slice(0, 20).join(', ') + (existing.length > 20 ? ` and ${existing.length - 20} more` : ''));
+  redirect(`/samples?${params}`);
 }
 
 /* ── protocols ──────────────────────────────────────────────────────────── */

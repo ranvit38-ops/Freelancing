@@ -70,7 +70,7 @@ export function LabPulse({ rows }: { rows: PulseRow[] }) {
       <div tabIndex={0} role="region" aria-label="This week by person" className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
+            <tr className="border-b border-line text-left text-xs text-subtle">
               <th scope="col" className="px-5 py-2 font-medium">Person</th>
               <th scope="col" className="px-3 py-2 text-right font-medium">Runs this week</th>
               <th scope="col" className="px-3 py-2 text-right font-medium">Notes this week</th>

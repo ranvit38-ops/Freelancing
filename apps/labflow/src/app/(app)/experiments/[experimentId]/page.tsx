@@ -188,14 +188,14 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
             />
             <div className="mt-5 space-y-4 border-t border-line pt-5">
               <div>
-                <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">Purpose of this run</h3>
+                <h3 className="text-xs font-medium text-subtle">Purpose of this run</h3>
                 <div className="mt-1">
                   <Prose text={experiment.objective} />
                 </div>
               </div>
               {experiment.researchQuestion ? (
                 <div>
-                  <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+                  <h3 className="text-xs font-medium text-subtle">
                     Project question and hypothesis
                   </h3>
                   <div className="mt-1 text-muted">
@@ -205,14 +205,14 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
               ) : null}
               {experiment.hypothesis ? (
                 <div>
-                  <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">Hypothesis</h3>
+                  <h3 className="text-xs font-medium text-subtle">Hypothesis</h3>
                   <div className="mt-1">
                     <Prose text={experiment.hypothesis} />
                   </div>
                 </div>
               ) : null}
               <div>
-                <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+                <h3 className="text-xs font-medium text-subtle">
                   Original data
                 </h3>
                 <div className={experiment.dataLocation ? 'mt-1 break-all font-mono' : 'mt-1'}>
@@ -221,7 +221,7 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
               </div>
               {experiment.protocolNotes ? (
                 <div>
-                  <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+                  <h3 className="text-xs font-medium text-subtle">
                     Protocol deviations
                   </h3>
                   <div className="mt-1">
@@ -283,7 +283,7 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
               <div tabIndex={0} role="region" aria-label="Conditions" className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
+                    <tr className="border-b border-line text-left text-xs text-subtle">
                       <th scope="col" className="px-5 py-2 font-medium">Condition</th>
                       <th scope="col" className="px-5 py-2 font-medium">Value</th>
                       <th scope="col" className="px-5 py-2 font-medium">Unit</th>
@@ -314,7 +314,7 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
               ) : null}
               {resultSections.map((section) => (
                 <div key={section.label}>
-                  <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+                  <h3 className="text-xs font-medium text-subtle">
                     {section.label}
                   </h3>
                   <div className="mt-1">

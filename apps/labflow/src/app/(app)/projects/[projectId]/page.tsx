@@ -101,23 +101,15 @@ export default async function ProjectOverviewPage(props: { params: Promise<{ pro
       <ProjectTabs projectId={project.id} />
       {exampleNotice}
 
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Experiments', value: String(experiments.length) },
-          { label: 'Completed', value: String(byStatus.completed ?? 0) },
-          { label: 'Needs investigation', value: String(byStatus.needs_investigation ?? 0) },
-          { label: 'Files', value: String(projectFileRows.length) },
-        ].map((stat) => (
-          <Card key={stat.label} className="p-4">
-            <div className="text-xs font-medium uppercase tracking-wider text-subtle">
-              {stat.label}
-            </div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {stat.value}
-            </div>
-          </Card>
-        ))}
-      </div>
+      {/* One line, not four tiles: the experiments card below lists them all. */}
+      <p className="mb-5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+        <span>{pluralise(experiments.length, 'experiment')}</span>
+        <span>{byStatus.completed ?? 0} completed</span>
+        <span className={byStatus.needs_investigation ? 'font-medium text-warn' : undefined}>
+          {byStatus.needs_investigation ?? 0} need{(byStatus.needs_investigation ?? 0) === 1 ? 's' : ''} investigation
+        </span>
+        <span>{pluralise(projectFileRows.length, 'file')}</span>
+      </p>
 
       <div className="grid gap-5 lg:grid-cols-3 [&>*]:min-w-0">
         <div className="space-y-5 lg:col-span-2">
@@ -167,7 +159,7 @@ export default async function ProjectOverviewPage(props: { params: Promise<{ pro
             <div className="divide-y divide-line">
               {[...new Set(projectFileRows.map((f) => f.folder ?? ''))].map((folder) => (
                 <section key={folder} className="px-5 py-3">
-                  <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">{folder || 'Unsorted'}</h3>
+                  <h3 className="text-xs font-medium text-subtle">{folder || 'Unsorted'}</h3>
                   <ul className="mt-1.5 space-y-1.5">
                     {projectFileRows
                       .filter((f) => (f.folder ?? '') === folder)

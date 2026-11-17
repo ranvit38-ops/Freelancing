@@ -129,7 +129,7 @@ export default async function ComparePage(
               </caption>
               <thead>
                 <tr className="border-b border-line text-left">
-                  <th scope="col" className="w-48 px-5 py-3 text-xs font-medium uppercase tracking-wider text-subtle">
+                  <th scope="col" className="w-48 px-5 py-3 text-xs font-medium text-subtle">
                     Field
                   </th>
                   {experiments.map((e) => (
@@ -155,7 +155,7 @@ export default async function ComparePage(
                       <th
                         scope="colgroup"
                         colSpan={experiments.length + 1}
-                        className="px-5 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-subtle"
+                        className="px-5 py-1.5 text-left text-xs font-medium text-subtle"
                       >
                         {group}
                       </th>

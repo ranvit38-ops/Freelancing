@@ -120,7 +120,7 @@ export default async function DatasetPage(
           <div tabIndex={0} role="region" aria-label="Columns" className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
-                <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
+                <tr className="border-b border-line text-left text-xs text-subtle">
                   <th scope="col" className="px-5 py-2 font-medium">Column</th>
                   <th scope="col" className="px-5 py-2 font-medium">Type</th>
                   <th scope="col" className="px-5 py-2 font-medium">n</th>
@@ -158,7 +158,7 @@ export default async function DatasetPage(
           <div tabIndex={0} role="region" aria-label="Rows" className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
+                <tr className="border-b border-line text-left text-xs text-subtle">
                   {columns.map((c) => (
                     <th key={c.id} scope="col" className="whitespace-nowrap px-5 py-2 font-medium">
                       {c.name}

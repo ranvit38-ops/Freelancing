@@ -58,7 +58,7 @@ export function ReadingPath({ steps, storageKey }: { steps: ReadingStep[]; stora
       </div>
       {groups.map((group) => (
         <section key={group} className="border-t border-line">
-          <h3 className="px-5 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-subtle">{group}</h3>
+          <h3 className="px-5 pb-1 pt-4 text-xs font-semibold text-subtle">{group}</h3>
           <ol>
             {steps
               .filter((s) => s.group === group)

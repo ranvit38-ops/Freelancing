@@ -45,13 +45,25 @@ export function TaskComposer({
           </p>
         ) : null}
 
-        <Field label="What needs doing" htmlFor="task-title" error={state.fieldErrors?.title}>
-          <Input
+        <Field
+          label="What needs doing"
+          htmlFor="task-title"
+          hint="For several, put one per line or paste your meeting notes. Enter adds; Shift+Enter starts a new line."
+          error={state.fieldErrors?.title}
+        >
+          <Textarea
             id="task-title"
             name="title"
             required
-            maxLength={200}
+            rows={2}
             placeholder="Re-run the extraction on the June samples"
+            className="!min-h-0"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                form.current?.requestSubmit();
+              }
+            }}
           />
         </Field>
 

@@ -135,7 +135,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </summary>
         <nav aria-label="Main" className="px-3 pb-3">
           <NavList items={items} />
-          <p className="mt-3 border-t border-line px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-subtle">
+          <p className="mt-3 border-t border-line px-3 pb-1 pt-3 text-xs font-medium text-subtle">
             Working together
           </p>
           <NavList items={together} />
@@ -155,7 +155,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <nav aria-label="Main" className="flex-1 overflow-y-auto px-3">
           <NavList items={items} />
-          <p className="mt-4 border-t border-line px-3 pb-1 pt-4 text-xs font-medium uppercase tracking-wider text-subtle">
+          <p className="mt-4 border-t border-line px-3 pb-1 pt-4 text-xs font-medium text-subtle">
             Working together
           </p>
           <NavList items={together} />

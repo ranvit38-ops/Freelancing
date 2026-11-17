@@ -1,5 +1,6 @@
 'use server';
 
+import { parseTaskLines } from '@/lib/bulk-input';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireSession } from '../authz';
@@ -45,8 +46,9 @@ export async function createTaskAction(
   const blocked = await blockedReason(session);
   if (blocked) return { error: blocked };
 
-  const title = String(formData.get('title') ?? '').trim();
-  if (!title) return { fieldErrors: { title: 'Say what needs doing' } };
+  // One task per line, so a meeting's worth can be added in one go.
+  const titles = parseTaskLines(String(formData.get('title') ?? '')).map((t) => t.slice(0, 200));
+  if (titles.length === 0) return { fieldErrors: { title: 'Say what needs doing' } };
 
   const dueOn = optionalText(formData, 'dueOn', 10);
   if (dueOn && !/^\d{4}-\d{2}-\d{2}$/.test(dueOn)) {
@@ -54,13 +56,15 @@ export async function createTaskAction(
   }
 
   const who = assignee(formData);
-  await q.createTask(session, {
-    title: title.slice(0, 200),
-    detail: optionalText(formData, 'detail', 4000),
-    ...who,
-    projectId: optionalId(formData, 'projectId'),
-    dueOn,
-  });
+  for (const title of titles) {
+    await q.createTask(session, {
+      title,
+      detail: optionalText(formData, 'detail', 4000),
+      ...who,
+      projectId: optionalId(formData, 'projectId'),
+      dueOn,
+    });
+  }
 
   // Work handed to someone else reaches their inbox, not only the app.
   if (who.assignedTo && who.assignedTo !== session.userId) {
@@ -70,7 +74,8 @@ export async function createTaskAction(
         taskAssignedEmail({
           name: person.name ?? person.email,
           from: session.userName,
-          title: title.slice(0, 200),
+          // Several at once arrive as one email, not one each.
+          title: titles.length === 1 ? titles[0]! : `${titles.length} tasks: ${titles.join('; ')}`.slice(0, 300),
           dueOn,
           labName: session.workspaceName,
           link,
@@ -82,7 +87,7 @@ export async function createTaskAction(
   revalidatePath('/tasks');
   revalidatePath('/dashboard');
   revalidatePath('/calendar');
-  return { ok: true, message: 'Added.' };
+  return { ok: true, message: titles.length === 1 ? 'Added.' : `Added ${titles.length} tasks.` };
 }
 
 /**

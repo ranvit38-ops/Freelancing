@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { Card, CardHeader, Field, FormError, Input, Select } from './ui';
+import { Card, CardHeader, Field, FormError, Select, Textarea } from './ui';
 import { SubmitButton } from './submit-button';
 import { inviteMemberAction } from '@/server/actions/invites';
 import { noState } from '@/server/actions/types';
@@ -27,8 +27,21 @@ export function InviteForm({ canInvite }: { canInvite: boolean }) {
             </p>
           ) : null}
           {/* This card sits in a narrow column, so the address gets its own row. */}
-          <Field label="Email" htmlFor="invite-email" error={state.fieldErrors?.email}>
-            <Input id="invite-email" name="email" type="email" required placeholder="name@university.edu" />
+          <Field
+            label="Email addresses"
+            htmlFor="invite-email"
+            hint="One or several: paste a list separated by commas or new lines."
+            error={state.fieldErrors?.email}
+          >
+            <Textarea
+              id="invite-email"
+              name="email"
+              required
+              rows={2}
+              autoComplete="off"
+              placeholder="name@university.edu"
+              className="!min-h-0"
+            />
           </Field>
           <div className="grid grid-cols-[1fr_auto] items-end gap-3">
             <Field label="Role" htmlFor="invite-role">

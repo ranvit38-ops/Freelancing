@@ -65,11 +65,11 @@ export default async function SamplePage(
             />
             <div className="mt-5 space-y-4 border-t border-line pt-5">
               <div>
-                <h2 className="text-xs font-medium uppercase tracking-wider text-subtle">Description</h2>
+                <h2 className="text-xs font-medium text-subtle">Description</h2>
                 <div className="mt-1"><Prose text={sample.description} /></div>
               </div>
               <div>
-                <h2 className="text-xs font-medium uppercase tracking-wider text-subtle">Notes</h2>
+                <h2 className="text-xs font-medium text-subtle">Notes</h2>
                 <div className="mt-1"><Prose text={sample.notes} /></div>
               </div>
             </div>

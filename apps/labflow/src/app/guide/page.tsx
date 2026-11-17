@@ -289,7 +289,7 @@ export default async function GuidePage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
-        <p className="text-xs font-semibold uppercase tracking-wider text-accent">Tutorial</p>
+        <p className="text-xs font-semibold text-accent">Tutorial</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Labquill, page by page</h1>
         <p className="mt-3 max-w-2xl text-muted">
           Every part of the app, with screenshots from a demo lab. Each section says who it is for. About ten
@@ -321,7 +321,7 @@ export default async function GuidePage() {
         <div className="mt-12 space-y-16">
           {SECTIONS.map((s, i) => (
             <section key={s.id} id={s.id} aria-labelledby={`${s.id}-title`} className="scroll-mt-20">
-              <p className="text-xs font-medium uppercase tracking-wider text-subtle">
+              <p className="text-xs font-medium text-subtle">
                 {i + 1} · {s.who}
               </p>
               <h2 id={`${s.id}-title`} className="mt-1 text-xl font-semibold tracking-tight">

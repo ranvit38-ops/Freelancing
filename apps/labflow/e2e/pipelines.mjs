@@ -497,6 +497,31 @@ await step('record an experiment with conditions and a protocol', async () => {
     await expectText(P, want);
   }
 });
+await step('conditions pasted from a spreadsheet fill one row each, and Enter moves down', async () => {
+  await P.goto(`${BASE}/projects/${ids.project}/experiments/new`);
+  const first = P.locator('input[name=conditionName]').first();
+  await first.waitFor();
+  await first.evaluate((el, text) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, 'Condition\tValue\tUnit\nTemperature\t30\t°C\npH\t7.4\t\nStir speed 300 rpm');
+  const names = P.locator('input[name=conditionName]');
+  await P.waitForFunction(() => document.querySelectorAll('input[name=conditionName]')[2]?.value === 'Stir speed');
+  const rows = await names.evaluateAll((els) => els.map((el) => el.value));
+  assert(rows[0] === 'Temperature' && rows[1] === 'pH', `rows after paste: ${rows.join(' | ')}`);
+  assert((await P.locator('input[name=conditionValue]').nth(1).inputValue()) === '7.4', 'pH value not split out');
+  assert((await P.locator('input[name=conditionUnit]').nth(2).inputValue()) === 'rpm', 'unit not split out');
+  // Enter in the last row adds a row and moves there, instead of submitting.
+  const count = await names.count();
+  await P.locator('input[name=conditionUnit]').nth(count - 1).press('Enter');
+  await P.waitForFunction((n) => document.querySelectorAll('input[name=conditionName]').length === n + 1, count);
+  const focused = await P.evaluate(() => document.activeElement?.getAttribute('data-condition'));
+  assert(focused === `${count}-unit`, `focus after Enter: ${focused}`);
+  assert(P.url().endsWith('/experiments/new'), 'Enter submitted the form');
+  // The next steps carry on from the saved experiment.
+  await P.goto(`${BASE}/experiments/${ids.experiment}`);
+});
 await step('upload a CSV to the experiment and get a dataset', async () => {
   await P.setInputFiles(`#upload-${ids.experiment}`, file('run1.csv', 'text/csv', csv));
   const link = P.locator('a[href^="/datasets/"]').first();
@@ -679,6 +704,16 @@ await step('create a sample and see it on the project', async () => {
   await P.goto(`${BASE}/projects/${ids.project}/samples`);
   await expectText(P, 'SITE-A-01');
 });
+await step('a range of samples is created at once, existing IDs left alone', async () => {
+  await P.goto(`${BASE}/samples/new`);
+  await P.fill('#code', 'BULK-01 to BULK-05\nsite-a-01');
+  await P.selectOption('#projectId', ids.project);
+  await P.getByRole('button', { name: 'Create samples' }).click();
+  await P.waitForURL(/\/samples\?created=5/, { timeout: 20_000 });
+  await expectText(P, 'Created 5 samples');
+  await expectText(P, 'left as they were: SITE-A-01');
+  for (const code of ['BULK-01', 'BULK-03', 'BULK-05']) await expectText(P, code);
+});
 await step('add an inventory item', async () => {
   await P.goto(`${BASE}/inventory/new`);
   await P.fill('#name', 'Platinum ring, 6 cm');
@@ -707,6 +742,14 @@ await step('add a task for the whole lab, then tick it off', async () => {
   ids.task = idFrom(await link.getAttribute('href'));
   const r = await P.goto(`${BASE}/tasks/${ids.task}`);
   assert(r.status() === 200, `task page status ${r.status()}`);
+});
+await step('meeting notes pasted as tasks become one task per line', async () => {
+  await P.goto(`${BASE}/tasks`);
+  await P.fill('#task-title', '- Order pipette tips\n2. Book the TEM for Friday');
+  await P.getByRole('button', { name: 'Add task' }).click();
+  await expectText(P, 'Added 2 tasks.');
+  await expectText(P, 'Order pipette tips');
+  await expectText(P, 'Book the TEM for Friday');
 });
 await step('add a calendar event and subscribe to the calendar feed', async () => {
   await P.goto(`${BASE}/calendar?d=2026-11-05`);
@@ -960,6 +1003,16 @@ await step('an invite the email provider rejects says so instead of pretending',
   await P.waitForTimeout(2500);
   const text = await bodyText(P);
   assert(/not sent|could not|refused|Resend|failed|link/i.test(text), 'no honest message when the invite email fails');
+});
+await step('several people are invited at once from a pasted list', async () => {
+  await clearFake(MAIL);
+  const [a, b] = [`ann-${stamp}@labquill.test`, `bo-${stamp}@labquill.test`];
+  await P.goto(`${BASE}/team`);
+  await P.fill('#invite-email', `Ann Lee <${a}>, ${b.toUpperCase()}`);
+  await P.getByRole('button', { name: 'Send invite' }).click();
+  await expectText(P, 'Invited 2');
+  await waitForEmail(a);
+  await waitForEmail(b);
 });
 await step('a file over the size limit is refused with the limit named', async () => {
   await P.goto(`${BASE}/experiments/${ids.experiment}`);

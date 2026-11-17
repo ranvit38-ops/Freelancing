@@ -89,7 +89,7 @@ export default async function ChatPage(
       <PageHeader title="Chat" />
       <div className="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <nav aria-label="Channels" className="min-w-0">
-          <p className="mb-2 hidden px-2 text-xs font-medium uppercase tracking-wider text-subtle lg:block">
+          <p className="mb-2 hidden px-2 text-xs font-medium text-subtle lg:block">
             Channels
           </p>
           <ul className="flex gap-1.5 overflow-x-auto pb-1 lg:flex-col lg:gap-0.5 lg:overflow-visible">
@@ -111,7 +111,7 @@ export default async function ChatPage(
             ))}
           </ul>
 
-          <p className="mb-2 mt-5 hidden px-2 text-xs font-medium uppercase tracking-wider text-subtle lg:block">
+          <p className="mb-2 mt-5 hidden px-2 text-xs font-medium text-subtle lg:block">
             Direct messages
           </p>
           <ul className="mt-2 flex gap-1.5 overflow-x-auto pb-1 lg:mt-0 lg:flex-col lg:gap-0.5 lg:overflow-visible">

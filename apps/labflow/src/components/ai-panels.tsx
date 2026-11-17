@@ -30,7 +30,7 @@ function EvidenceList({ evidence }: { evidence: Evidence[] }) {
   if (evidence.length === 0) return null;
   return (
     <div className="border-t border-line px-5 py-4">
-      <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">Evidence</h3>
+      <h3 className="text-xs font-medium text-subtle">Evidence</h3>
       <ul className="mt-2 flex flex-wrap gap-2">
         {evidence.map((item) => (
           <li key={item.id}>
@@ -252,7 +252,7 @@ export function ProjectAssistantPanel({ projectId }: { projectId: string }) {
           </div>
           {state.literature && state.literature.length > 0 ? (
             <div className="border-t border-line px-5 py-4">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-subtle">
+              <h3 className="text-xs font-medium text-subtle">
                 Papers cited
               </h3>
               <ul className="mt-2 space-y-2">

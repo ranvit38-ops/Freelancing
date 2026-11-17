@@ -49,7 +49,7 @@ export function WhyNotFree() {
       <div tabIndex={0} role="region" aria-label="Labquill compared with a shared folder" className="mt-6 overflow-x-auto rounded-xl border border-line bg-surface">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
-            <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-subtle">
+            <tr className="border-b border-line text-left text-xs text-subtle">
               <th scope="col" className="px-4 py-3 font-medium">What you need</th>
               <th scope="col" className="px-4 py-3 font-medium">Shared folder and a template</th>
               <th scope="col" className="px-4 py-3 font-medium text-accent">Labquill</th>
