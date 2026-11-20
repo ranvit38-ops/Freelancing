@@ -93,6 +93,39 @@ const LOOSE_JSON = {
   whereToLook: [],
 };
 
+/**
+ * LabBot's "fill in for me", answered the way the model would: from the real
+ * ids in the lists it was sent, so every card can be saved for real.
+ */
+function labbotPlan(prompt) {
+  const text = JSON.parse(prompt).map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n');
+  const id = (section) => text.split(`${section}:\n`)[1]?.match(/- ([0-9a-f-]{36}): /)?.[1] ?? '';
+  const firstRun = text.match(/- ([0-9a-f-]{36}): EXP-001 /)?.[1] ?? id('Experiments (newest first)');
+  return {
+    reply: 'Prepared a run, a note, two tasks and three samples.',
+    experiments: [
+      {
+        projectId: id('Projects'),
+        title: 'Batch 3 at 30 C',
+        performedOn: '',
+        objective: 'Surface tension of batch 3.',
+        protocolVersionId: '',
+        protocolNotes: '',
+        conditions: [{ name: 'Temperature', value: '30', unit: '°C' }],
+        dataLocation: 'Lab PC',
+        notes: 'Noisy after sample 6.',
+        nextSteps: '',
+      },
+    ],
+    notes: firstRun ? [{ experimentId: firstRun, body: 'LabBot note: the ring was dirty, redo samples 6 to 9.' }] : [],
+    tasks: [
+      { title: 'LabBot task: order pipette tips', dueOn: '' },
+      { title: 'LabBot task: book the TEM', dueOn: '2026-12-04' },
+    ],
+    samples: [{ codes: ['LB-1', 'LB-2', 'LB-3'], description: 'Soil from site B', projectId: '' }],
+  };
+}
+
 serve(4555, (req, res, sent) => {
   // A lab's own key: anything starting sk-ant-bad is refused, as Anthropic
   // refuses a revoked key; any other key works.
@@ -115,8 +148,10 @@ serve(4555, (req, res, sent) => {
   const schema = sent.output_config?.format?.schema;
   const text = refuse
     ? ''
-    : schema
-      ? JSON.stringify(fromSchema(schema))
+    : /You help a researcher record their lab work/.test(String(sent.system ?? ''))
+      ? JSON.stringify(labbotPlan(prompt))
+      : schema
+        ? JSON.stringify(fromSchema(schema))
       : /briefing/i.test(prompt)
         ? 'Fake briefing: the lab is studying things.'
         : sent.stream

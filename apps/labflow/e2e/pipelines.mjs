@@ -902,6 +902,36 @@ await step('LabBot panel answers a question (streaming)', async () => {
   await expectText(P, 'Fake LabBot answer', 30_000);
 });
 
+await step('LabBot fills things in: nothing saved until each card is saved, a run opens in the form', async () => {
+  await P.goto(`${BASE}/dashboard`);
+  if (!(await P.locator('#labbot-question').isVisible())) await P.getByRole('button', { name: 'Ask LabBot' }).click();
+  const panel = P.locator('#labbot-panel');
+  await panel.getByRole('button', { name: 'Fill in for me' }).click();
+  await P.fill('#labbot-question', 'Ran batch 3 at 30 C, noisy after sample 6. Add to EXP-001 that the ring was dirty. Order tips, book the TEM. Register LB-1 to LB-3.');
+  await panel.getByRole('button', { name: 'Prepare' }).click();
+  await expectText(P, 'Prepared a run, a note', 30_000);
+  // Proposals only: nothing exists until a card is saved.
+  const tasksBefore = await P.evaluate(async () => (await fetch('/tasks')).text());
+  assert(tasksBefore.includes('Add a task') && !tasksBefore.includes('LabBot task: book the TEM'), 'tasks saved before pressing Save');
+  await panel.getByRole('button', { name: 'Add this note' }).click();
+  await expectText(P, 'Added to EXP-001');
+  await panel.getByRole('button', { name: 'Add 2 tasks' }).click();
+  await expectText(P, 'Added 2 tasks.');
+  await panel.getByRole('button', { name: 'Create 3 samples' }).click();
+  await expectText(P, 'Created 3 samples.');
+  await panel.getByRole('button', { name: 'Open in the form to check and save' }).click();
+  await P.waitForURL(/\/experiments\/new$/, { timeout: 20_000 });
+  await expectText(P, 'LabBot filled in');
+  await P.waitForFunction(() => document.querySelector('#title')?.value === 'Batch 3 at 30 C', null, { timeout: 10_000 });
+  const conditions = await P.locator('input[name=conditionName]').evaluateAll((els) => els.map((el) => el.value));
+  assert(conditions.includes('Temperature'), `conditions after LabBot: ${conditions.join(' | ')}`);
+  // Still a form to check: the run is not saved.
+  assert(P.url().endsWith('/experiments/new'), 'LabBot saved the experiment itself');
+  await P.goto(`${BASE}/tasks`);
+  await expectText(P, 'LabBot task: book the TEM');
+  await P.goto(`${BASE}/samples`);
+  await expectText(P, 'LB-2');
+});
 await step('every AI feature counts toward the month, and Settings says how much is used', async () => {
   await P.goto(`${BASE}/settings`);
   const line = await P.locator('[data-ai-usage]').innerText();

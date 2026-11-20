@@ -4,10 +4,20 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ChatMarkdown } from './chat-markdown';
 import { Button, Textarea, cx } from './ui';
+import { FillResult } from './labbot-fill';
+import { planAction, type PlanState } from '@/server/actions/assistant';
 
 const OPEN_KEY = 'labvia-labbot-open';
 
 type Turn = { question: string; answer: string; error?: string; done: boolean };
+/** A "fill in for me" request and what LabBot prepared for it. */
+type Fill = { request: string; state?: PlanState };
+
+/** The asker's own date: the server's clock is UTC. */
+function localToday(): string {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
 
 /**
  * LabBot, reachable from every page, as a chat.
@@ -28,6 +38,9 @@ export function LabBotPanel({
 }) {
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
+  // Ask answers questions; Fill turns what someone says into records to save.
+  const [mode, setMode] = useState<'ask' | 'fill'>('ask');
+  const [fills, setFills] = useState<Fill[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [waited, setWaited] = useState(0);
@@ -57,7 +70,7 @@ export function LabBotPanel({
   useEffect(() => {
     const el = scroller.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [turns]);
+  }, [turns, fills]);
 
   // A counter until the first word, so a slow start never looks like a hang.
   const waiting = busy && turns.at(-1)?.answer === '';
@@ -85,8 +98,27 @@ export function LabBotPanel({
     setTurns((all) => all.map((t, i) => (i === index ? { ...t, ...change } : t)));
   }
 
+  async function fill() {
+    const request = draft.trim();
+    if (!request || busy || !configured) return;
+    const index = fills.length;
+    setFills((all) => [...all, { request }]);
+    setDraft('');
+    setBusy(true);
+    let state: PlanState;
+    try {
+      state = await planAction({ text: request, today: localToday() });
+    } catch {
+      state = { error: 'Could not reach the server. Check the connection and try again.' };
+    }
+    setFills((all) => all.map((f, i) => (i === index ? { ...f, state } : f)));
+    setBusy(false);
+    box.current?.focus();
+  }
+
   async function ask(event?: React.FormEvent) {
     event?.preventDefault();
+    if (mode === 'fill') return fill();
     const question = draft.trim();
     if (!question || busy || !configured) return;
     const history = turns.filter((t) => t.done && !t.error).map(({ question, answer }) => ({ question, answer }));
@@ -173,10 +205,10 @@ export function LabBotPanel({
             <p className="text-xs text-muted">Knows your lab&rsquo;s experiments, files, chat, tasks and calendar.</p>
           </div>
           <div className="flex items-center gap-1">
-            {turns.length > 0 && !busy ? (
+            {(mode === 'ask' ? turns.length : fills.length) > 0 && !busy ? (
               <button
                 type="button"
-                onClick={() => setTurns([])}
+                onClick={() => (mode === 'ask' ? setTurns([]) : setFills([]))}
                 className="rounded-lg px-2 py-1 text-sm text-muted hover:bg-raised hover:text-fg"
               >
                 New chat
@@ -192,6 +224,31 @@ export function LabBotPanel({
           </div>
         </div>
 
+        <div role="group" aria-label="What LabBot does" className="flex gap-1 border-b border-line px-4 py-2">
+          {(
+            [
+              ['ask', 'Ask'],
+              ['fill', 'Fill in for me'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={mode === value}
+              onClick={() => {
+                setMode(value);
+                box.current?.focus();
+              }}
+              className={cx(
+                'rounded-lg px-3 py-1.5 text-sm',
+                mode === value ? 'bg-accent-soft font-medium text-fg' : 'text-muted hover:bg-raised hover:text-fg',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {!configured ? (
           <p className="border-b border-line bg-warn/5 px-5 py-3 text-sm text-warn">
             LabBot is not switched on for this site yet. It needs an AI key added on the server.
@@ -200,7 +257,54 @@ export function LabBotPanel({
         ) : null}
 
         <div ref={scroller} id="labbot-messages" className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
-          {turns.length === 0 ? (
+          {mode === 'fill' ? (
+            fills.length === 0 ? (
+              <div className="space-y-3 text-sm text-muted">
+                <p>
+                  Say what you did or what needs doing, the way you would tell a labmate. LabBot prepares the
+                  records; you check each one and save it.
+                </p>
+                <ul className="space-y-1.5">
+                  {[
+                    'Ran the tensiometer on batch 3 this morning at 30 °C, readings noisy after sample 6. Raw files on the lab PC.',
+                    'Add to EXP-002: the ring was dirty, redo samples 6 to 9.',
+                    'Register samples S-201 to S-210, soil from site B.',
+                    'Tasks: order pipette tips, book the TEM for Friday.',
+                  ].map((example) => (
+                    <li key={example}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraft(example);
+                          box.current?.focus();
+                        }}
+                        className="text-left underline decoration-line underline-offset-2 hover:text-fg"
+                      >
+                        {example}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              fills.map((f, i) => (
+                <div key={i} className="space-y-3">
+                  <div className="ml-10 whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2 text-sm">
+                    {f.request}
+                  </div>
+                  {!f.state ? (
+                    <p role="status" className="text-sm text-muted">
+                      Preparing…
+                    </p>
+                  ) : f.state.error ? (
+                    <p className="text-sm text-danger">{f.state.error}</p>
+                  ) : (
+                    <FillResult state={f.state} />
+                  )}
+                </div>
+              ))
+            )
+          ) : turns.length === 0 ? (
             <div className="space-y-3 text-sm text-muted">
               <p>Ask anything about your lab. For example:</p>
               <ul className="space-y-1.5">
@@ -248,7 +352,7 @@ export function LabBotPanel({
 
         <form onSubmit={ask} className="border-t border-line px-4 py-3">
           <label className="sr-only" htmlFor="labbot-question">
-            Question
+            {mode === 'fill' ? 'What to record' : 'Question'}
           </label>
           <div className="flex items-end gap-2">
             <Textarea
@@ -263,17 +367,23 @@ export function LabBotPanel({
                   void ask();
                 }
               }}
-              placeholder={turns.length > 0 ? 'Ask a follow-up…' : 'Ask LabBot anything about your lab…'}
+              placeholder={
+                mode === 'fill'
+                  ? 'Tell LabBot what you did or what needs doing…'
+                  : turns.length > 0
+                    ? 'Ask a follow-up…'
+                    : 'Ask LabBot anything about your lab…'
+              }
               className="!min-h-[2.75rem] flex-1 resize-none text-sm"
               disabled={!configured}
             />
-            {busy ? (
+            {busy && mode === 'ask' ? (
               <Button type="button" size="sm" tone="secondary" onClick={() => abort.current?.abort()}>
                 Stop
               </Button>
             ) : (
-              <Button type="submit" size="sm" disabled={!configured || draft.trim().length === 0}>
-                Send
+              <Button type="submit" size="sm" disabled={!configured || busy || draft.trim().length === 0}>
+                {mode === 'fill' ? 'Prepare' : 'Send'}
               </Button>
             )}
           </div>

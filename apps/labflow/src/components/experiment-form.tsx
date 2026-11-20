@@ -13,6 +13,7 @@ import type { ExperimentStatus } from '@/db/schema';
 
 import { draftFromFormData, readDraft, writeDraft, type ConditionRow, type FormDraft } from '@/lib/form-draft';
 import { isMultiEntry, parseConditionLines } from '@/lib/bulk-input';
+import { takePrefill, type Prefill } from '@/lib/labbot-prefill';
 
 export type { ConditionRow };
 
@@ -173,7 +174,13 @@ export function ExperimentForm(props: ExperimentFormProps) {
       setFillMessage({ tone: 'error', text: result.error ?? 'Nothing came back. Try again.' });
       return;
     }
-    const record = result.record;
+    applyRecord(result.record, 'Filled in');
+  }
+
+  // Only empty fields are filled, so nothing someone typed is overwritten.
+  function applyRecord(record: Prefill, said: string) {
+    const form = formRef.current;
+    if (!form) return;
     const filled: string[] = [];
     const fill = (name: string, value: string, label: string, replaceable?: string) => {
       const el = form.elements.namedItem(name);
@@ -202,10 +209,19 @@ export function ExperimentForm(props: ExperimentFormProps) {
     remember();
     setFillMessage(
       filled.length > 0
-        ? { tone: 'ok', text: `Filled in ${filled.join(', ')}. Check each one before saving; nothing is saved yet.` }
+        ? { tone: 'ok', text: `${said} ${filled.join(', ')}. Check each one before saving; nothing is saved yet.` }
         : { tone: 'ok', text: 'Nothing new to fill in: those fields already have something in them.' },
     );
   }
+
+  // A run LabBot prepared arrives here once, from the panel.
+  useEffect(() => {
+    if (props.mode !== 'create') return;
+    const record = takePrefill(props.projectId);
+    if (record) applyRecord(record, 'LabBot filled in');
+    // Once per form: applyRecord reads the form as it is when it runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.mode, props.projectId]);
 
   const updateRow = (index: number, patch: Partial<ConditionRow>) =>
     setConditions((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
