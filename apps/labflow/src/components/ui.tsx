@@ -99,8 +99,10 @@ export function PageHeader({
   back?: { href: string; label: string };
 }) {
   return (
-    <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
+    <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+      {/* The title keeps a readable width; when the buttons do not fit
+          beside it (LabBot open, three actions), they move underneath. */}
+      <div className="min-w-0 sm:min-w-[16rem] sm:flex-1">
         {back ? (
           <Link
             href={back.href}
