@@ -1,0 +1,63 @@
+import { z } from 'zod';
+
+/**
+ * Fail loud and early on misconfiguration rather than at the first request.
+ * Optional integrations are validated only when the feature is used, so the
+ * app builds and runs with nothing but a database URL.
+ */
+const schema = z.object({
+  DATABASE_URL: z.string().url('DATABASE_URL must be a postgres connection URL'),
+  SESSION_COOKIE_NAME: z.string().default('labflow_session'),
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /** Local disk today; swap the storage adapter for S3/Supabase later. */
+  UPLOAD_DIR: z.string().default('.uploads'),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  NCBI_API_KEY: z.string().optional(),
+  LABFLOW_DISABLE_PAYWALL: z.string().optional(),
+  LABFLOW_OWNER_UNLOCK: z.string().optional(),
+  LABFLOW_OWNER_EMAIL: z.string().optional(),
+  // Who the Terms and Privacy statement name, and how to reach them. See lib/legal.
+  LABFLOW_ENCRYPTION_KEY: z.string().optional(),
+  LABFLOW_LEGAL_NAME: z.string().optional(),
+  LABFLOW_CONTACT_EMAIL: z.string().optional(),
+  LABFLOW_GOVERNING_LAW: z.string().optional(),
+  LABFLOW_COPYRIGHT_AGENT: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_API_KEY: z.string().optional(),
+  // PayPal Subscriptions. See server/paypal.ts; sandbox unless PAYPAL_ENV=live.
+  PAYPAL_ENV: z.enum(['sandbox', 'live']).optional(),
+  PAYPAL_CLIENT_ID: z.string().optional(),
+  PAYPAL_CLIENT_SECRET: z.string().optional(),
+  PAYPAL_WEBHOOK_ID: z.string().optional(),
+  PAYPAL_PLAN_LAB_MONTHLY: z.string().optional(),
+  PAYPAL_PLAN_LAB_YEARLY: z.string().optional(),
+  PAYPAL_PLAN_GROUP_MONTHLY: z.string().optional(),
+  PAYPAL_PLAN_GROUP_YEARLY: z.string().optional(),
+  PAYPAL_PLAN_DEPARTMENT_MONTHLY: z.string().optional(),
+  PAYPAL_PLAN_DEPARTMENT_YEARLY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().optional(),
+  LABFLOW_AI_MODEL: z.string().default('claude-opus-5-5'),
+  LABFLOW_LABBOT_MODEL: z.string().default('claude-haiku-5-5'),
+  LABFLOW_EPHEMERAL_UPLOADS: z.string().optional(),
+});
+
+let cached: z.infer<typeof schema> | null = null;
+
+export function env() {
+  if (cached) return cached;
+  const parsed = schema.safeParse(process.env);
+  if (!parsed.success) {
+    const detail = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+    throw new Error(`Invalid environment configuration: ${detail}`);
+  }
+  cached = parsed.data;
+  return cached;
+}
+
+/** True when AI features can actually run. Never fake a response without it. */
+export function aiConfigured() {
+  return Boolean(process.env.ANTHROPIC_API_KEY);
+}
