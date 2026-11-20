@@ -5,6 +5,7 @@ import { Card, CardHeader, Field, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import { createWorkspaceAction } from '@/server/actions/workspace';
 import { noState } from '@/server/actions/types';
+import { JoinPaste } from './join-paste';
 
 export function CreateWorkspaceForm() {
   const [state, action] = useActionState(createWorkspaceAction, noState);
@@ -26,6 +27,21 @@ export function CreateWorkspaceForm() {
           Create lab
         </SubmitButton>
       </form>
+    </Card>
+  );
+}
+
+/** Someone already signed in who was sent a link to a second lab. */
+export function JoinAnotherLab() {
+  return (
+    <Card>
+      <CardHeader
+        title="Join another lab"
+        description="Sent a join link to someone else's lab? Paste it here. You keep this lab too and can switch between them."
+      />
+      <div className="px-5 py-4">
+        <JoinPaste id="join-another" />
+      </div>
     </Card>
   );
 }

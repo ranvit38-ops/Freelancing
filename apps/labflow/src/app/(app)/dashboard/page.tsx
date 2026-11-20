@@ -2,12 +2,14 @@ import Link from 'next/link';
 import { ButtonLink, Card, CardHeader, EmptyState, PageHeader, cx } from '@/components/ui';
 import { ExperimentList } from '@/components/records';
 import { TaskCheck } from '@/components/task-check';
+import { TellLabBot } from '@/components/tell-labbot';
 import { LabPulse } from '@/components/lab-pulse';
 import { pulseRows } from '@/lib/pulse';
 import { displayTime } from '@/lib/calendar';
 import { greetingName, pluralise, projectStatusLabel } from '@/lib/display';
 import { byDeadline, dueLabel, todayIso } from '@/lib/tasks';
 import { requireSession } from '@/server/authz';
+import { labAiReady } from '@/server/ai/access';
 import { listProtocols,
   dashboardData,
   labPulse,
@@ -33,13 +35,14 @@ export default async function HomePage() {
   const today = todayIso();
   const weekEnd = new Date(Date.parse(`${today}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
 
-  const [data, tasks, week, channel, usage, protocols] = await Promise.all([
+  const [data, tasks, week, channel, usage, protocols, aiReady] = await Promise.all([
     dashboardData(session),
     listTasks(session),
     listCalendar(session, today, weekEnd),
     listDiscussion(session, { workspace: true }),
     usageCounts(session),
     listProtocols(session),
+    labAiReady(session),
   ]);
   // Whoever runs the lab sees the lab, not only their own plate.
   const runsLab = session.role !== 'member';
@@ -76,6 +79,7 @@ export default async function HomePage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <ButtonLink href="/experiments/new">Record an experiment</ButtonLink>
+            {aiReady ? <TellLabBot /> : null}
             <ButtonLink href="/tasks" tone="secondary">
               Add a task
             </ButtonLink>

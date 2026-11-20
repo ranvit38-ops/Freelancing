@@ -31,6 +31,10 @@ export default async function LoginPage(
         <Link href="/signup" className="font-medium text-fg underline underline-offset-2">
           Start a lab
         </Link>
+        {' '}or{' '}
+        <Link href="/signup#signup-join" className="font-medium text-fg underline underline-offset-2">
+          join yours
+        </Link>
       </p>
     </>
   );

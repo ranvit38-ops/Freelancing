@@ -156,14 +156,14 @@ async function signUp(page, { name, email, password = 'a-very-long-password', la
   await page.fill('#password', password);
   if (lab !== undefined && (await page.locator('#workspaceName').count())) await page.fill('#workspaceName', lab);
   await page.check('#agreeTerms');
-  await page.click('button[type=submit]');
+  await page.click('button[type=submit]:not([data-join-paste])');
 }
 
 async function logIn(page, email, password = 'a-very-long-password') {
   await page.goto(`${BASE}/login`);
   await page.fill('#email', email);
   await page.fill('#password', password);
-  await page.click('button[type=submit]');
+  await page.click('button[type=submit]:not([data-join-paste])');
   await page.waitForURL(/\/(dashboard|start)/, { timeout: 20_000 });
 }
 
@@ -262,7 +262,7 @@ await step('sign-up refuses an account that did not agree to the Terms, even pas
   await pi.page.fill('#workspaceName', 'No Agreement Lab');
   // Strip the browser's own check, as a script would, to reach the server.
   await pi.page.evaluate(() => document.getElementById('agreeTerms')?.removeAttribute('required'));
-  await pi.page.click('button[type=submit]');
+  await pi.page.click('button[type=submit]:not([data-join-paste])');
   await expectText(pi.page, 'Tick the box to agree');
   assert(pi.page.url().includes('/signup'), 'an account was made without agreement');
 });
@@ -296,7 +296,7 @@ await step('log out, wrong password refused, right password accepted', async () 
   assert(pi.page.url().includes('/login'), 'still signed in after logging out');
   await pi.page.fill('#email', piEmail);
   await pi.page.fill('#password', 'not-the-password-at-all');
-  await pi.page.click('button[type=submit]');
+  await pi.page.click('button[type=submit]:not([data-join-paste])');
   await expectText(pi.page, 'ncorrect');
   await logIn(pi.page, piEmail);
 });
@@ -304,20 +304,20 @@ await step('forgot password emails a working reset link', async () => {
   await clearFake(MAIL);
   await outsider.page.goto(`${BASE}/forgot-password`);
   await outsider.page.fill('#email', piEmail);
-  await outsider.page.click('button[type=submit]');
+  await outsider.page.click('button[type=submit]:not([data-join-paste])');
   await expectText(outsider.page, 'email');
   const email = await waitForEmail(piEmail);
   const link = linkIn(email.text, '/reset-password');
   await outsider.page.goto(link);
   await outsider.page.fill('#password', 'a-brand-new-password');
-  await outsider.page.click('button[type=submit]');
+  await outsider.page.click('button[type=submit]:not([data-join-paste])');
   await expectText(outsider.page, 'Password updated');
   // The old password must stop working and the new one must work.
   const check = await person('reset-check');
   await check.page.goto(`${BASE}/login`);
   await check.page.fill('#email', piEmail);
   await check.page.fill('#password', 'a-very-long-password');
-  await check.page.click('button[type=submit]');
+  await check.page.click('button[type=submit]:not([data-join-paste])');
   await expectText(check.page, 'ncorrect');
   await logIn(check.page, piEmail, 'a-brand-new-password');
   await check.context.close();
@@ -325,7 +325,7 @@ await step('forgot password emails a working reset link', async () => {
   await outsider.page.context().clearCookies();
   await outsider.page.goto(link);
   await outsider.page.fill('#password', 'yet-another-password-1');
-  await outsider.page.click('button[type=submit]');
+  await outsider.page.click('button[type=submit]:not([data-join-paste])');
   await expectText(outsider.page, /expired|invalid|used|no longer/i);
 });
 await step('the PI is still signed in after resetting from another browser, or is sent to log in', async () => {
@@ -337,7 +337,7 @@ await step('forgot password says the same thing for unknown and known addresses 
   for (const address of [`nobody-${stamp}@labquill.test`, piEmail]) {
     await outsider.page.goto(`${BASE}/forgot-password`);
     await outsider.page.fill('#email', address);
-    await outsider.page.click('button[type=submit]');
+    await outsider.page.click('button[type=submit]:not([data-join-paste])');
     await expectText(outsider.page, 'If an account exists');
     said.push((await outsider.page.locator('[role=status], form p').allTextContents()).join(' '));
   }
@@ -390,7 +390,7 @@ else {
     assert(squatter.page.url().includes('/login'), 'SECURITY: the squatter is still signed in');
     await squatter.page.fill('#email', victimEmail);
     await squatter.page.fill('#password', 'squatter-password-1');
-    await squatter.page.click('button[type=submit]');
+    await squatter.page.click('button[type=submit]:not([data-join-paste])');
     await expectText(squatter.page, 'ncorrect');
     await squatter.context.close();
     await victim.context.close();
@@ -904,9 +904,11 @@ await step('LabBot panel answers a question (streaming)', async () => {
 
 await step('LabBot fills things in: nothing saved until each card is saved, a run opens in the form', async () => {
   await P.goto(`${BASE}/dashboard`);
-  if (!(await P.locator('#labbot-question').isVisible())) await P.getByRole('button', { name: 'Ask LabBot' }).click();
+  // The dashboard's shortcut opens LabBot already in fill mode.
+  await P.getByRole('button', { name: 'Just tell LabBot' }).click();
   const panel = P.locator('#labbot-panel');
-  await panel.getByRole('button', { name: 'Fill in for me' }).click();
+  await P.locator('#labbot-question').waitFor({ timeout: 10_000 });
+  assert((await panel.getByRole('button', { name: 'Fill in for me' }).getAttribute('aria-pressed')) === 'true', 'not in fill mode');
   await P.fill('#labbot-question', 'Ran batch 3 at 30 C, noisy after sample 6. Add to EXP-001 that the ring was dirty. Order tips, book the TEM. Register LB-1 to LB-3.');
   await panel.getByRole('button', { name: 'Prepare' }).click();
   await expectText(P, 'Prepared a run, a note', 30_000);
@@ -932,6 +934,42 @@ await step('LabBot fills things in: nothing saved until each card is saved, a ru
   await P.goto(`${BASE}/samples`);
   await expectText(P, 'LB-2');
 });
+await step('LabBot reads a photo of notes: shrunk in the browser, sent as a picture, nothing typed', async () => {
+  await clearFake(MODEL);
+  await P.goto(`${BASE}/dashboard`);
+  if (!(await P.locator('#labbot-question').isVisible())) await P.getByRole('button', { name: 'Ask LabBot' }).click();
+  const panel = P.locator('#labbot-panel');
+  // Remembered from the last visit.
+  assert((await panel.getByRole('button', { name: 'Fill in for me' }).getAttribute('aria-pressed')) === 'true', 'fill mode was not remembered');
+  // A 3000 x 2000 "phone photo", made in the page so it is a real PNG.
+  const png = await P.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = 3000;
+    c.height = 2000;
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff';
+    x.fillRect(0, 0, 3000, 2000);
+    x.fillStyle = '#000';
+    x.font = '120px serif';
+    x.fillText('relabel freezer box 4', 200, 400);
+    return c.toDataURL('image/png').split(',')[1];
+  });
+  await P.locator('[data-labbot-photo]').setInputFiles({ name: 'notebook.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  await panel.getByRole('img', { name: 'notebook.png' }).waitFor({ timeout: 10_000 });
+  assert(await panel.getByRole('button', { name: 'Prepare' }).isEnabled(), 'a photo alone cannot be sent');
+  await panel.getByRole('button', { name: 'Prepare' }).click();
+  await expectText(P, 'One word on the second line was too faint', 30_000);
+  const sent = (await fakeLog(MODEL)).filter((r) => r.url === '/v1/messages').at(-1)?.body;
+  const image = sent?.messages?.[0]?.content?.find?.((b) => b.type === 'image');
+  assert(image?.source?.media_type === 'image/jpeg', `no JPEG reached the model: ${JSON.stringify(image?.source?.media_type)}`);
+  // Shrunk: the long edge is cut to 1568 pixels. A JPEG's size is in its SOF marker.
+  const jpeg = Buffer.from(image.source.data, 'base64');
+  const sof = jpeg.indexOf(Buffer.from([0xff, 0xc0]));
+  const [h, w] = [jpeg.readUInt16BE(sof + 5), jpeg.readUInt16BE(sof + 7)];
+  assert(w === 1568 && h === 1045, `sent at ${w} x ${h}`);
+  await panel.getByRole('button', { name: 'Add this task' }).click();
+  await expectText(P, 'Added 1 task.');
+});
 await step('every AI feature counts toward the month, and Settings says how much is used', async () => {
   await P.goto(`${BASE}/settings`);
   const line = await P.locator('[data-ai-usage]').innerText();
@@ -955,6 +993,8 @@ await step("a lab's own Claude key: a bad one is refused, a good one is used and
   await P.goto(`${BASE}/dashboard`);
   // The panel remembers it was open; only open it when it is not.
   if (!(await P.locator('#labbot-question').isVisible())) await P.getByRole('button', { name: 'Ask LabBot' }).click();
+  // Fill mode is remembered from the steps above; this one asks.
+  await P.locator('#labbot-panel').getByRole('button', { name: 'Ask', exact: true }).click();
   await P.fill('#labbot-question', 'What did batch 1 show?');
   await P.locator('#labbot-panel').getByRole('button', { name: 'Send' }).click();
   await expectText(P, 'Fake LabBot answer', 30_000);
@@ -977,13 +1017,19 @@ await step('PI creates a join link; a student signs up through it and lands in t
   await box.waitFor({ timeout: 10_000 });
   const url = (await box.inputValue().catch(() => null)) ?? (await box.textContent());
   ids.joinPath = url.replace(/^https?:\/\/[^/]+/, '');
-  await S.goto(BASE + ids.joinPath);
+  // The student went to "sign up" instead of opening the link, and pastes it there.
+  await S.goto(`${BASE}/signup`);
+  await S.fill('#signup-join', 'my PI said to join');
+  await S.getByRole('button', { name: 'Join', exact: true }).click();
+  await expectText(S, 'That does not look like a join link');
+  await S.fill('#signup-join', ` ${url} `);
+  await S.getByRole('button', { name: 'Join', exact: true }).click();
   await expectText(S, 'Join Pipeline Lab');
   await S.fill('#name', 'Sam Student');
   await S.fill('#email', studentEmail);
   await S.fill('#password', 'a-very-long-password');
   await S.check('#agreeTerms');
-  await S.click('button[type=submit]');
+  await S.click('button[type=submit]:not([data-join-paste])');
   await S.waitForURL(/\/start/, { timeout: 20_000 });
   await expectText(S, 'Pipeline Lab');
 });
@@ -1022,7 +1068,7 @@ await step('invite by email; the invitee signs up from the emailed link', async 
   if (await I.locator('#email').isEditable()) await I.fill('#email', inviteeEmail);
   await I.fill('#password', 'a-very-long-password');
   await I.check('#agreeTerms');
-  await I.click('button[type=submit]');
+  await I.click('button[type=submit]:not([data-join-paste])');
   await I.waitForURL(/\/start/, { timeout: 20_000 });
 });
 await step('an invite link cannot be reused by someone else', async () => {
@@ -1260,7 +1306,7 @@ await step('the real owner proves the inbox and then gets the owner dashboard', 
   await A.context().clearCookies();
   await A.goto(`${BASE}/forgot-password`);
   await A.fill('#email', OWNER_EMAIL);
-  await A.click('button[type=submit]');
+  await A.click('button[type=submit]:not([data-join-paste])');
   await expectText(A, 'If an account exists');
   let email = null;
   for (let i = 0; i < 40 && !email; i++) {
@@ -1270,7 +1316,7 @@ await step('the real owner proves the inbox and then gets the owner dashboard', 
   assert(email, 'no reset email reached the owner');
   await A.goto(linkIn(email.text, '/reset-password'));
   await A.fill('#password', 'the-owner-real-password');
-  await A.click('button[type=submit]');
+  await A.click('button[type=submit]:not([data-join-paste])');
   await expectText(A, 'Password updated');
   await logIn(A, OWNER_EMAIL, 'the-owner-real-password');
   await A.goto(`${BASE}/owner`);
@@ -1306,7 +1352,7 @@ await step('a brand-new lab can record its first experiment (quick project form)
   const quick = P.locator('form', { has: P.locator('input[name=then]') });
   if (await quick.count()) {
     await quick.locator('input[name=name]').fill('First study');
-    await quick.locator('button[type=submit]').click();
+    await quick.locator('button[type=submit]:not([data-join-paste])').click();
     await P.waitForURL(/experiments\/new\?project=/, { timeout: 20_000 });
   }
   await P.fill('#title', 'First run in the second lab');
@@ -1357,7 +1403,7 @@ await step('a member deletes their own account; the lab and its records stay', a
   await x.page.fill('#email', email);
   await x.page.fill('#password', 'a-very-long-password');
   await x.page.check('#agreeTerms');
-  await x.page.click('button[type=submit]');
+  await x.page.click('button[type=submit]:not([data-join-paste])');
   await x.page.waitForURL(/\/start/, { timeout: 20_000 });
   await x.page.goto(`${BASE}/settings`);
   await x.page.fill('#confirm-account', email);

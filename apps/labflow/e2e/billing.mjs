@@ -72,7 +72,7 @@ await step('a new lab signs up and sees the renewal terms beside the subscribe b
   await page.fill('#password', 'a-very-long-password');
   if (await page.locator('#workspaceName').count()) await page.fill('#workspaceName', 'Paying Lab');
   await page.check('#agreeTerms');
-  await page.click('button[type=submit]');
+  await page.click('button[type=submit]:not([data-join-paste])');
   await page.waitForURL(/dashboard|start/);
   await page.goto(`${BASE}/billing`);
   const terms = await page.locator('[data-renewal-terms]').innerText();

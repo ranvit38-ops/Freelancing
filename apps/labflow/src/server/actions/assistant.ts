@@ -7,6 +7,7 @@ import { AiNotConfiguredError, AiRequestError } from '../ai/client';
 import { aiAccess, countAiUse, isRefusal } from '../ai/access';
 import { planFromText, type Plan } from '../ai/assistant';
 import { MAX_DESCRIPTION } from '../ai/fill-record';
+import { MAX_PHOTOS } from '@/lib/labbot-photos';
 import { blockedReason } from '../paywall';
 import * as q from '../queries';
 import { rateLimit } from '@/lib/rate-limit';
@@ -30,12 +31,30 @@ export type PlanState = {
 };
 export type SaveResult = { ok: true; message: string; href?: string } | { ok: false; error: string };
 
-export async function planAction(input: { text: string; today: string }): Promise<PlanState> {
+/** Up to three photos, already shrunk in the browser (labbot-photos). */
+const photosInput = z
+  .array(
+    z.object({
+      mediaType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+      // About 3 MB of picture; a shrunk phone photo is a tenth of that.
+      data: z.string().max(4_000_000).regex(/^[A-Za-z0-9+/]+={0,2}$/),
+    }),
+  )
+  .max(MAX_PHOTOS);
+
+export async function planAction(input: { text: string; today: string; images?: unknown }): Promise<PlanState> {
   const session = await requireSession();
   const access = await aiAccess(session);
   if (isRefusal(access)) return { error: access.error, ...(access.notConfigured ? { notConfigured: true as const } : {}) };
   const text = String(input.text ?? '').trim();
-  if (text.length < 10) return { error: 'Say a sentence or two about what you did or what needs doing.' };
+  const photos = photosInput.safeParse(input.images ?? []);
+  if (!photos.success) {
+    return { error: `Those photos could not be read. Attach up to ${MAX_PHOTOS} pictures (JPEG, PNG or WebP).` };
+  }
+  const images = photos.data;
+  if (!images.length && text.length < 10) {
+    return { error: 'Say a sentence or two about what you did or what needs doing, or attach a photo of your notes.' };
+  }
   if (text.length > MAX_DESCRIPTION) {
     return { error: `That is longer than ${MAX_DESCRIPTION.toLocaleString()} characters. Put the long parts in a file instead.` };
   }
@@ -60,6 +79,7 @@ export async function planAction(input: { text: string; today: string }): Promis
       })),
       protocols,
       apiKey: access.apiKey,
+      images,
     });
     await countAiUse(session, 'labbot_fill', access);
     const named = new Set(plan.notes.map((n) => n.experimentId));

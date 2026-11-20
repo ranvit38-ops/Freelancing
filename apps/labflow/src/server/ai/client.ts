@@ -42,6 +42,8 @@ export function acceptsEffort(model: string): boolean {
  */
 const FALLBACK_MODELS = /^claude-(opus-5-5|sonnet-5-5|fable-5-1)$/;
 
+export type ModelImage = { mediaType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string };
+
 export async function callModel(
   input: {
     system: string;
@@ -53,6 +55,8 @@ export async function callModel(
     schema?: Record<string, unknown>;
     /** The lab's own key, from ai/access. Unset, the site's key is used. */
     apiKey?: string;
+    /** Photos sent ahead of the prompt, e.g. a notebook page. Base64, no data: prefix. */
+    images?: ModelImage[];
   },
   fetchImpl: ModelTransport = fetch,
 ): Promise<{ text: string; model: string }> {
@@ -90,7 +94,20 @@ export async function callModel(
         // reproducible answer stopped working long before that: these models
         // reason before answering, so the determinism it implied was never real.
         system: input.system,
-        messages: [{ role: 'user', content: input.prompt }],
+        messages: [
+          {
+            role: 'user',
+            content: input.images?.length
+              ? [
+                  ...input.images.map((image) => ({
+                    type: 'image',
+                    source: { type: 'base64', media_type: image.mediaType, data: image.data },
+                  })),
+                  { type: 'text', text: input.prompt },
+                ]
+              : input.prompt,
+          },
+        ],
         ...(Object.keys(outputConfig).length > 0 ? { output_config: outputConfig } : {}),
         ...(fallback ? { fallbacks: 'default' } : {}),
       }),

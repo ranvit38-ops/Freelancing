@@ -104,4 +104,25 @@ describe('planFromText', () => {
     // The foreign project became the lab's only one.
     expect(plan.experiments[0]!.projectId).toBe(P1);
   });
+
+  it('sends photos ahead of the words, without words if there are none, and reads them more carefully', async () => {
+    const sent: Record<string, unknown>[] = [];
+    const transport = (async (_url: unknown, init: unknown) => {
+      sent.push(JSON.parse((init as { body: string }).body));
+      const answer: Plan = { reply: 'Read it.', experiments: [], notes: [], tasks: [{ title: 'Relabel box 4', dueOn: '' }], samples: [] };
+      return { ok: true, json: async () => ({ content: [{ type: 'text', text: JSON.stringify(answer) }], stop_reason: 'end_turn' }) };
+    }) as unknown as typeof fetch;
+
+    const plan = await planFromText(
+      { text: '', today: '2026-11-20', projects: [], experiments: [], protocols: [], apiKey: 'sk-ant-test', images: [{ mediaType: 'image/jpeg', data: 'AAAA' }] },
+      transport,
+    );
+
+    const content = (sent[0]!.messages as { content: { type: string; text?: string; source?: unknown }[] }[])[0]!.content;
+    expect(content[0]).toEqual({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'AAAA' } });
+    expect(content[1]!.text).toContain('They attached a photo of their notes');
+    expect(content[1]!.text).not.toContain('What they wrote');
+    expect(sent[0]!.output_config).toMatchObject({ effort: 'medium' });
+    expect(plan.tasks).toEqual([{ title: 'Relabel box 4', dueOn: '' }]);
+  });
 });

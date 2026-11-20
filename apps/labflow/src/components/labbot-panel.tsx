@@ -6,12 +6,19 @@ import { ChatMarkdown } from './chat-markdown';
 import { Button, Textarea, cx } from './ui';
 import { FillResult } from './labbot-fill';
 import { planAction, type PlanState } from '@/server/actions/assistant';
+import { MAX_PHOTOS, PhotoError, shrinkPhoto, type Photo } from '@/lib/labbot-photos';
+import { useDictation } from './use-dictation';
 
 const OPEN_KEY = 'labvia-labbot-open';
+const MODE_KEY = 'labquill-labbot-mode';
+
+/** Opens LabBot from anywhere on the page, e.g. the dashboard's "Tell LabBot". */
+export const OPEN_LABBOT_EVENT = 'labquill:open-labbot';
+export type OpenLabBotDetail = { mode?: 'ask' | 'fill' };
 
 type Turn = { question: string; answer: string; error?: string; done: boolean };
 /** A "fill in for me" request and what LabBot prepared for it. */
-type Fill = { request: string; state?: PlanState };
+type Fill = { request: string; photos: string[]; state?: PlanState };
 
 /** The asker's own date: the server's clock is UTC. */
 function localToday(): string {
@@ -41,7 +48,11 @@ export function LabBotPanel({
   // Ask answers questions; Fill turns what someone says into records to save.
   const [mode, setMode] = useState<'ask' | 'fill'>('ask');
   const [fills, setFills] = useState<Fill[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photoError, setPhotoError] = useState('');
   const [draft, setDraft] = useState('');
+  const dictation = useDictation(setDraft);
+  const picker = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [waited, setWaited] = useState(0);
   const abort = useRef<AbortController | null>(null);
@@ -51,10 +62,54 @@ export function LabBotPanel({
   useEffect(() => {
     try {
       setOpen(window.localStorage.getItem(OPEN_KEY) === '1');
+      // Restored after hydration, as the open state is: the server cannot know it.
+      if (window.localStorage.getItem(MODE_KEY) === 'fill') setMode('fill');
     } catch {
       // Private browsing refuses storage. The panel still works.
     }
+    function openFromPage(event: Event) {
+      const wanted = (event as CustomEvent<OpenLabBotDetail>).detail?.mode;
+      if (wanted) chooseMode(wanted);
+      setOpen(true);
+      remember(OPEN_KEY, '1');
+      // Focus once the panel is showing; the open effect may already have run.
+      window.setTimeout(() => box.current?.focus(), 0);
+    }
+    window.addEventListener(OPEN_LABBOT_EVENT, openFromPage);
+    return () => window.removeEventListener(OPEN_LABBOT_EVENT, openFromPage);
+    // chooseMode only sets state and storage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function remember(key: string, value: string) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      // As above.
+    }
+  }
+
+  function chooseMode(next: 'ask' | 'fill') {
+    setMode(next);
+    remember(MODE_KEY, next);
+  }
+
+  async function addPhotos(files: FileList | null) {
+    if (!files?.length) return;
+    setPhotoError('');
+    const room = MAX_PHOTOS - photos.length;
+    const chosen = [...files].slice(0, Math.max(0, room));
+    if (files.length > room) setPhotoError(`Up to ${MAX_PHOTOS} photos at a time.`);
+    for (const file of chosen) {
+      try {
+        const photo = await shrinkPhoto(file);
+        setPhotos((all) => (all.length < MAX_PHOTOS ? [...all, photo] : all));
+      } catch (error) {
+        setPhotoError(error instanceof PhotoError ? error.message : `${file.name} could not be read.`);
+      }
+    }
+    box.current?.focus();
+  }
 
   useEffect(() => {
     if (open) box.current?.focus();
@@ -87,11 +142,8 @@ export function LabBotPanel({
   function toggle() {
     const next = !open;
     setOpen(next);
-    try {
-      window.localStorage.setItem(OPEN_KEY, next ? '1' : '0');
-    } catch {
-      // As above.
-    }
+    remember(OPEN_KEY, next ? '1' : '0');
+    if (!next) dictation.stop();
   }
 
   function update(index: number, change: Partial<Turn>) {
@@ -100,14 +152,22 @@ export function LabBotPanel({
 
   async function fill() {
     const request = draft.trim();
-    if (!request || busy || !configured) return;
+    const sending = photos;
+    if ((!request && !sending.length) || busy || !configured) return;
+    dictation.stop();
     const index = fills.length;
-    setFills((all) => [...all, { request }]);
+    setFills((all) => [...all, { request, photos: sending.map((p) => p.preview) }]);
     setDraft('');
+    setPhotos([]);
+    setPhotoError('');
     setBusy(true);
     let state: PlanState;
     try {
-      state = await planAction({ text: request, today: localToday() });
+      state = await planAction({
+        text: request,
+        today: localToday(),
+        images: sending.map(({ mediaType, data }) => ({ mediaType, data })),
+      });
     } catch {
       state = { error: 'Could not reach the server. Check the connection and try again.' };
     }
@@ -121,6 +181,7 @@ export function LabBotPanel({
     if (mode === 'fill') return fill();
     const question = draft.trim();
     if (!question || busy || !configured) return;
+    dictation.stop();
     const history = turns.filter((t) => t.done && !t.error).map(({ question, answer }) => ({ question, answer }));
     const index = turns.length;
     setTurns((all) => [...all, { question, answer: '', done: false }]);
@@ -236,7 +297,7 @@ export function LabBotPanel({
               type="button"
               aria-pressed={mode === value}
               onClick={() => {
-                setMode(value);
+                chooseMode(value);
                 box.current?.focus();
               }}
               className={cx(
@@ -261,8 +322,8 @@ export function LabBotPanel({
             fills.length === 0 ? (
               <div className="space-y-3 text-sm text-muted">
                 <p>
-                  Say what you did or what needs doing, the way you would tell a labmate. LabBot prepares the
-                  records; you check each one and save it.
+                  Say what you did or what needs doing, the way you would tell a labmate, or attach a photo of
+                  your notebook page. LabBot prepares the records; you check each one and save it.
                 </p>
                 <ul className="space-y-1.5">
                   {[
@@ -289,12 +350,20 @@ export function LabBotPanel({
             ) : (
               fills.map((f, i) => (
                 <div key={i} className="space-y-3">
-                  <div className="ml-10 whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2 text-sm">
-                    {f.request}
+                  <div className="ml-10 space-y-2 rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2 text-sm">
+                    {f.photos.length ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {f.photos.map((src, j) => (
+                          // eslint-disable-next-line @next/next/no-img-element -- a local preview, not a served image
+                          <img key={j} src={src} alt={`Photo ${j + 1} sent to LabBot`} className="h-16 w-16 rounded-md object-cover" />
+                        ))}
+                      </div>
+                    ) : null}
+                    {f.request ? <p className="whitespace-pre-wrap">{f.request}</p> : null}
                   </div>
                   {!f.state ? (
                     <p role="status" className="text-sm text-muted">
-                      Preparing…
+                      {f.photos.length ? 'Reading your notes…' : 'Preparing…'}
                     </p>
                   ) : f.state.error ? (
                     <p className="text-sm text-danger">{f.state.error}</p>
@@ -354,6 +423,24 @@ export function LabBotPanel({
           <label className="sr-only" htmlFor="labbot-question">
             {mode === 'fill' ? 'What to record' : 'Question'}
           </label>
+          {mode === 'fill' && photos.length ? (
+            <ul aria-label="Photos to send" className="mb-2 flex flex-wrap gap-2">
+              {photos.map((photo, i) => (
+                <li key={photo.preview} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a local preview, not a served image */}
+                  <img src={photo.preview} alt={photo.name} className="h-14 w-14 rounded-md border border-line object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setPhotos((all) => all.filter((_, j) => j !== i))}
+                    aria-label={`Remove ${photo.name}`}
+                    className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full border border-line bg-surface text-xs leading-none text-muted hover:text-fg"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <div className="flex items-end gap-2">
             <Textarea
               ref={box}
@@ -382,11 +469,72 @@ export function LabBotPanel({
                 Stop
               </Button>
             ) : (
-              <Button type="submit" size="sm" disabled={!configured || busy || draft.trim().length === 0}>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!configured || busy || (draft.trim().length === 0 && !(mode === 'fill' && photos.length))}
+              >
                 {mode === 'fill' ? 'Prepare' : 'Send'}
               </Button>
             )}
           </div>
+          {/* Typing is what puts people off recording at all, so the two ways
+              round it sit right under the box. */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {dictation.supported ? (
+              <button
+                type="button"
+                onClick={() => (dictation.listening ? dictation.stop() : dictation.start(draft))}
+                aria-pressed={dictation.listening}
+                disabled={!configured}
+                className={cx(
+                  'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium disabled:opacity-50',
+                  dictation.listening
+                    ? 'border-danger/40 bg-danger/10 text-danger'
+                    : 'border-line text-muted hover:bg-raised hover:text-fg',
+                )}
+              >
+                <MicIcon />
+                {dictation.listening ? 'Stop listening' : 'Speak'}
+              </button>
+            ) : null}
+            {mode === 'fill' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => picker.current?.click()}
+                  disabled={!configured || busy || photos.length >= MAX_PHOTOS}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted hover:bg-raised hover:text-fg disabled:opacity-50"
+                >
+                  <CameraIcon />
+                  Photo of notes
+                </button>
+                <input
+                  ref={picker}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  aria-label="Photo of notes"
+                  data-labbot-photo
+                  onChange={(e) => {
+                    void addPhotos(e.currentTarget.files);
+                    e.currentTarget.value = '';
+                  }}
+                />
+              </>
+            ) : null}
+          </div>
+          {dictation.listening ? (
+            <p role="status" className="mt-1.5 text-[11px] text-muted">
+              Listening… Your browser turns speech into text, using its own speech service. Press Stop listening when done.
+            </p>
+          ) : null}
+          {dictation.error || photoError ? (
+            <p role="alert" className="mt-1.5 text-[11px] text-danger">
+              {dictation.error || photoError}
+            </p>
+          ) : null}
           <p className="mt-1.5 text-[11px] text-subtle">
             Enter to send, Shift+Enter for a new line. Only uses what you can see yourself. LabBot can be
             wrong: check amounts, units and safety steps against the record before relying on them.
@@ -494,5 +642,23 @@ function AnswerActions({
       ) : null}
       {note ? <p className={note.ok ? 'text-ok' : 'text-danger'}>{note.text}</p> : null}
     </div>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="7" y="2.5" width="6" height="10" rx="3" />
+      <path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M3 6.5h3l1.5-2h5L14 6.5h3v9H3z" strokeLinejoin="round" />
+      <circle cx="10" cy="11" r="2.75" />
+    </svg>
   );
 }

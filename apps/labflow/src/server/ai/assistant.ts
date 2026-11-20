@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { callModel, extractJson, AiRequestError, type ModelTransport } from './client';
+import { callModel, extractJson, AiRequestError, type ModelImage, type ModelTransport } from './client';
 import { MAX_DESCRIPTION } from './fill-record';
 
 /**
@@ -155,6 +155,7 @@ Copy what they said. Never add a value, number, unit, date, ID or step they did 
 - dates: resolve "today", "yesterday" or a weekday against the date given; otherwise only an explicit date.
 - projectId, experimentId, protocolVersionId: only ids from the lists given, and only when it is clear which one they mean.
 - If they ask a question rather than describe work, prepare nothing and say in the reply that the Ask tab answers questions.
+- Photos (a notebook page, a whiteboard, a printout) count as what they wrote. Copy what is written. Where a word or number cannot be read with confidence, leave it out and say in the reply which part you could not read. Never guess a number from bad handwriting.
 Keep the reply to one or two plain sentences.`;
 
 export async function planFromText(
@@ -166,9 +167,12 @@ export async function planFromText(
     experiments: { id: string; code: string; title: string; projectName: string }[];
     protocols: { id: string; version: number; protocolName: string }[];
     apiKey?: string;
+    /** Photos of their notes, read as part of what they wrote. */
+    images?: ModelImage[];
   },
   fetchImpl?: ModelTransport,
 ): Promise<Plan> {
+  const photos = input.images?.length ?? 0;
   const list = <T>(items: T[], line: (item: T) => string) => (items.length ? items.map(line).join('\n') : '(none)');
   const { text: answer } = await callModel(
     {
@@ -178,10 +182,15 @@ export async function planFromText(
         `Projects:\n${list(input.projects, (p) => `- ${p.id}: ${p.name}`)}`,
         `Experiments (newest first):\n${list(input.experiments.slice(0, 200), (e) => `- ${e.id}: ${e.code} ${e.title} (${e.projectName})`)}`,
         `Protocols:\n${list(input.protocols, (p) => `- ${p.id}: ${p.protocolName} v${p.version}`)}`,
-        `What they wrote:\n"""\n${input.text.slice(0, MAX_DESCRIPTION)}\n"""`,
-      ].join('\n\n'),
+        input.text.trim() ? `What they wrote:\n"""\n${input.text.slice(0, MAX_DESCRIPTION)}\n"""` : '',
+        photos ? `They attached ${photos === 1 ? 'a photo' : `${photos} photos`} of their notes, above. Read ${photos === 1 ? 'it' : 'them'} as what they wrote.` : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+      images: input.images,
       schema: SCHEMA,
-      effort: 'low',
+      // Handwritten numbers are where a misread costs most, so a photo gets a closer look.
+      effort: photos ? 'medium' : 'low',
       maxTokens: 8000,
       apiKey: input.apiKey,
     },

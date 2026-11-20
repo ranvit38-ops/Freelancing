@@ -4,7 +4,7 @@ import { listMyWorkspaces } from '@/server/auth';
 import { InviteForm } from '@/components/invite-form';
 import { logoutAction } from '@/server/actions/auth';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { CreateWorkspaceForm } from '@/components/workspace-switcher';
+import { CreateWorkspaceForm, JoinAnotherLab } from '@/components/workspace-switcher';
 import { Badge, Button, Card, CardHeader, DefinitionList, PageHeader } from '@/components/ui';
 import { LabAiKeyForm } from '@/components/lab-ai-key';
 import { PLANS } from '@/lib/plans';
@@ -137,6 +137,8 @@ export default async function SettingsPage() {
         </Card>
 
         <InviteForm canInvite={canInvite} />
+
+        <JoinAnotherLab />
 
         <CreateWorkspaceForm />
 

@@ -102,6 +102,14 @@ export default async function LandingPage(props: { searchParams?: Promise<{ acco
                 See the tutorial
               </ButtonLink>
             </div>
+            {session ? null : (
+              <p className="mt-4 text-sm text-muted">
+                Your lab already uses Labquill?{' '}
+                <Link href="/signup#signup-join" className="font-medium text-fg underline underline-offset-2">
+                  Join it with the link they sent you
+                </Link>
+              </p>
+            )}
           </div>
           <figure>
             <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-pop">

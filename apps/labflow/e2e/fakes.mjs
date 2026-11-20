@@ -98,7 +98,18 @@ const LOOSE_JSON = {
  * ids in the lists it was sent, so every card can be saved for real.
  */
 function labbotPlan(prompt) {
-  const text = JSON.parse(prompt).map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n');
+  const blocks = JSON.parse(prompt).flatMap((m) => (typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content));
+  const text = blocks.map((b) => (b.type === 'text' ? b.text : '')).join('\n');
+  // A photo of notes: what a model would read off the page, one line of it.
+  if (blocks.some((b) => b.type === 'image')) {
+    return {
+      reply: 'Read your photo. One word on the second line was too faint to read, so it is left out.',
+      experiments: [],
+      notes: [],
+      tasks: [{ title: 'LabBot photo task: relabel freezer box 4', dueOn: '' }],
+      samples: [],
+    };
+  }
   const id = (section) => text.split(`${section}:\n`)[1]?.match(/- ([0-9a-f-]{36}): /)?.[1] ?? '';
   const firstRun = text.match(/- ([0-9a-f-]{36}): EXP-001 /)?.[1] ?? id('Experiments (newest first)');
   return {
