@@ -537,6 +537,26 @@ await step('upload a CSV to the experiment and get a dataset', async () => {
   await P.goto(`${BASE}/datasets/${ids.dataset}`);
   await expectText(P, 'absorbance');
 });
+await step('paste qPCR results into an experiment: knockdown called, the bar is adjustable, Start here shows it', async () => {
+  await P.goto(`${BASE}/experiments/${ids.experiment}`);
+  await P.getByText('+ Paste a table from Excel or Sheets').click();
+  const ct = { NT: { GAPDH: [17.9, 18.0, 18.1], KDM5B: [24.1, 24.3, 24.2] }, sgKDM5B: { GAPDH: [18.0, 18.1, 17.9], KDM5B: [26.9, 27.1, 27.0] } };
+  const lines = ['Sample\tCondition\tTarget\tCt'];
+  let n = 1;
+  for (const [cond, targets] of Object.entries(ct)) for (let r = 0; r < 3; r++, n++) for (const [t, v] of Object.entries(targets)) lines.push(`S${n}\t${cond}\t${t}\t${v[r]}`);
+  await P.fill('#paste-name', 'qPCR knockdown check');
+  await P.fill('#paste-table', lines.join('\n'));
+  await P.getByRole('button', { name: 'Add and check it' }).click();
+  await P.waitForURL(/\/datasets\/[0-9a-f-]{36}/, { timeout: 20_000 });
+  await expectText(P, 'qPCR knockdown (ΔΔCt)');
+  await expectText(P, 'sgKDM5B knocks KDM5B down by 85.6%');
+  await P.fill('#kd', '90');
+  await P.getByRole('button', { name: 'Recheck' }).click();
+  await expectText(P, 'below your 90% bar');
+  await P.goto(`${BASE}/start`);
+  await expectText(P, 'Data you will build on');
+  await expectText(P, 'qPCR knockdown check');
+});
 await step('upload an image and a PDF to the experiment', async () => {
   await P.goto(`${BASE}/experiments/${ids.experiment}`);
   // No wait: choosing files before the page's scripts load must still upload.

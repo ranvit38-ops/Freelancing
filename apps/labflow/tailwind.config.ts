@@ -24,6 +24,10 @@ const config: Config = {
         ok: 'rgb(var(--lf-ok) / <alpha-value>)',
         warn: 'rgb(var(--lf-warn) / <alpha-value>)',
         danger: 'rgb(var(--lf-danger) / <alpha-value>)',
+        violet: 'rgb(var(--lf-violet) / <alpha-value>)',
+        teal: 'rgb(var(--lf-teal) / <alpha-value>)',
+        amber: 'rgb(var(--lf-amber) / <alpha-value>)',
+        rose: 'rgb(var(--lf-rose) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],

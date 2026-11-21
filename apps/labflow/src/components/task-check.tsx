@@ -43,7 +43,7 @@ export function TaskCheck({ taskId, done, title }: { taskId: string; done: boole
       disabled={saving}
       className={cx(
         'grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 text-[11px] font-bold leading-none transition-colors',
-        checked ? 'border-ok bg-ok text-white' : 'border-line hover:border-ok hover:bg-ok/10',
+        checked ? 'border-ok bg-ok text-accent-fg' : 'border-line hover:border-ok hover:bg-ok/10',
         saving && 'opacity-70',
       )}
     >

@@ -1490,6 +1490,36 @@ export async function getDataset(s: SessionContext, datasetId: string) {
   return { dataset, columns };
 }
 
+/**
+ * The lab's newest datasets with their rows and column order, for the
+ * newcomer page: what has been measured and what it points to next.
+ */
+export async function listRecentDatasets(s: SessionContext, limit = 6) {
+  const found = await db
+    .select({
+      id: datasets.id,
+      name: datasets.name,
+      rows: datasets.rows,
+      experimentId: datasets.experimentId,
+      experimentNumber: experiments.number,
+      experimentTitle: experiments.title,
+      isExample: projects.isExample,
+    })
+    .from(datasets)
+    .innerJoin(experiments, eq(experiments.id, datasets.experimentId))
+    .innerJoin(projects, eq(projects.id, experiments.projectId))
+    .where(eq(datasets.workspaceId, s.workspaceId))
+    .orderBy(desc(datasets.createdAt))
+    .limit(limit);
+  if (!found.length) return [];
+  const cols = await db
+    .select({ datasetId: datasetColumnsTable.datasetId, name: datasetColumnsTable.name, position: datasetColumnsTable.position })
+    .from(datasetColumnsTable)
+    .where(inArray(datasetColumnsTable.datasetId, found.map((d) => d.id)))
+    .orderBy(datasetColumnsTable.position);
+  return found.map((d) => ({ ...d, columns: cols.filter((c) => c.datasetId === d.id).map((c) => c.name) }));
+}
+
 /* ── people ─────────────────────────────────────────────────────────────── */
 
 export async function listWorkspaceMembers(s: SessionContext) {

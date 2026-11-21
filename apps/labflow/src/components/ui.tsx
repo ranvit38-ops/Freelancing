@@ -121,7 +121,7 @@ export function PageHeader({
           </Link>
         ) : null}
         {eyebrow ? (
-          <div className="mb-1 text-xs font-medium text-subtle">
+          <div className="mb-1 text-xs font-semibold text-accent">
             {eyebrow}
           </div>
         ) : null}

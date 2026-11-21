@@ -7,6 +7,7 @@ import { RecordLotUseForm, RemoveLotUseButton } from '@/components/inventory-for
 import { notFound } from 'next/navigation';
 import { CompletenessPanel } from '@/components/completeness-panel';
 import { AttachLink } from '@/components/attach-link';
+import { PasteDataset } from '@/components/paste-dataset';
 import { Discussion } from '@/components/discussion';
 import { LocalDateTime } from '@/components/local-date-time';
 import { NoteForm } from '@/components/note-form';
@@ -437,6 +438,7 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
                 ))}
               </ul>
             ) : null}
+            <PasteDataset experimentId={experiment.id} />
           </Card>
 
           <Discussion

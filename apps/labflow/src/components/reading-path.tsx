@@ -75,7 +75,7 @@ export function ReadingPath({ steps, storageKey }: { steps: ReadingStep[]; stora
                       onClick={() => toggle(s.key)}
                       className={cx(
                         'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 text-xs font-semibold',
-                        read ? 'border-ok bg-ok text-white' : 'border-line text-muted hover:border-ok',
+                        read ? 'border-ok bg-ok text-accent-fg' : 'border-line text-muted hover:border-ok',
                       )}
                     >
                       {read ? '✓' : n}

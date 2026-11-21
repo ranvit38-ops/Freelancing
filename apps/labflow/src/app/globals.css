@@ -3,28 +3,34 @@
 @tailwind utilities;
 
 /*
- * Neutral slate base + a single restrained accent (deep blue).
+ * Cool neutral base, a clear blue accent, and four section hues used
+ * sparingly for colour that carries meaning.
  * Channels are "R G B" so Tailwind can apply opacity modifiers.
  */
 :root {
   /* System stack: no webfont round-trip, no build-time network dependency. */
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
-  --lf-bg: 250 250 251;
+  --lf-bg: 246 247 252;
   --lf-surface: 255 255 255;
-  --lf-raised: 246 247 249;
-  --lf-line: 226 229 235;
-  --lf-fg: 17 24 39;
-  --lf-muted: 91 100 116;
+  --lf-raised: 241 243 250;
+  --lf-line: 225 229 239;
+  --lf-fg: 20 23 33;
+  --lf-muted: 84 92 112;
   /* Text tokens hold 4.5:1 on every light surface, tinted badges included (WCAG 2.1 AA). */
-  --lf-subtle: 104 112 126;
-  --lf-accent: 37 78 168;
-  --lf-accent-hover: 29 62 136;
+  --lf-subtle: 96 104 124;
+  --lf-accent: 29 78 216;
+  --lf-accent-hover: 30 64 175;
   --lf-accent-fg: 255 255 255;
-  --lf-accent-soft: 235 240 251;
-  --lf-ok: 18 112 80;
-  --lf-warn: 128 84 6;
-  --lf-danger: 172 38 38;
+  --lf-accent-soft: 232 238 255;
+  --lf-ok: 4 120 87;
+  --lf-warn: 154 82 0;
+  --lf-danger: 200 30 60;
+  /* Section hues: small marks only (nav, badges), never body text on their own. */
+  --lf-violet: 124 58 237;
+  --lf-teal: 13 148 136;
+  --lf-amber: 217 119 6;
+  --lf-rose: 225 29 72;
 }
 
 /*
@@ -37,39 +43,46 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --lf-bg: 13 17 23;
-    --lf-surface: 22 27 34;
-    --lf-raised: 28 34 43;
-    --lf-line: 48 54 63;
-    --lf-fg: 230 237 243;
-    --lf-muted: 155 166 180;
-    --lf-subtle: 132 142 157;
-    --lf-accent: 106 152 240;
-  --lf-accent-hover: 136 174 245;
-    --lf-accent-hover: 136 174 245;
+    --lf-bg: 11 14 20;
+    --lf-surface: 20 24 33;
+    --lf-raised: 27 32 44;
+    --lf-line: 44 51 66;
+    --lf-fg: 236 239 246;
+    --lf-muted: 160 170 188;
+    --lf-subtle: 140 150 170;
+    --lf-accent: 120 165 255;
+    --lf-accent-hover: 150 188 255;
     --lf-accent-fg: 8 12 18;
-    --lf-accent-soft: 26 40 66;
-    --lf-ok: 63 185 130;
-    --lf-warn: 216 163 60;
-    --lf-danger: 238 108 108;
+    --lf-accent-soft: 24 40 78;
+    --lf-ok: 70 210 150;
+    --lf-warn: 240 180 70;
+    --lf-danger: 255 122 142;
+    --lf-violet: 178 148 255;
+    --lf-teal: 72 210 196;
+    --lf-amber: 250 190 80;
+    --lf-rose: 255 128 160;
   }
 }
 
 :root[data-theme='dark'] {
-  --lf-bg: 13 17 23;
-  --lf-surface: 22 27 34;
-  --lf-raised: 28 34 43;
-  --lf-line: 48 54 63;
-  --lf-fg: 230 237 243;
-  --lf-muted: 155 166 180;
-  --lf-subtle: 132 142 157;
-  --lf-accent: 106 152 240;
-  --lf-accent-hover: 136 174 245;
+  --lf-bg: 11 14 20;
+  --lf-surface: 20 24 33;
+  --lf-raised: 27 32 44;
+  --lf-line: 44 51 66;
+  --lf-fg: 236 239 246;
+  --lf-muted: 160 170 188;
+  --lf-subtle: 140 150 170;
+  --lf-accent: 120 165 255;
+  --lf-accent-hover: 150 188 255;
   --lf-accent-fg: 8 12 18;
-  --lf-accent-soft: 26 40 66;
-  --lf-ok: 63 185 130;
-  --lf-warn: 216 163 60;
-  --lf-danger: 238 108 108;
+  --lf-accent-soft: 24 40 78;
+  --lf-ok: 70 210 150;
+  --lf-warn: 240 180 70;
+  --lf-danger: 255 122 142;
+  --lf-violet: 178 148 255;
+  --lf-teal: 72 210 196;
+  --lf-amber: 250 190 80;
+  --lf-rose: 255 128 160;
 }
 
 * { border-color: rgb(var(--lf-line)); }

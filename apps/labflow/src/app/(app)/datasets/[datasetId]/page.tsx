@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { DataChecksCard } from '@/components/data-checks';
 import { ScatterChart } from '@/components/scatter-chart';
 import { Badge, Card, CardHeader, EmptyState, PageHeader } from '@/components/ui';
+import { checkData, DEFAULT_KNOCKDOWN } from '@/lib/data-checks';
 import { formatStat } from '@/lib/dataset';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
 import { getDataset } from '@/server/queries';
@@ -11,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export default async function DatasetPage(
   props: {
     params: Promise<{ datasetId: string }>;
-    searchParams: Promise<{ x?: string; y?: string; connect?: string }>;
+    searchParams: Promise<{ x?: string; y?: string; connect?: string; kd?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -36,6 +38,15 @@ export default async function DatasetPage(
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
 
   const preview = dataset.rows.slice(0, 20);
+  const knockdown = Number(searchParams.kd) || DEFAULT_KNOCKDOWN;
+  const checks = checkData(
+    columns.map((c) => c.name),
+    dataset.rows,
+    { knockdown },
+  );
+  const keep = Object.fromEntries(
+    Object.entries({ x: searchParams.x, y: searchParams.y, connect: searchParams.connect }).filter((e): e is [string, string] => Boolean(e[1])),
+  );
 
   return (
     <>
@@ -54,9 +65,12 @@ export default async function DatasetPage(
       />
 
       <div className="space-y-5">
+        <DataChecksCard result={checks} knockdown={knockdown} keep={keep} />
+
         <Card>
           <CardHeader title="Plot" description="Pick the columns to put on each axis." />
           <form className="flex flex-wrap items-end gap-3 border-b border-line px-5 py-4">
+            {searchParams.kd ? <input type="hidden" name="kd" value={searchParams.kd} /> : null}
             <label className="text-sm">
               <span className="mb-1.5 block font-medium">X axis</span>
               <select

@@ -4,6 +4,8 @@ import { CatchUp } from '@/components/catch-up';
 import { ReadingPath } from '@/components/reading-path';
 import { Card, CardHeader, PageHeader } from '@/components/ui';
 import { experimentCode } from '@/lib/display';
+import { checkData } from '@/lib/data-checks';
+import { FindingList } from '@/components/data-checks';
 import { buildReadingPath, MAX_PATH_FILES, pathFiles, type PathFile } from '@/lib/reading-path';
 import { requireSession } from '@/server/authz';
 import {
@@ -11,6 +13,7 @@ import {
   listFiles,
   listProjects,
   listProtocols,
+  listRecentDatasets,
   listResearchUpdates,
   listWorkspaceMembers,
 } from '@/server/queries';
@@ -29,13 +32,14 @@ export const dynamic = 'force-dynamic';
 export default async function StartPage(props: { searchParams: Promise<{ joined?: string }> }) {
   const searchParams = await props.searchParams;
   const session = await requireSession();
-  const [projects, experiments, protocols, updates, files, members] = await Promise.all([
+  const [projects, experiments, protocols, updates, files, members, recentData] = await Promise.all([
     listProjects(session),
     listExperiments(session),
     listProtocols(session),
     listResearchUpdates(session),
     listFiles(session),
     listWorkspaceMembers(session),
+    listRecentDatasets(session),
   ]);
 
   const attached = new Set(files.filter((f) => f.experimentId).map((f) => f.id));
@@ -223,6 +227,31 @@ export default async function StartPage(props: { searchParams: Promise<{ joined?
               </p>
             ) : null}
           </Card>
+
+          {recentData.length ? (
+            <Card>
+              <CardHeader title="Data you will build on" description="The newest results, and the step each points to." />
+              <ul className="divide-y divide-line">
+                {recentData.map((d) => {
+                  const first = checkData(d.columns, d.rows).next[0];
+                  return (
+                    <li key={d.id} className="space-y-1.5 px-5 py-3">
+                      <p className="text-sm">
+                        <Link href={`/datasets/${d.id}`} className="font-medium underline underline-offset-2">
+                          {d.name}
+                        </Link>{' '}
+                        <span className="text-xs text-muted">
+                          {experimentCode(d.experimentNumber)}
+                          {d.isExample ? ' · example' : ''}
+                        </span>
+                      </p>
+                      {first ? <FindingList items={[first]} compact /> : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader title="Stuck on something?" />
