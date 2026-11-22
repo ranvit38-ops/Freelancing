@@ -5,6 +5,8 @@ import { rateLimit } from '@/lib/rate-limit';
 import { encryptionConfigured } from '@/lib/secret-box';
 import { checkAnthropicKey, looksLikeAnthropicKey } from '../ai/key-check';
 import { requireSession } from '../authz';
+import { aiAccess, isRefusal } from '../ai/access';
+import { AiNotConfiguredError, AiRequestError, callModel } from '../ai/client';
 import { MembershipRefusedError, setLabAiKey } from '../queries';
 import type { ActionState } from './types';
 
@@ -57,4 +59,36 @@ export async function removeLabAiKeyAction(_prev: ActionState, _formData: FormDa
   }
   revalidatePath('/', 'layout');
   return { ok: true, message: "Removed. AI requests use this plan's monthly allowance again." };
+}
+
+/**
+ * One tiny real request to Claude with whichever key this lab uses, so whoever
+ * just set a key can see it work (or why it does not) before anyone relies on
+ * it. Not counted toward the month: it is a check, not a use.
+ */
+export async function testAiConnectionAction(): Promise<{ ok: boolean; message: string }> {
+  const session = await requireSession();
+  if (session.role === 'member') return { ok: false, message: 'Only an owner or admin can run the check.' };
+  const access = await aiAccess(session);
+  if (isRefusal(access)) return { ok: false, message: access.error };
+  const limited = rateLimit(`ai-test:${session.workspaceId}`, { limit: 5, windowMs: 60_000 });
+  if (!limited.ok) return { ok: false, message: `Try again in ${limited.retryAfterSec} seconds.` };
+  const started = Date.now();
+  try {
+    const { text, model } = await callModel({
+      system: 'You are a connection check. Reply with exactly: OK',
+      prompt: 'Connection check.',
+      maxTokens: 200,
+      effort: 'low',
+      apiKey: access.apiKey,
+    });
+    const seconds = ((Date.now() - started) / 1000).toFixed(1);
+    return {
+      ok: true,
+      message: `Working. ${model} answered in ${seconds} s using ${access.ownKey ? "the lab's own key" : "the site's key"}${/ok/i.test(text) ? '' : ' (with an unexpected reply, but the connection is fine)'}.`,
+    };
+  } catch (error) {
+    if (error instanceof AiNotConfiguredError || error instanceof AiRequestError) return { ok: false, message: error.message };
+    throw error;
+  }
 }

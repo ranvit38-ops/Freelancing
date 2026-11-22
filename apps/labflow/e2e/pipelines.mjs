@@ -997,6 +997,46 @@ await step('every AI feature counts toward the month, and Settings says how much
   // Analysis three times, the assistant, catch-up, filling a run and LabBot all ran above.
   assert(used >= 6, `usage line: ${line}`);
 });
+await step('Settings: test the AI connection with one real request', async () => {
+  await P.goto(`${BASE}/settings#ai`);
+  await P.getByRole('button', { name: 'Test the AI connection' }).click();
+  await expectText(P, 'Working.', 30_000);
+});
+await step('speak into any text box: the words land where the cursor was, and the form takes them', async () => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await context.addCookies(await P.context().cookies());
+  // The test browser has no microphone: a stand-in recogniser "hears" a sentence.
+  await context.addInitScript(() => {
+    class FakeRecognition {
+      start() {
+        setTimeout(() => {
+          this.onresult?.({ resultIndex: 0, results: [{ isFinal: true, 0: { transcript: 'order more pipette tips' } }] });
+          this.onend?.();
+        }, 100);
+      }
+      stop() {
+        this.onend?.();
+      }
+    }
+    window.webkitSpeechRecognition = FakeRecognition;
+    window.SpeechRecognition = FakeRecognition;
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${BASE}/tasks`);
+    await page.click('#task-title');
+    const speak = page.getByRole('button', { name: /^Speak into What needs doing/ });
+    await speak.click();
+    await page.waitForFunction(() => document.querySelector('#task-title')?.value === 'order more pipette tips', null, { timeout: 5_000 });
+    // It reached React's state, not just the screen: the form saves it.
+    await page.getByRole('button', { name: 'Add task' }).click();
+    await expectText(page, 'Added.');
+    await page.goto(`${BASE}/tasks`);
+    await expectText(page, 'order more pipette tips');
+  } finally {
+    await context.close();
+  }
+});
 await step("a lab's own Claude key: a bad one is refused, a good one is used and can be removed", async () => {
   await P.goto(`${BASE}/settings`);
   await P.fill('#lab-ai-key', 'sk-ant-bad-' + 'x'.repeat(40));

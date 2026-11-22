@@ -15,6 +15,7 @@ import { requireSession } from '@/server/authz';
 import { revokeInviteAction } from '@/server/actions/invites';
 import { getNotifyPrefs, labAiKeyStatus, listInvites, listWorkspaceMembers, usageCounts } from '@/server/queries';
 import { NotifyPrefs } from '@/components/notify-prefs';
+import { AiTest } from '@/components/ai-test';
 import { mailConfigured, mailSetupProblem, senderAddress, usingResendTestSender } from '@/server/mailer';
 
 export const metadata = { title: 'Settings' };
@@ -204,6 +205,11 @@ export default async function SettingsPage() {
               </span>
             )}
           </p>
+          {canInvite ? (
+            <div className="mt-4">
+              <AiTest />
+            </div>
+          ) : null}
           {canInvite ? (
             <div className="mt-5 max-w-xl border-t border-line pt-5">
               <h3 className="text-sm font-medium">Use your lab&rsquo;s own Claude key</h3>

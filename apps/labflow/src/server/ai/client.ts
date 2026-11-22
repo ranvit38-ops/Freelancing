@@ -40,7 +40,7 @@ export function acceptsEffort(model: string): boolean {
  * API re-runs the request on a fallback model inside the same call, so a lab
  * question that trips a classifier still gets answered instead of failing.
  */
-const FALLBACK_MODELS = /^claude-(opus-5-5|sonnet-5-5|fable-5-1)$/;
+const FALLBACK_MODELS = /^claude-(opus-5-5|opus-5|sonnet-5-5|fable-5-1|fable-5-2)$/;
 
 export type ModelImage = { mediaType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string };
 
