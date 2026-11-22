@@ -261,7 +261,11 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   }
 
   await createSession(user.id);
-  redirect(joined ? '/start?joined=1' : '/dashboard');
+  // Back to where an emailed link was going. Only a path on this site: never
+  // another host, so the login page cannot be used to send people elsewhere.
+  const next = String(formData.get('next') ?? '');
+  const safeNext = /^\/(?![/\\])[A-Za-z0-9\-._~/?=&%]*$/.test(next) ? next : null;
+  redirect(joined ? '/start?joined=1' : (safeNext ?? '/dashboard'));
 }
 
 /**

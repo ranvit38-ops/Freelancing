@@ -76,6 +76,11 @@ export const users = pgTable(
     /** The Terms and Privacy version they agreed to, and when. See migration 0026. */
     termsVersion: text('terms_version'),
     termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }),
+    /** Email pace for notifications: 'hourly', 'daily' or 'off'. See 0027. */
+    notifyEmail: text('notify_email').notNull().default('hourly'),
+    /** Comma-separated notification kinds that may be emailed. */
+    notifyKinds: text('notify_kinds').notNull().default('task,message,mention,reply,comment'),
+    notifyEmailedAt: timestamp('notify_emailed_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -904,4 +909,30 @@ export const activity = pgTable(
   (t) => ({
     wsCreatedIdx: index('activity_workspace_created_idx').on(t.workspaceId, t.createdAt),
   }),
+);
+
+/**
+ * Something that needs one person's attention. Read in the app; unread ones
+ * go out as one batched email at the pace the person chose. See 0027.
+ */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    body: text('body'),
+    href: text('href').notNull(),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    emailedAt: timestamp('emailed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => ({ userIdx: index('notifications_user_idx').on(t.userId, t.workspaceId, t.createdAt) }),
 );

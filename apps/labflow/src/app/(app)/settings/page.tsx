@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { EmailCheck } from '@/components/email-check';
 import { DangerZone, MemberControls } from '@/components/membership-controls';
 import { listMyWorkspaces } from '@/server/auth';
@@ -12,21 +13,23 @@ import { workspacePlan } from '@/server/paywall';
 import { formatDate } from '@/lib/display';
 import { requireSession } from '@/server/authz';
 import { revokeInviteAction } from '@/server/actions/invites';
-import { labAiKeyStatus, listInvites, listWorkspaceMembers, usageCounts } from '@/server/queries';
-import { mailSetupProblem, senderAddress, usingResendTestSender } from '@/server/mailer';
+import { getNotifyPrefs, labAiKeyStatus, listInvites, listWorkspaceMembers, usageCounts } from '@/server/queries';
+import { NotifyPrefs } from '@/components/notify-prefs';
+import { mailConfigured, mailSetupProblem, senderAddress, usingResendTestSender } from '@/server/mailer';
 
 export const metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const session = await requireSession();
-  const [members, invites, myWorkspaces, aiKey, usage, plan] = await Promise.all([
+  const [members, invites, myWorkspaces, aiKey, usage, plan, prefs] = await Promise.all([
     listWorkspaceMembers(session),
     listInvites(session),
     listMyWorkspaces(),
     labAiKeyStatus(session),
     usageCounts(session),
     workspacePlan(session),
+    getNotifyPrefs(session),
   ]);
   const canInvite = session.role !== 'member';
 
@@ -34,10 +37,36 @@ export default async function SettingsPage() {
     <>
       <PageHeader
         title="Settings"
-        description="The lab, its people, appearance and integrations."
+        description="Your account, notifications and appearance, then the lab and its people."
       />
+      <nav aria-label="On this page" className="-mt-2 mb-5 flex flex-wrap gap-2 text-sm">
+        {[
+          ['#notifications', 'Notifications'],
+          ['#appearance', 'Appearance'],
+          ['#account', 'Your account'],
+          ['#lab', 'Lab'],
+          ['#people', 'People'],
+          ['#ai', 'AI'],
+        ].map(([href, label]) => (
+          <a key={href} href={href} className="rounded-full border border-line bg-surface px-3 py-1 font-medium text-muted hover:border-accent hover:text-accent">
+            {label}
+          </a>
+        ))}
+      </nav>
       <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
-        <Card className="p-5">
+        <Card id="notifications" className="scroll-mt-6 p-5 lg:row-span-2">
+          <h2 className="mb-1 text-sm font-semibold tracking-tight">Notifications</h2>
+          <p className="mb-4 text-sm text-muted">
+            Yours, in every lab you belong to. See them all on the{' '}
+            <Link href="/notifications" className="underline underline-offset-2 hover:text-fg">
+              Notifications
+            </Link>{' '}
+            page.
+          </p>
+          <NotifyPrefs pace={prefs.pace} kinds={prefs.kinds} mailReady={mailConfigured()} />
+        </Card>
+
+        <Card id="appearance" className="scroll-mt-6 p-5">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">Appearance</h2>
           <p className="mb-4 text-sm text-muted">
             Kept in this browser and never sent to us. System follows your operating system.
@@ -45,7 +74,7 @@ export default async function SettingsPage() {
           <ThemeToggle />
         </Card>
 
-        <Card className="p-5">
+        <Card id="account" className="scroll-mt-6 p-5">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">Your account</h2>
           <p className="mb-4 text-sm text-muted">
             Signed in as {session.userEmail}. Signing out deletes this session on the server, not
@@ -77,7 +106,7 @@ export default async function SettingsPage() {
           </div>
         </Card>
 
-        <Card className="p-5">
+        <Card id="lab" className="scroll-mt-6 p-5">
           <h2 className="mb-4 text-sm font-semibold tracking-tight">Lab</h2>
           <DefinitionList
             items={[
@@ -88,7 +117,7 @@ export default async function SettingsPage() {
           />
         </Card>
 
-        <Card>
+        <Card id="people" className="scroll-mt-6">
           <CardHeader title="People" description={`${members.length} in this lab`} />
           <ul className="divide-y divide-line">
             {members.map((m) => (
@@ -149,7 +178,7 @@ export default async function SettingsPage() {
           you={session.userEmail}
         />
 
-        <Card className="p-5 lg:col-span-2">
+        <Card id="ai" className="scroll-mt-6 p-5 lg:col-span-2">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">AI</h2>
           <p className="text-sm text-muted">
             LabBot and the other AI features send the parts of your records a request needs to Anthropic&rsquo;s

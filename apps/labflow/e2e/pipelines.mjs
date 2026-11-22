@@ -1162,6 +1162,55 @@ await step('the student’s chat message reaches the PI', async () => {
   await P.goto(`${BASE}/chat`);
   await expectText(P, 'Batch 2 is in the fridge', 15_000);
 });
+await step('notifications: a task and an @mention reach the student in the app and as one batched email', async () => {
+  await clearFake(MAIL);
+  await P.goto(`${BASE}/tasks`);
+  await P.fill('#task-title', 'Image the gel by Friday');
+  await P.selectOption('#task-assignee', { label: 'Sam Student' });
+  await P.getByRole('button', { name: 'Add task' }).click();
+  await expectText(P, 'Added.');
+  await P.goto(`${BASE}/chat`);
+  await P.fill('#chat-box', '@Sam can you check the -80 log?');
+  await P.locator('#main').getByRole('button', { name: 'Send' }).click();
+  await expectText(P, 'can you check the -80 log?');
+  // Lab chatter that is not aimed at anyone notifies nobody.
+  await P.fill('#chat-box', 'Centrifuge 2 is free after lunch');
+  await P.locator('#main').getByRole('button', { name: 'Send' }).click();
+
+  await S.goto(`${BASE}/dashboard`);
+  const badge = S.locator('nav[aria-label="Main"] a[href="/notifications"]').last();
+  assert((await badge.innerText()).includes('2'), `notification badge: ${await badge.innerText()}`);
+  await S.goto(`${BASE}/notifications`);
+  await expectText(S, 'Dr Pat Investigator gave you a task: Image the gel by Friday');
+  await expectText(S, 'Dr Pat Investigator mentioned you in #lab');
+  assert(!(await bodyText(S)).includes('Centrifuge 2'), 'a message not aimed at the student notified them');
+
+  // The batch job: one email, however many things happened.
+  const cron = await fetch(`${BASE}/api/cron/notifications`, { method: 'POST', headers: { authorization: 'Bearer e2e-cron-secret-0123456789' } });
+  assert(cron.ok, `cron route: ${cron.status}`);
+  const refused = await fetch(`${BASE}/api/cron/notifications`, { method: 'POST', headers: { authorization: 'Bearer wrong' } });
+  assert(refused.status === 401, `cron without the key: ${refused.status}`);
+  const email = await waitForEmail(studentEmail);
+  assert(/gave you a task|things for you/.test(email.subject), `subject: ${email.subject}`);
+  assert(email.text.includes('/settings#notifications'), 'no way to change notification emails');
+  const sentToStudent = (await fakeLog(MAIL)).filter((e) => (e.body.to ?? []).includes(studentEmail));
+  assert(sentToStudent.length === 1, `${sentToStudent.length} emails to the student, expected one batch`);
+
+  // The email's link marks it read and opens the thing itself.
+  await S.goto(linkIn(email.text, '/notifications/'));
+  await S.waitForURL(/\/(tasks|chat)/, { timeout: 15_000 });
+  await S.goto(`${BASE}/notifications`);
+  await S.getByRole('button', { name: 'Mark all as read' }).click();
+  await expectText(S, 'You are all caught up.');
+});
+await step('notification email settings: choose never, and it is kept', async () => {
+  await S.goto(`${BASE}/settings#notifications`);
+  await S.getByLabel('Never: I check the app').check();
+  await S.locator('#notifications').getByRole('button', { name: 'Save' }).click();
+  await expectText(S, 'Saved. No notification emails');
+  await S.reload();
+  assert(await S.getByLabel('Never: I check the app').isChecked(), 'the choice was not kept');
+});
 await step('a sample still used by an experiment cannot be deleted silently', async () => {
   await P.goto(`${BASE}/samples/${ids.sample}`);
   P.once('dialog', (d) => d.accept());

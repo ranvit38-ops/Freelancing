@@ -13,6 +13,7 @@ export type NavItem = { href: string; label: string; badge?: number };
  */
 const HUE: Record<string, string> = {
   '/dashboard': 'bg-accent',
+  '/notifications': 'bg-amber',
   '/start': 'bg-teal',
   '/projects': 'bg-violet',
   '/protocols': 'bg-amber',
@@ -56,6 +57,7 @@ export function NavList({ items, className }: { items: NavItem[]; className?: st
               {item.badge ? (
                 <span
                   aria-label={`${item.badge} unread`}
+                  title={`${item.badge} unread`}
                   className="min-w-5 rounded-full bg-accent px-1.5 text-center text-[11px] font-semibold leading-5 text-accent-fg"
                 >
                   {item.badge}

@@ -95,6 +95,10 @@ jobs:
       RESEND_BASE_URL: http://127.0.0.1:4556
       EMAIL_FROM: Labquill <hello@labquill.test>
       LABFLOW_OWNER_EMAIL: owner@labquill.test
+      # Notification emails: no wait before batching, and the cron route's key.
+      # Fixed test values, not secrets.
+      LABFLOW_NOTIFY_DELAY_MINUTES: "0"
+      LABFLOW_CRON_SECRET: e2e-cron-secret-0123456789
       GOOGLE_CLIENT_ID: fake-client
       GOOGLE_CLIENT_SECRET: fake-secret
       GOOGLE_OAUTH_TOKEN_URL: http://127.0.0.1:4557/token

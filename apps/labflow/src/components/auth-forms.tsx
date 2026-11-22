@@ -13,10 +13,11 @@ import {
 } from '@/server/actions/auth';
 import { noState } from '@/server/actions/types';
 
-export function LoginForm({ inviteToken, joinCode }: { inviteToken?: string; joinCode?: string }) {
+export function LoginForm({ inviteToken, joinCode, next }: { inviteToken?: string; joinCode?: string; next?: string }) {
   const [state, action] = useActionState(loginAction, noState);
   return (
     <form action={action} className="space-y-4">
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
       {joinCode ? <input type="hidden" name="joinCode" value={joinCode} /> : null}
       <FormError>{state.error}</FormError>

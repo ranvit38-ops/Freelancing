@@ -7,7 +7,6 @@ import { requireSession } from '../authz';
 import { blockedReason } from '../paywall';
 import * as q from '../queries';
 import { EVERYONE } from '@/lib/tasks';
-import { sendConfirmation, taskAssignedEmail } from '../account-emails';
 import type { ActionState } from './types';
 
 /**
@@ -56,32 +55,32 @@ export async function createTaskAction(
   }
 
   const who = assignee(formData);
+  const ids: string[] = [];
   for (const title of titles) {
-    await q.createTask(session, {
-      title,
-      detail: optionalText(formData, 'detail', 4000),
-      ...who,
-      projectId: optionalId(formData, 'projectId'),
-      dueOn,
-    });
+    ids.push(
+      await q.createTask(session, {
+        title,
+        detail: optionalText(formData, 'detail', 4000),
+        ...who,
+        projectId: optionalId(formData, 'projectId'),
+        dueOn,
+      }),
+    );
   }
 
-  // Work handed to someone else reaches their inbox, not only the app.
+  // Work handed to someone else reaches them: in the app, and in their next
+  // batched email if they have not seen it. Several at once are one notice.
+  // A task for the whole lab notifies nobody: that would be everyone, every time.
   if (who.assignedTo && who.assignedTo !== session.userId) {
-    const person = (await q.listWorkspaceMembers(session)).find((m) => m.id === who.assignedTo);
-    if (person) {
-      sendConfirmation(person.email, '/tasks', (link) =>
-        taskAssignedEmail({
-          name: person.name ?? person.email,
-          from: session.userName,
-          // Several at once arrive as one email, not one each.
-          title: titles.length === 1 ? titles[0]! : `${titles.length} tasks: ${titles.join('; ')}`.slice(0, 300),
-          dueOn,
-          labName: session.workspaceName,
-          link,
-        }),
-      );
-    }
+    await q.notify(session, [
+      {
+        userId: who.assignedTo,
+        kind: 'task',
+        title: titles.length === 1 ? `${session.userName} gave you a task: ${titles[0]}` : `${session.userName} gave you ${titles.length} tasks`,
+        body: titles.length === 1 ? (dueOn ? `Due ${dueOn}` : null) : titles.join('; ').slice(0, 300),
+        href: ids.length === 1 ? `/tasks/${ids[0]}` : '/tasks',
+      },
+    ]);
   }
 
   revalidatePath('/tasks');
@@ -111,8 +110,21 @@ export async function setTaskStatusAction(formData: FormData): Promise<void> {
 export async function assignTaskAction(formData: FormData): Promise<void> {
   const session = await requireSession();
   const taskId = String(formData.get('taskId') ?? '');
+  const before = await q.getTask(session, taskId);
+  const who = assignee(formData);
 
-  await q.updateTask(session, taskId, assignee(formData));
+  await q.updateTask(session, taskId, who);
+  if (who.assignedTo && who.assignedTo !== session.userId && who.assignedTo !== before.assignedTo) {
+    await q.notify(session, [
+      {
+        userId: who.assignedTo,
+        kind: 'task',
+        title: `${session.userName} gave you a task: ${before.title}`,
+        body: before.dueOn ? `Due ${before.dueOn}` : null,
+        href: `/tasks/${taskId}`,
+      },
+    ]);
+  }
   revalidatePath('/tasks');
   revalidatePath(`/tasks/${taskId}`);
   revalidatePath('/dashboard');

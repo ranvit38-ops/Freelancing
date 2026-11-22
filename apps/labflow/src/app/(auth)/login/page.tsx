@@ -9,7 +9,7 @@ export const metadata = { title: 'Log in' };
 
 export default async function LoginPage(
   props: {
-    searchParams: Promise<{ invite?: string; code?: string; error?: string }>;
+    searchParams: Promise<{ invite?: string; code?: string; error?: string; next?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -24,7 +24,7 @@ export default async function LoginPage(
           invite={searchParams.invite}
           joinCode={searchParams.code}
         />
-        <LoginForm inviteToken={searchParams.invite} joinCode={searchParams.code} />
+        <LoginForm inviteToken={searchParams.invite} joinCode={searchParams.code} next={searchParams.next} />
       </Card>
       <p className="mt-6 text-center text-sm text-muted">
         New here?{' '}

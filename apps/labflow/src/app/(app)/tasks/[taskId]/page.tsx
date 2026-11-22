@@ -7,7 +7,7 @@ import { EVERYONE, dueLabel, todayIso } from '@/lib/tasks';
 import { requireSession } from '@/server/authz';
 import { NotFoundInWorkspaceError } from '@/server/not-found';
 import { assignTaskAction, deleteTaskAction, setTaskStatusAction } from '@/server/actions/tasks';
-import { getTask, listDiscussion, listWorkspaceMembers } from '@/server/queries';
+import { getTask, listDiscussion, listWorkspaceMembers, markNotificationsReadFor } from '@/server/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +30,7 @@ export default async function TaskPage(props: { params: Promise<{ taskId: string
     if (error instanceof NotFoundInWorkspaceError) notFound();
     throw error;
   }
+  await markNotificationsReadFor(session, `/tasks/${params.taskId}`);
 
   const [messages, members] = await Promise.all([
     listDiscussion(session, { taskId: task.id }),

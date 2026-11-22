@@ -38,11 +38,13 @@ import {
   events,
   fileShares,
   chatReads,
+  notifications,
   projectFiles,
   protocolFiles,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { dmParticipants } from '@/lib/dm';
+import { excerpt as notifyExcerpt, mentionedIds, messageRecipients, parseKinds, type NotifyKind, type Pace, isPace } from '@/lib/notify';
 import { changedFields, excerpt } from '@/lib/activity';
 import { experimentCode, experimentStatusLabel } from '@/lib/display';
 import { InUseError, NotFoundInWorkspaceError, assertFound, assertId } from './not-found';
@@ -2562,6 +2564,12 @@ export async function postMessage(
       fileId: input.fileId ?? null,
     })
     .returning({ id: discussions.id });
+  // Telling people is never allowed to lose the message they were told about.
+  try {
+    await notifyForMessage(s, input, dmPeople);
+  } catch (error) {
+    console.warn(`[labflow] notifications for a message not created: ${(error as Error).message}`);
+  }
   return row!.id;
 }
 
@@ -3797,3 +3805,210 @@ export async function findLinkInMyOtherLabs(
   return row ? { workspaceId: row.workspace_id, workspaceName: row.name } : null;
 }
 
+
+/* ── notifications ──────────────────────────────────────────────────────── */
+
+export type NewNotification = { userId: string; kind: NotifyKind; title: string; body?: string | null; href: string };
+
+/**
+ * Records notifications from the signed-in person to others in this lab.
+ * Nobody is notified about their own action, and nobody outside the lab.
+ */
+export async function notify(s: SessionContext, items: NewNotification[]) {
+  const wanted = items.filter((i) => i.userId !== s.userId);
+  if (!wanted.length) return;
+  const inLab = new Set(await labMembersAmong(s, [...new Set(wanted.map((i) => i.userId))]));
+  const rows = wanted
+    .filter((i) => inLab.has(i.userId))
+    .map((i) => ({ ...i, body: i.body ?? null, workspaceId: s.workspaceId, actorId: s.userId }));
+  if (rows.length) await db.insert(notifications).values(rows);
+}
+
+/** Who a new message is for, and why: DMs, @mentions, replies, comments on your work. */
+async function notifyForMessage(
+  s: SessionContext,
+  input: { experimentId?: string; projectId?: string; taskId?: string; workspace?: boolean; dmKey?: string; parentId: string | null; body: string; fileId?: string | null },
+  dmPeople: string[] | null,
+) {
+  const members = await listWorkspaceMembers(s);
+  let mentioned = mentionedIds(input.body, members);
+  // A DM stays between its people: naming someone else in it tells them nothing.
+  if (dmPeople) mentioned = mentioned.filter((id) => dmPeople.includes(id));
+
+  let parentAuthorId: string | null = null;
+  if (input.parentId) {
+    const [parent] = await db
+      .select({ authorId: discussions.authorId })
+      .from(discussions)
+      .where(and(eq(discussions.id, input.parentId), eq(discussions.workspaceId, s.workspaceId)))
+      .limit(1);
+    parentAuthorId = parent?.authorId ?? null;
+  }
+
+  let where = '#lab';
+  let href = '/chat';
+  let ownerId: string | null = null;
+  if (dmPeople) {
+    where = 'a direct message';
+    href = `/chat?dm=${encodeURIComponent(input.dmKey!)}`;
+  } else if (input.experimentId) {
+    const [e] = await db
+      .select({ number: experiments.number, title: experiments.title, researcherId: experiments.researcherId })
+      .from(experiments)
+      .where(and(eq(experiments.id, input.experimentId), eq(experiments.workspaceId, s.workspaceId)))
+      .limit(1);
+    if (e) {
+      where = `EXP-${String(e.number).padStart(3, '0')}: ${e.title}`;
+      ownerId = e.researcherId;
+    }
+    href = `/experiments/${input.experimentId}`;
+  } else if (input.taskId) {
+    const [t] = await db
+      .select({ title: tasks.title, assignedTo: tasks.assignedTo, createdBy: tasks.createdBy })
+      .from(tasks)
+      .where(and(eq(tasks.id, input.taskId), eq(tasks.workspaceId, s.workspaceId)))
+      .limit(1);
+    if (t) {
+      where = `the task "${t.title}"`;
+      // The person doing the task hears about comments on it; when they are the
+      // one commenting, whoever asked for it does.
+      ownerId = t.assignedTo && t.assignedTo !== s.userId ? t.assignedTo : t.createdBy;
+    }
+    href = `/tasks/${input.taskId}`;
+  } else if (input.projectId) {
+    const [p] = await db
+      .select({ name: projects.name })
+      .from(projects)
+      .where(and(eq(projects.id, input.projectId), eq(projects.workspaceId, s.workspaceId)))
+      .limit(1);
+    if (p) where = `#${p.name}`;
+    href = `/chat?c=${encodeURIComponent(input.projectId)}`;
+  }
+
+  const actor = s.userName;
+  const titleFor: Record<NotifyKind, string> = {
+    message: `${actor} sent you a message`,
+    mention: `${actor} mentioned you in ${where}`,
+    reply: `${actor} replied to you in ${where}`,
+    comment: `${actor} commented on ${where}`,
+    task: `${actor} gave you a task`,
+  };
+  const recipients = messageRecipients({ authorId: s.userId, dmPeople, mentioned, parentAuthorId, ownerId });
+  await notify(
+    s,
+    [...recipients].map(([userId, kind]) => ({ userId, kind, title: titleFor[kind], body: notifyExcerpt(input.body), href })),
+  );
+}
+
+/** The signed-in person's notifications in this lab, newest first. */
+export async function listNotifications(s: SessionContext, limit = 100) {
+  return db
+    .select({
+      id: notifications.id,
+      kind: notifications.kind,
+      title: notifications.title,
+      body: notifications.body,
+      href: notifications.href,
+      readAt: notifications.readAt,
+      createdAt: notifications.createdAt,
+      actorName: users.name,
+    })
+    .from(notifications)
+    .leftJoin(users, eq(users.id, notifications.actorId))
+    .where(and(eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId)))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+}
+
+export async function unreadNotificationCount(s: SessionContext): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(notifications)
+    .where(and(eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId), isNull(notifications.readAt)));
+  return row?.n ?? 0;
+}
+
+/** Marks one notification read and returns where it points, or null if it is not yours. */
+export async function openNotification(s: SessionContext, id: string): Promise<string | null> {
+  assertId(id, 'Notification');
+  const [row] = await db
+    .update(notifications)
+    .set({ readAt: sql`coalesce(${notifications.readAt}, now())` })
+    .where(and(eq(notifications.id, id), eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId)))
+    .returning({ href: notifications.href });
+  return row?.href ?? null;
+}
+
+export async function markAllNotificationsRead(s: SessionContext) {
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(and(eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId), isNull(notifications.readAt)));
+}
+
+/**
+ * Opening the thing a notification is about counts as reading it, so the
+ * list never nags about what you have already seen.
+ */
+export async function markNotificationsReadFor(s: SessionContext, href: string) {
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(notifications.userId, s.userId),
+        eq(notifications.workspaceId, s.workspaceId),
+        eq(notifications.href, href),
+        isNull(notifications.readAt),
+      ),
+    );
+}
+
+/** The signed-in person's email settings (they are the person's, across labs). */
+export async function getNotifyPrefs(s: SessionContext): Promise<{ pace: Pace; kinds: NotifyKind[] }> {
+  const [row] = await db.select({ pace: users.notifyEmail, kinds: users.notifyKinds }).from(users).where(eq(users.id, s.userId)).limit(1);
+  return { pace: row && isPace(row.pace) ? row.pace : 'hourly', kinds: parseKinds(row?.kinds) };
+}
+
+export async function setNotifyPrefs(s: SessionContext, prefs: { pace: Pace; kinds: NotifyKind[] }) {
+  await db.update(users).set({ notifyEmail: prefs.pace, notifyKinds: prefs.kinds.join(','), updatedAt: new Date() }).where(eq(users.id, s.userId));
+}
+
+/*
+ * The email batch job has no session: it runs for everyone, from the cron
+ * route or after a request. It reads only what it sends to each person, about
+ * their own notifications, and writes only the "emailed" marks.
+ */
+
+/** Everyone with unread notifications not yet emailed, with what the batch needs. */
+export async function pendingNotificationEmails() {
+  return db
+    .select({
+      id: notifications.id,
+      userId: notifications.userId,
+      kind: notifications.kind,
+      title: notifications.title,
+      body: notifications.body,
+      href: notifications.href,
+      createdAt: notifications.createdAt,
+      labName: workspaces.name,
+      email: users.email,
+      name: users.name,
+      pace: users.notifyEmail,
+      kinds: users.notifyKinds,
+      lastEmailedAt: users.notifyEmailedAt,
+    })
+    .from(notifications)
+    .innerJoin(users, eq(users.id, notifications.userId))
+    .innerJoin(workspaces, eq(workspaces.id, notifications.workspaceId))
+    .where(and(isNull(notifications.readAt), isNull(notifications.emailedAt)))
+    .orderBy(notifications.createdAt)
+    .limit(2000);
+}
+
+/** Marks notifications handled by the email job, and when the person was last emailed. */
+export async function markNotificationsEmailed(userId: string, ids: string[], emailed: boolean) {
+  if (!ids.length) return;
+  await db.update(notifications).set({ emailedAt: new Date() }).where(and(eq(notifications.userId, userId), inArray(notifications.id, ids)));
+  if (emailed) await db.update(users).set({ notifyEmailedAt: new Date() }).where(eq(users.id, userId));
+}

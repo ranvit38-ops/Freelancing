@@ -5,7 +5,9 @@ import { Button } from '@/components/ui';
 import { logoutAction } from '@/server/actions/auth';
 import { switchWorkspaceAction } from '@/server/actions/workspace';
 import { listMyWorkspaces } from '@/server/auth';
-import { listDmThreads, listWorkspaceMembers } from '@/server/queries';
+import { after } from 'next/server';
+import { listDmThreads, listWorkspaceMembers, unreadNotificationCount } from '@/server/queries';
+import { nudgeNotificationEmails } from '@/server/notify-email';
 import { isOwner } from '@/server/owner';
 import { ephemeralUploads, ephemeralUploadsWarning, pilotBanner, pilotMode } from '@/lib/pilot';
 import { LabBotPanel } from '@/components/labbot-panel';
@@ -22,6 +24,7 @@ import { workspacePlan } from '@/server/paywall';
  */
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Home' },
+  { href: '/notifications', label: 'Notifications' },
   { href: '/start', label: 'Start here' },
   { href: '/projects', label: 'Projects' },
   { href: '/protocols', label: 'Protocols' },
@@ -56,11 +59,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await requireSession();
   // Read access is never blocked, only writes. The banner says what applies.
   const { plan, writable, state } = await workspacePlan(session);
-  const [myWorkspaces, dmThreads, members] = await Promise.all([
+  const [myWorkspaces, dmThreads, members, unreadNotes] = await Promise.all([
     listMyWorkspaces(),
     listDmThreads(session),
     listWorkspaceMembers(session),
+    unreadNotificationCount(session),
   ]);
+  // Batched notification emails that are due go out after this page is sent,
+  // so a deployment without a cron job still delivers them.
+  after(() => nudgeNotificationEmails());
 
   // The owner link is added for the owner alone. Everyone else never sees the
   // route exists, and the page itself refuses them regardless of the nav.
@@ -75,7 +82,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Unread direct messages, including files shared with just you, show on
   // Chat: a share nobody notices is a share nobody opens.
   const unreadDms = dmThreads.filter((t) => t.unread).length;
-  const items = navItems;
+  const items = navItems.map((item) =>
+    item.href === '/notifications' && unreadNotes ? { ...item, badge: unreadNotes } : item,
+  );
   const together = togetherItems.map((item) =>
     item.href === '/chat' && unreadDms ? { ...item, badge: unreadDms } : item,
   );
@@ -129,6 +138,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="flex items-center gap-2 font-semibold tracking-tight">
             <span aria-hidden className="h-5 w-5 rounded-md bg-accent" />
             Labquill
+          </span>
+          <span className="ml-auto mr-3 flex items-center gap-1">
+            {unreadNotes ? (
+              <Link
+                href="/notifications"
+                className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-fg"
+                aria-label={`${unreadNotes} unread notification${unreadNotes === 1 ? '' : 's'}`}
+              >
+                {unreadNotes}
+              </Link>
+            ) : null}
           </span>
           <span className="text-sm text-muted group-open:hidden">Menu</span>
           <span className="hidden text-sm text-muted group-open:inline">Close</span>

@@ -676,6 +676,31 @@ suite('sharing with chosen people, and direct messages', () => {
     expect(forDee).not.toContain('here you go');
     expect(forDee).not.toContain('for-cole.txt');
   });
+  it('notifies only the people a message is aimed at, and never outside the DM or the lab', async () => {
+    const { dmKey } = await import('@/lib/dm');
+    const before = async (who: SessionContext) => (await ctx.q.listNotifications(who)).length;
+    const [cole0, dee0, b0] = [await before(cole), await before(dee), await before(ctx.sessionB)];
+    // A DM to Cole that names Dee: Cole hears about it, Dee (not in the DM) does not.
+    await ctx.q.postMessage(ctx.sessionA, { dmKey: dmKey([ctx.sessionA.userId, cole.userId]), parentId: null, body: 'thoughts, @Dee?' });
+    // A lab message naming Dee notifies Dee; plain chatter notifies nobody.
+    await ctx.q.postMessage(ctx.sessionA, { workspace: true, parentId: null, body: '@Dee the gel is ready' });
+    await ctx.q.postMessage(ctx.sessionA, { workspace: true, parentId: null, body: 'coffee in 474' });
+
+    const coleNew = (await ctx.q.listNotifications(cole)).slice(0, (await before(cole)) - cole0);
+    const deeNew = (await ctx.q.listNotifications(dee)).slice(0, (await before(dee)) - dee0);
+    expect(coleNew.map((n) => n.kind)).toEqual(['message']);
+    expect(deeNew.map((n) => n.title)).toEqual([`${ctx.sessionA.userName} mentioned you in #lab`]);
+    expect(await before(ctx.sessionB)).toBe(b0);
+    // Nobody is notified about their own message.
+    expect((await ctx.q.listNotifications(ctx.sessionA)).some((n) => n.body?.includes('the gel is ready'))).toBe(false);
+
+    // Opening it marks it read, and only its owner can.
+    const id = deeNew[0]!.id;
+    expect(await ctx.q.openNotification(cole, id)).toBeNull();
+    expect(await ctx.q.openNotification(dee, id)).toBe('/chat');
+    expect(await ctx.q.unreadNotificationCount(dee)).toBe(0);
+  });
+
   it('refuses a DM with someone outside the lab', async () => {
     const { dmKey } = await import('@/lib/dm');
     await expect(

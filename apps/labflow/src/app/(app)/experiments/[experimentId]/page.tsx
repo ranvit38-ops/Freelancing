@@ -36,6 +36,7 @@ import {
   setExperimentStatusAction,
 } from '@/server/actions/records';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
+import { markNotificationsReadFor } from '@/server/queries';
 import { getExperimentRecord, listDiscussion,
   lotsForExperiment,
   lotOptions,
@@ -66,6 +67,8 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
   }
 
   const { experiment, conditions, samples, result, notes, files, datasets } = record;
+  // Seeing the record counts as reading what you were notified about on it.
+  await markNotificationsReadFor(session, `/experiments/${experiment.id}`);
   // Linking needs the picker (API key and app id); refreshing only a token.
   const drive = {
     clientId: process.env.GOOGLE_API_KEY ? (process.env.GOOGLE_CLIENT_ID ?? null) : null,

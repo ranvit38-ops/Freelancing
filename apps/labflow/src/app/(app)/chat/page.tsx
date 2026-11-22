@@ -4,7 +4,7 @@ import { PageHeader, cx } from '@/components/ui';
 import { UpgradePanel } from '@/components/upgrade-panel';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
-import { listDiscussion, listDmThreads, listExperiments, listProjects, listWorkspaceMembers } from '@/server/queries';
+import { listDiscussion, listDmThreads, listExperiments, listProjects, listWorkspaceMembers, markNotificationsReadFor } from '@/server/queries';
 import { dmKey, dmParticipants } from '@/lib/dm';
 
 export const metadata = { title: 'Chat' };
@@ -71,6 +71,11 @@ export default async function ChatPage(
     : project
       ? { key: project.id, name: slug(project.name), projectId: project.id, dm: false }
       : { key: 'lab', name: 'lab', projectId: null, dm: false };
+  // Opening the conversation reads what you were notified about in it.
+  await markNotificationsReadFor(
+    session,
+    requestedDm ? `/chat?dm=${encodeURIComponent(requestedDm)}` : project ? `/chat?c=${encodeURIComponent(project.id)}` : '/chat',
+  );
 
   const messages = await listDiscussion(
     session,
