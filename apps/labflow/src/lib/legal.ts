@@ -16,7 +16,7 @@
  */
 
 /** Bump whenever either document changes in substance. */
-export const LEGAL_EFFECTIVE = '31 October 2026';
+export const LEGAL_EFFECTIVE = '24 November 2026';
 
 export type LegalIdentity = {
   /** Who "we" are. Falls back to a description when not set. */

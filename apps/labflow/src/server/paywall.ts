@@ -8,8 +8,11 @@ import {
   toSubscriptionState,
   type Limits,
   type PlanId,
+  paymentOverdue,
   type SubscriptionState,
 } from '@/lib/plans';
+import { syncSubscriptionFromPayPal } from './billing-sync';
+import { billingProblem } from './paypal';
 import { PILOT_PLAN, pilotMode } from '@/lib/pilot';
 import { getSubscription, getSubscriptionByWorkspace, usageCounts } from './queries';
 import type { SessionContext } from './auth';
@@ -88,13 +91,34 @@ async function planFrom(
     };
   }
 
-  const state = toSubscriptionState(await load());
+  let row = await load();
+  let state = toSubscriptionState(row);
+  // The month ran out with no renewal recorded. Before treating that as "not
+  // paid", ask PayPal: a renewal whose webhook was lost must not cost a lab
+  // that paid its plan. Asked at most every 15 minutes per lab.
+  if (row?.paypalSubscriptionId && state && paymentOverdue(state) && !billingProblem() && dueForCheck(row.workspaceId)) {
+    try {
+      await syncSubscriptionFromPayPal(row.workspaceId, row.paypalSubscriptionId);
+      row = await load();
+      state = toSubscriptionState(row);
+    } catch (error) {
+      console.warn(`[labflow] could not re-check the plan with PayPal: ${(error as Error).message}`);
+    }
+  }
   return {
     state,
     plan: effectivePlan(state),
     limits: limitsFor(state),
     writable: canWrite(state),
   };
+}
+
+const lastChecked = new Map<string, number>();
+function dueForCheck(workspaceId: string): boolean {
+  const now = Date.now();
+  if (now - (lastChecked.get(workspaceId) ?? 0) < 15 * 60_000) return false;
+  lastChecked.set(workspaceId, now);
+  return true;
 }
 
 /** Read access is never blocked; only writes are. */

@@ -1,3 +1,4 @@
+import { RichText } from '@/components/rich-text';
 import { FileLink, FileThumb } from '@/components/file-link';
 import Link from 'next/link';
 import { StoredImage } from '@/components/stored-image';
@@ -265,7 +266,7 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
                         </form>
                       ) : null}
                     </div>
-                    <p className="whitespace-pre-wrap text-sm leading-6">{note.body}</p>
+                    <RichText text={note.body} />
                   </li>
                 ))}
               </ul>

@@ -95,6 +95,7 @@ export default function TermsPage() {
           'Payments are not refunded for partly used periods, except where the law requires it.',
           'We will email the lab\'s owners at least 30 days before a price change applies to their renewal.',
           `A person's first lab gets ${TRIAL_DAYS} days of the Lab plan free, without a card. When the trial ends the lab moves to the free plan. Nothing is charged unless you choose a plan.`,
+          'Each period must be paid for. If a renewal payment does not go through, PayPal retries it, and the plan keeps running for 3 days after it was due; if it is still unpaid after that, the plan stops. Paying, or choosing a plan again, turns it back on.',
           'If a paid plan ends, the lab becomes read-only. Nothing is deleted because a payment stopped.',
         ],
       ],

@@ -29,7 +29,7 @@ export function PasteDataset({ experimentId }: { experimentId: string }) {
           hint="Include the header row. qPCR Ct values, read counts, yields or any measurements work; you get checks and a suggested next step."
           error={state.fieldErrors?.table}
         >
-          <Textarea id="paste-table" name="table" rows={6} required className="font-mono text-xs" />
+          <Textarea data-no-format id="paste-table" name="table" rows={6} required className="font-mono text-xs" />
         </Field>
         <SubmitButton size="sm" pendingLabel="Checking…">
           Add and check it

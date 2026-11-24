@@ -1,5 +1,6 @@
 'use client';
 
+import { RichText } from './rich-text';
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { catchUpAction, type CatchUpState } from '@/server/actions/ai';
@@ -21,7 +22,7 @@ export function CatchUp({ configured }: { configured: boolean }) {
   return (
     <form action={action} className="space-y-3 px-5 pb-5">
       {state.briefing ? (
-        <div className="whitespace-pre-wrap rounded-lg bg-raised px-4 py-3 text-sm leading-6">{state.briefing}</div>
+        <RichText text={state.briefing} className="space-y-1 rounded-lg bg-raised px-4 py-3 text-sm leading-6" />
       ) : (
         <p className="text-sm text-muted">
           The whole lab on one page, written from what it has recorded.

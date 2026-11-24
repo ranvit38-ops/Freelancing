@@ -200,9 +200,33 @@ function trialLive(sub: SubscriptionState, now: Date): boolean {
   return Boolean(sub.trialEndsAt) && new Date(sub.trialEndsAt!).getTime() > now.getTime();
 }
 
+/**
+ * Days after a payment was due that the plan keeps running while PayPal
+ * retries the card. After that, no payment means no plan.
+ */
+export const PAYMENT_GRACE_DAYS = 3;
+
+/** When the plan stops if this month's payment never arrives. */
+export function paymentDeadline(sub: SubscriptionState): Date | null {
+  if (!sub.currentPeriodEnd) return null;
+  return new Date(new Date(sub.currentPeriodEnd).getTime() + PAYMENT_GRACE_DAYS * 86_400_000);
+}
+
+/** The month (or year) ran out and the next payment has not arrived. */
+export function paymentOverdue(sub: SubscriptionState, now: Date = new Date()): boolean {
+  if (sub.status !== 'active' && sub.status !== 'past_due') return false;
+  return Boolean(sub.currentPeriodEnd) && new Date(sub.currentPeriodEnd!).getTime() <= now.getTime();
+}
+
 function paidActive(sub: SubscriptionState, now: Date): boolean {
-  // past_due is a grace period, not a lockout, the card retry may still work.
-  if (sub.status === 'active' || sub.status === 'past_due') return true;
+  // Paid up to the end of the period, plus a few days while PayPal retries a
+  // failed card. Every renewal moves the period end on; a month that is never
+  // paid for ends the plan. With no period end known yet (PayPal still
+  // setting up), the status is trusted.
+  if (sub.status === 'active' || sub.status === 'past_due') {
+    const deadline = paymentDeadline(sub);
+    return !deadline || deadline.getTime() > now.getTime();
+  }
   // Cancelled, but the period already paid for has not ended: the Terms
   // promise the plan until then, and nothing more is charged.
   return sub.status === 'canceled' && paidThrough(sub, now);
@@ -237,8 +261,8 @@ export function usable(sub: SubscriptionState | null, now: Date = new Date()): b
   return canWrite(sub, now);
 }
 
-export function seatsRemaining(sub: SubscriptionState | null, members: number, pending: number) {
-  return Math.max(0, seatLimit(sub) - members - pending);
+export function seatsRemaining(sub: SubscriptionState | null, members: number, pending: number, now: Date = new Date()) {
+  return Math.max(0, seatLimit(sub, now) - members - pending);
 }
 
 /** Bytes formatted for a limit line: "50 MB", "10 GB", "Unlimited". */
@@ -260,8 +284,13 @@ export function subscriptionNotice(
     }
     return 'This lab is read-only because its plan has ended. Everything already recorded stays readable, and nothing has been deleted.';
   }
-  if (sub.status === 'past_due') {
-    return 'The last payment failed. Update the card to avoid losing access.';
+  const deadline = paymentDeadline(sub);
+  const day = (d: Date) => d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+  if ((sub.status === 'past_due' || sub.status === 'active') && deadline && deadline.getTime() <= now.getTime()) {
+    return 'This lab is read-only because its last payment never arrived. Everything already recorded stays readable. Pay in PayPal, or choose a plan, to write again.';
+  }
+  if (sub.status === 'past_due' || paymentOverdue(sub, now)) {
+    return `This month's payment has not gone through. Fix it in PayPal by ${deadline ? day(deadline) : 'the next few days'}, or the plan stops and the lab becomes read-only.`;
   }
   if (sub.status === 'trialing') {
     if (!sub.trialEndsAt) return null;

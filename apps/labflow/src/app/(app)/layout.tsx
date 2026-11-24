@@ -13,6 +13,7 @@ import { isOwner } from '@/server/owner';
 import { ephemeralUploads, ephemeralUploadsWarning, pilotBanner, pilotMode } from '@/lib/pilot';
 import { LabBotPanel } from '@/components/labbot-panel';
 import { DictationDock } from '@/components/dictation-dock';
+import { FormatBar } from '@/components/format-bar';
 import { BackBar } from '@/components/back-bar';
 import { requireSession } from '@/server/authz';
 import { workspacePlan } from '@/server/paywall';
@@ -245,6 +246,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </main>
       <DictationDock />
+      <FormatBar />
       <LabBotPanel
         configured={await labAiReady(session)}
         people={members.map((m) => ({ id: m.id, name: m.name ?? m.email, you: m.id === session.userId }))}

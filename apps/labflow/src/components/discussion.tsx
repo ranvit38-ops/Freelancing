@@ -1,5 +1,6 @@
 'use client';
 
+import { RichText } from './rich-text';
 import { FileLink } from './file-link';
 import { useCallback, useRef, useState } from 'react';
 import { Button, Card, CardHeader, EmptyState, PaperclipIcon, Textarea, cx } from './ui';
@@ -269,7 +270,7 @@ function Message({
           </form>
         ) : null}
       </div>
-      <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{message.body}</p>
+      <RichText text={message.body} className="mt-1 space-y-1 break-words text-sm leading-6" />
       {message.fileId && message.fileName ? (
         <FileLink
           id={message.fileId}

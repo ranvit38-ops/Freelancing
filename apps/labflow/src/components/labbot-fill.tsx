@@ -1,5 +1,6 @@
 'use client';
 
+import { RichText } from './rich-text';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { PlannedEvent, PlannedExperiment, PlannedNote, PlannedSamples, PlannedTask } from '@/server/ai/assistant';
@@ -140,7 +141,7 @@ function NoteCard({ note, label }: { note: PlannedNote; label: string }) {
   const save = useSave();
   return (
     <Card title={`Note on ${label}`}>
-      <p className="whitespace-pre-wrap break-words">{note.body}</p>
+      <RichText text={note.body} className="space-y-1 break-words" />
       {save.saved ? null : (
         <Button type="button" size="sm" disabled={save.busy} onClick={() => void save.run(() => saveNoteAction(note))}>
           {save.busy ? 'Saving…' : 'Add this note'}

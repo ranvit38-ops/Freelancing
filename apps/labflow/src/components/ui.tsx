@@ -1,3 +1,4 @@
+import { RichText } from './rich-text';
 import Link from 'next/link';
 import { forwardRef } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
@@ -292,5 +293,5 @@ export function DefinitionList({
 /** Renders researcher-written prose with its line breaks intact. */
 export function Prose({ text }: { text: string | null }) {
   if (!text?.trim()) return <span className="text-subtle">Not recorded</span>;
-  return <p className="whitespace-pre-wrap text-sm leading-6">{text}</p>;
+  return <RichText text={text} />;
 }

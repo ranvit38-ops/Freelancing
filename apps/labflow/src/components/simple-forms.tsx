@@ -32,7 +32,7 @@ export function SampleForm({
           hint="However your lab labels samples. For several at once, put one per line, separate them with commas, or give a range like S-101 to S-120. Everything below applies to all of them."
           error={state.fieldErrors?.code}
         >
-          <Textarea
+          <Textarea data-no-format
             id="code"
             name="code"
             placeholder={'S-104\nor S-101 to S-120'}

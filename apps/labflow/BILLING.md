@@ -88,6 +88,19 @@ payment (three tries) before suspending. Labquill reads every change from
 PayPal through the webhook, and the **Refresh from PayPal** button on Billing
 re-reads it if a webhook was ever missed.
 
+Every month (or year) has to be paid for. Each renewal moves the plan's end
+date on; if a payment has not arrived 3 days after it was due
+(`PAYMENT_GRACE_DAYS` in `src/lib/plans.ts`), the plan stops and the lab
+becomes read-only. Nothing is deleted. Before stopping a plan, Labquill asks
+PayPal directly (at most every 15 minutes per lab), so a lost webhook never
+cuts off a lab that paid. Paying in PayPal, or choosing a plan again, turns it
+back on.
+
+Cancelling stops all future charges at once; the plan runs to the end of the
+period already paid for, then stops. Choosing a different plan while paying
+moves the same PayPal subscription to it (PayPal's "revise"), and the site
+switches to the new plan as soon as PayPal confirms it.
+
 Labquill also emails, by law and by courtesy:
 
 - the renewal terms and how to cancel, when a plan starts or changes;

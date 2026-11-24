@@ -33,7 +33,7 @@ export function InviteForm({ canInvite }: { canInvite: boolean }) {
             hint="One or several: paste a list separated by commas or new lines."
             error={state.fieldErrors?.email}
           >
-            <Textarea
+            <Textarea data-no-format
               id="invite-email"
               name="email"
               required

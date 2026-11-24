@@ -1,3 +1,4 @@
+import { RichText } from '@/components/rich-text';
 import Link from 'next/link';
 import { LocalDateTime } from '@/components/local-date-time';
 import { Card, CardHeader, EmptyState, PageHeader } from '@/components/ui';
@@ -119,7 +120,7 @@ export default async function ActivityPage(
                   )}
                 </p>
                 {r.detail ? (
-                  <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-muted">{r.detail}</p>
+                  <RichText text={r.detail} className="mt-0.5 space-y-1 break-words text-sm text-muted" />
                 ) : null}
                 <p className="mt-0.5 text-xs text-subtle">
                   <LocalDateTime value={r.createdAt} />

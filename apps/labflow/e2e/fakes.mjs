@@ -299,6 +299,14 @@ serve(4558, (req, res, body) => {
     subs.set(id, { id, status: 'APPROVAL_PENDING', plan_id: body.plan_id, custom_id: body.custom_id, subscriber: body.subscriber, returnUrl: body.application_context.return_url });
     return json(res, 201, { id, status: 'APPROVAL_PENDING', links: [{ rel: 'approve', href: `http://127.0.0.1:4558/approve/${id}` }] });
   }
+  // Test control: what PayPal would say after a renewal failed or went through.
+  const set = /^\/__set\/(I-[A-Z0-9]+)$/.exec(path);
+  if (set && subs.has(set[1])) {
+    const sub = subs.get(set[1]);
+    if (body.status) sub.status = body.status;
+    if (body.nextInDays !== undefined) sub.next = days(body.nextInDays);
+    return json(res, 200, { ok: true });
+  }
   const m = /^\/v1\/billing\/subscriptions\/(I-[A-Z0-9]+)(\/(cancel|revise))?$/.exec(path);
   if (m) {
     const sub = subs.get(m[1]);

@@ -650,6 +650,40 @@ await step('attach a link, add a note, change status, post a message', async () 
   await P.getByRole('button', { name: 'Post message' }).click();
   await expectText(P, 'repeat this tomorrow');
 });
+await step('format a note: bold, italic, a list and an indent, with the bar and the keyboard', async () => {
+  // A fresh page: the previous step's saves can still be redrawing this one.
+  await P.goto(`${BASE}/experiments/${ids.experiment}`);
+  await settled(P);
+  const box = P.locator('#note-body');
+  await box.click();
+  const bar = P.locator('[data-format-bar]');
+  await bar.getByRole('button', { name: 'Bold' }).waitFor({ timeout: 5000 });
+  await box.pressSequentially('Spin');
+  await box.press('Shift+Home');
+  await bar.getByRole('button', { name: 'Bold' }).click();
+  await box.press('End');
+  await box.pressSequentially(' at ');
+  await box.press('ControlOrMeta+i');
+  await box.pressSequentially('4 C');
+  await box.press('End');
+  await box.press('Shift+Enter');
+  await bar.getByRole('button', { name: 'Numbered list' }).click();
+  await box.pressSequentially('thaw');
+  await box.press('Enter');
+  await box.pressSequentially('spin');
+  await box.press('Enter');
+  await box.press('Enter');
+  await box.pressSequentially('slow');
+  await bar.getByRole('button', { name: 'Indent' }).click();
+  const typed = await box.inputValue();
+  assert(typed === '**Spin** at *4 C*\n1. thaw\n2. spin\n  slow', `typed ${JSON.stringify(typed)}`);
+  await P.getByRole('button', { name: 'Add note' }).click();
+  const note = P.locator('#main strong', { hasText: 'Spin' }).first();
+  await note.waitFor({ timeout: 10_000 });
+  assert(await P.locator('#main em', { hasText: '4 C' }).count(), 'italic not shown');
+  await expectText(P, 'thaw');
+  assert(!(await P.locator('#main').innerText()).includes('**Spin**'), 'the markers show instead of bold');
+});
 await step('edit the experiment', async () => {
   await P.goto(`${BASE}/experiments/${ids.experiment}/edit`);
   await P.fill('#nextSteps', 'Repeat with batch 2.');
@@ -883,9 +917,13 @@ await step('the first Tab reaches "Skip to main content", which lands on the pag
 await step('upload to Files, then file it under the project', async () => {
   await P.goto(`${BASE}/files`);
   await P.locator('input[aria-label="Choose files to upload"]').setInputFiles(file('lab-safety.txt', 'text/plain', Buffer.from('Wear goggles.')));
-  await expectText(P, 'Shared with the lab');
-  await P.reload();
-  const row = P.locator('li', { hasText: 'lab-safety.txt' }).first();
+  // Wait for the upload itself, not a heading that is always on the page.
+  const listed = P.locator('#main li', { has: P.locator('a[data-file-link]', { hasText: 'lab-safety.txt' }) });
+  for (let i = 0; i < 20 && !(await listed.count()); i++) {
+    await P.waitForTimeout(500);
+    await P.reload();
+  }
+  const row = listed.first();
   await row.getByRole('button', { name: 'File under…' }).click();
   await row.locator('select[name=target]').selectOption(`project:${ids.project}`);
   await row.locator('input[name=folder]').fill('Metadata');

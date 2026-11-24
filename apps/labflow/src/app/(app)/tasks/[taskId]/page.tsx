@@ -1,3 +1,4 @@
+import { RichText } from '@/components/rich-text';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Discussion } from '@/components/discussion';
@@ -117,7 +118,7 @@ export default async function TaskPage(props: { params: Promise<{ taskId: string
           {task.detail ? (
             <Card>
               <CardHeader title="Notes" description="From whoever added this." />
-              <p className="whitespace-pre-wrap px-5 py-4 text-sm text-muted">{task.detail}</p>
+              <RichText text={task.detail} className="space-y-1 px-5 py-4 text-sm text-muted" />
             </Card>
           ) : null}
 

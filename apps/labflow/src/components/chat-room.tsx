@@ -1,5 +1,6 @@
 'use client';
 
+import { RichText } from './rich-text';
 import { FileLink } from './file-link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscussionMessage } from '@/server/queries';
@@ -514,9 +515,7 @@ export function ChatRoom({
                       </span>
                     </p>
                     {o.replyToName ? <p className="text-xs text-subtle">Replying to {o.replyToName}</p> : null}
-                    <p className={`whitespace-pre-wrap break-words text-sm leading-6 ${o.status === 'sending' ? 'opacity-60' : ''}`}>
-                      {o.body}
-                    </p>
+                    <RichText text={o.body} className={`space-y-1 break-words text-sm leading-6 ${o.status === 'sending' ? 'opacity-60' : ''}`} />
                     {o.fileName ? <p className="text-xs text-subtle">Attached: {o.fileName}</p> : null}
                     {o.status === 'failed' ? (
                       <p className="mt-1 flex flex-wrap items-center gap-3 text-xs">
@@ -692,9 +691,11 @@ function Message({
               <span className="ml-2 text-xs text-subtle">{mounted ? time(message.createdAt) : ''}</span>
             </p>
           )}
-          <p className="whitespace-pre-wrap break-words text-sm leading-6">
-            <LinkedText text={message.body} records={records} projectId={projectId} />
-          </p>
+          <RichText
+            text={message.body}
+            className="space-y-1 break-words text-sm leading-6"
+            renderText={(t, k) => <LinkedText key={k} text={t} records={records} projectId={projectId} />}
+          />
           {message.fileId && isImage(message.fileName) ? (
             <a href={`/files/${message.fileId}`} target="_blank" rel="noopener" className="mt-1 block w-fit">
               <StoredImage
@@ -730,9 +731,11 @@ function Message({
                       Delete
                     </button>
                   ) : null}
-                  <p className="whitespace-pre-wrap break-words leading-6">
-                    <LinkedText text={r.body} records={records} projectId={projectId} />
-                  </p>
+                  <RichText
+                    text={r.body}
+                    className="space-y-1 break-words leading-6"
+                    renderText={(t, k) => <LinkedText key={k} text={t} records={records} projectId={projectId} />}
+                  />
                   {r.fileId ? (
                     <FileLink id={r.fileId} filename={r.fileName ?? 'File'} className="inline-flex items-center gap-1 text-xs font-medium text-accent">
                       <PaperclipIcon /> {r.fileName ?? 'File'}

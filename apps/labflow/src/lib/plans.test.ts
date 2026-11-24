@@ -37,8 +37,28 @@ describe('canWrite', () => {
     expect(usable(null, NOW)).toBe(true);
   });
 
-  it('keeps a past-due workspace working, since a failed card is not a lockout', () => {
+  it('keeps a past-due workspace working while the month it paid for runs', () => {
     expect(usable({ ...base, status: 'past_due' }, NOW)).toBe(true);
+  });
+
+  it('stops the plan when a month is never paid for, after a few days for PayPal to retry', async () => {
+    const { PAYMENT_GRACE_DAYS, canWrite } = await import('./plans');
+    const due = '2026-04-29T00:00:00Z'; // the month ended two days ago
+    expect(PAYMENT_GRACE_DAYS).toBe(3);
+    // Inside the grace days: still the paid plan, with a warning.
+    for (const status of ['active', 'past_due'] as const) {
+      expect(effectivePlan({ ...base, status, currentPeriodEnd: due }, NOW)).toBe('lab');
+    }
+    expect(subscriptionNotice({ ...base, status: 'active', currentPeriodEnd: due }, NOW)).toContain('payment has not gone through');
+    // Past them: no payment, no plan. Read-only, nothing deleted.
+    for (const status of ['active', 'past_due'] as const) {
+      const unpaid = { ...base, status, currentPeriodEnd: '2026-04-20T00:00:00Z' };
+      expect(effectivePlan(unpaid, NOW)).toBe('free');
+      expect(canWrite(unpaid, NOW)).toBe(false);
+      expect(subscriptionNotice(unpaid, NOW)).toContain('read-only');
+    }
+    // A renewal moves the period on, and the plan is back.
+    expect(effectivePlan({ ...base, status: 'active', currentPeriodEnd: '2026-05-29T00:00:00Z' }, NOW)).toBe('lab');
   });
 
   it('gives a live trial the Lab plan, and an expired one the free plan', () => {
@@ -57,9 +77,9 @@ describe('canWrite', () => {
 
 describe('seatLimit', () => {
   it('gives each plan exactly the people it covers, with nothing to buy on top', () => {
-    expect(seatLimit(base)).toBe(PLANS.lab.seats);
-    expect(seatLimit({ ...base, plan: 'group' })).toBe(PLANS.group.seats);
-    expect(seatLimit({ ...base, plan: 'department' })).toBe(PLANS.department.seats);
+    expect(seatLimit(base, NOW)).toBe(PLANS.lab.seats);
+    expect(seatLimit({ ...base, plan: 'group' }, NOW)).toBe(PLANS.group.seats);
+    expect(seatLimit({ ...base, plan: 'department' }, NOW)).toBe(PLANS.department.seats);
   });
 
   it('gives a live trial the smallest paid plan, so a lab can try it as a team', () => {
@@ -76,7 +96,7 @@ describe('seatLimit', () => {
 
 describe('seatsRemaining', () => {
   it('counts members and outstanding invites against the limit', () => {
-    expect(seatsRemaining(base, 2, 1)).toBe(PLANS.lab.seats - 3);
+    expect(seatsRemaining(base, 2, 1, NOW)).toBe(PLANS.lab.seats - 3);
   });
 
   it('never goes negative when a plan is downgraded below current headcount', () => {
@@ -99,7 +119,7 @@ describe('subscriptionNotice', () => {
   });
 
   it('warns on a failed payment, and says read-only rather than deleted', () => {
-    expect(subscriptionNotice({ ...base, status: 'past_due' }, NOW)).toContain('payment failed');
+    expect(subscriptionNotice({ ...base, status: 'past_due' }, NOW)).toContain('payment has not gone through');
     const lapsed = subscriptionNotice({ ...base, status: 'canceled', currentPeriodEnd: '2026-04-01' }, NOW);
     expect(lapsed).toContain('read-only');
     expect(lapsed).toContain('stays readable');

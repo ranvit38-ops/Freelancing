@@ -126,6 +126,21 @@ await step('changing plan goes back through PayPal and confirms the new price', 
   assert((await mailTo()).some((m) => /Group plan/.test(m.body.subject) && /\$990 a year/.test(m.body.text)), 'no confirmation of the new price');
 });
 
+await step('a month that is never paid for stops the plan; paying turns it back on', async () => {
+  const id = await subscriptionId();
+  const nudge = (n) => webhook({ id: `WH-EVT-${Date.now()}-${n}`, event_type: 'BILLING.SUBSCRIPTION.UPDATED', resource_type: 'subscription', resource: { id } }, 'fake-good-signature');
+  // The renewal was due 10 days ago and PayPal gave up retrying.
+  await fetch(`${PAYPAL}/__set/${id}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'SUSPENDED', nextInDays: -10 }) });
+  assert((await nudge(1)).status === 200, 'webhook refused');
+  await page.goto(`${BASE}/billing`);
+  await expectText('read-only because its last payment never arrived');
+  // Paid in PayPal: the period moves on and the plan is back.
+  await fetch(`${PAYPAL}/__set/${id}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'ACTIVE', nextInDays: 365 }) });
+  assert((await nudge(2)).status === 200, 'webhook refused');
+  await page.reload();
+  assert(!(await page.locator('body').innerText()).includes('read-only because'), 'still read-only after paying');
+});
+
 await step('cancelling inside Labquill stops payment but keeps the plan until the paid period ends', async () => {
   await page.goto(`${BASE}/billing`);
   // The box must be ticked: the browser will not send the form without it.

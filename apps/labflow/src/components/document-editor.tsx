@@ -299,7 +299,7 @@ function ReviseWithLabBot({
       <label htmlFor="revise-instruction" className="sr-only">
         What to change
       </label>
-      <Textarea
+      <Textarea data-no-format
         id="revise-instruction"
         rows={3}
         value={instruction}
