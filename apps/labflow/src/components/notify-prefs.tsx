@@ -36,9 +36,8 @@ export function NotifyPrefs({ pace, kinds, mailReady }: { pace: Pace; kinds: Not
         </div>
       </fieldset>
       <p className="text-xs text-muted">
-        One email holds everything you have not seen, and it waits a few minutes first, so anything you read in the app
-        is never emailed. Every notification also shows on the Notifications page, whatever you pick here.
-        {mailReady ? '' : ' Email is not set up on this deployment yet, so for now they only show in the app.'}
+        One email at a time, only for what you have not already seen in the app.
+        {mailReady ? '' : ' Email is not set up here yet, so for now they only show in the app.'}
       </p>
       <div className="flex items-center gap-3">
         <SubmitButton size="sm" tone="secondary" pendingLabel="Saving…">

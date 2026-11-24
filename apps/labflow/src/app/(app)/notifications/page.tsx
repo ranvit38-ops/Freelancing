@@ -54,9 +54,7 @@ export default async function NotificationsPage() {
         title="Notifications"
         description={
           <>
-            Only things aimed at you: a task given to you, a direct message, an @mention, a reply, or a comment on
-            your experiment or task. Email: {PACE_LABEL[prefs.pace].toLowerCase()}, and only for what you have not
-            seen here.{' '}
+            Only things aimed at you. Email: {PACE_LABEL[prefs.pace].toLowerCase()}.{' '}
             <Link href="/settings#notifications" className="font-medium text-accent underline underline-offset-2">
               Change in Settings
             </Link>

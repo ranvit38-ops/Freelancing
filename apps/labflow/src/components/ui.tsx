@@ -77,7 +77,7 @@ export function CardHeader({
     <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
       <div className="min-w-0">
         <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-        {description ? <p className="mt-0.5 text-sm text-muted">{description}</p> : null}
+        {description ? <p className="mt-0.5 text-xs text-muted">{description}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -262,9 +262,9 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 px-6 py-8 text-center">
       <p className="text-sm font-medium">{title}</p>
-      {description ? <p className="max-w-sm text-sm text-muted">{description}</p> : null}
+      {description ? <p className="max-w-sm text-xs text-muted">{description}</p> : null}
       {action}
     </div>
   );

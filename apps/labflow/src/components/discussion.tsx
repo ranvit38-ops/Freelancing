@@ -1,5 +1,6 @@
 'use client';
 
+import { FileLink } from './file-link';
 import { useCallback, useRef, useState } from 'react';
 import { Button, Card, CardHeader, EmptyState, PaperclipIcon, Textarea, cx } from './ui';
 import { SubmitButton } from './submit-button';
@@ -270,16 +271,17 @@ function Message({
       </div>
       <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{message.body}</p>
       {message.fileId && message.fileName ? (
-        <a
-          href={`/api/files/${message.fileId}`}
-          className="mt-2 inline-flex max-w-full items-center gap-2 rounded-lg border border-line bg-raised px-3 py-2 text-xs hover:border-accent/50"
+        <FileLink
+          id={message.fileId}
+          filename={message.fileName}
+          className="mt-2 inline-flex max-w-full items-center gap-2 rounded-lg border border-line bg-raised px-3 py-2 text-xs no-underline hover:border-accent/50"
         >
           <PaperclipIcon />
           <span className="truncate font-medium">{message.fileName}</span>
           {message.fileSize !== null ? (
             <span className="shrink-0 text-subtle">{formatBytes(message.fileSize)}</span>
           ) : null}
-        </a>
+        </FileLink>
       ) : null}
     </div>
   );

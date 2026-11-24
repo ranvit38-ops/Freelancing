@@ -16,6 +16,7 @@ import {
 import { requireSession, NotFoundInWorkspaceError } from '../authz';
 import type { SessionContext } from '../auth';
 import { InUseError } from '../not-found';
+import { canExtractText, fileText } from '@/server/ai/file-text';
 import { FileRejectedError, StorageFullError, isAllowedUpload, maxBytesFor, putFile, removeFile } from '../storage';
 import { UploadRejected, attachStoredFile, storeExperimentFile } from '../uploads';
 import { blockedReason } from '../paywall';
@@ -290,7 +291,7 @@ export async function createSampleAction(
 async function storeProtocolUpload(
   session: SessionContext,
   formData: FormData,
-): Promise<{ fileId: string | null } | { error: string }> {
+): Promise<{ fileId: string | null; text?: string | null } | { error: string }> {
   const upload = formData.get('protocolFile');
   if (!(upload instanceof File) || upload.size === 0) return { fileId: null };
   if (!isAllowedUpload(upload.name)) return { error: `${upload.name} is not a supported file type.` };
@@ -306,7 +307,11 @@ async function storeProtocolUpload(
       byteSize: bytes.byteLength,
       storageKey,
     });
-    return { fileId };
+    // The words of a Word, text or Markdown file become the method, so the
+    // page, search and LabBot all read what the file says. A PDF stays the
+    // method as a file: its text cannot be pulled out reliably here.
+    const text = canExtractText(upload.name) ? await fileText(storageKey, upload.name, async () => bytes) : null;
+    return { fileId, text: text?.trim() || null };
   } catch (error) {
     if (error instanceof StorageFullError || error instanceof FileRejectedError) return { error: error.message };
     throw error;
@@ -333,7 +338,7 @@ export async function createProtocolAction(
       name: parsed.data.name,
       description: parsed.data.description,
       projectId: parsed.data.projectId,
-      body: parsed.data.body,
+      body: parsed.data.body ?? uploaded.text ?? null,
       fileId,
     });
   } catch (error) {
@@ -362,9 +367,22 @@ export async function addProtocolVersionAction(
   if ('error' in uploaded) return uploaded;
   const fileId = uploaded.fileId ?? parsed.data.fileId;
 
+  // A revised file with the method left as it was: the file is the new
+  // method, so its words replace the old ones. Edited text always wins.
+  let body = parsed.data.body;
+  let fromFile = false;
+  if (uploaded.text) {
+    const latest = await guard(() => q.getProtocolWithVersions(session, protocolId));
+    const previous = 'versions' in latest ? (latest.versions[0]?.body ?? '') : '';
+    if (!body || body.trim() === previous.trim()) {
+      body = uploaded.text.slice(0, 20000);
+      fromFile = true;
+    }
+  }
+
   const version = await guard(() =>
     q.addProtocolVersion(session, protocolId, {
-      body: parsed.data.body,
+      body,
       changeNote: parsed.data.changeNote,
       fileId,
     }),
@@ -378,7 +396,12 @@ export async function addProtocolVersionAction(
   // redirect to the current page leaves the form with no state, which threw
   // in the browser after the version had already saved. People then saved
   // it again, and again.
-  return { ok: true, message: `Saved as v${version}.` };
+  return {
+    ok: true,
+    message: fromFile
+      ? `Saved as v${version}. The method now reads from the file. See what changed in the history below.`
+      : `Saved as v${version}.`,
+  };
 }
 
 /* ── deletions ──────────────────────────────────────────────────────────── */
@@ -403,7 +426,10 @@ export async function deleteFileAction(formData: FormData): Promise<void> {
   const session = await requireSession();
   if (await blockedReason(session)) return;
   const experimentId = String(formData.get('experimentId') ?? '');
-  const row = await guard(() => q.deleteFile(session, String(formData.get('fileId') ?? '')));
+  const row = await guard(() => q.deleteFile(session, String(formData.get('fileId') ?? ''))).catch((error) => {
+    if (error instanceof InUseError) redirect('/files?kept=protocol');
+    throw error;
+  });
   if (row && typeof row === 'object' && 'storageKey' in row && row.storageKey) {
     await removeFile(row.storageKey);
   }

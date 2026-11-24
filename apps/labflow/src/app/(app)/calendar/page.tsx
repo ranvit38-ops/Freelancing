@@ -4,6 +4,7 @@ import { EventForm } from '@/components/event-form';
 import { Card, CardHeader, PageHeader, cx } from '@/components/ui';
 import { displayTime, monthGrid, monthKey, monthName, parseMonth, shiftMonth } from '@/lib/calendar';
 import { todayIso } from '@/lib/tasks';
+import { experimentCode } from '@/lib/display';
 import { deleteEventAction } from '@/server/actions/calendar';
 import { requireSession } from '@/server/authz';
 import { getCalendarToken, listCalendar } from '@/server/queries';
@@ -14,7 +15,8 @@ export const dynamic = 'force-dynamic';
 
 type Item =
   | { kind: 'event'; id: string; title: string; time: string | null; notes: string | null; who: string | null }
-  | { kind: 'deadline'; id: string; title: string; done: boolean; who: string | null };
+  | { kind: 'deadline'; id: string; title: string; done: boolean; who: string | null }
+  | { kind: 'run'; id: string; title: string; planned: boolean };
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -40,7 +42,7 @@ export default async function CalendarPage(
   // month's events were loaded.
   const month = parseMonth(searchParams.m, day ?? today);
   const days = monthGrid(month);
-  const [{ events, deadlines }, calendarToken] = await Promise.all([
+  const [{ events, deadlines, runs }, calendarToken] = await Promise.all([
     listCalendar(session, days[0]!, days.at(-1)!),
     getCalendarToken(session),
   ]);
@@ -62,6 +64,10 @@ export default async function CalendarPage(
     });
   }
 
+  for (const r of runs) {
+    add(r.onDate, { kind: 'run', id: r.id, title: `${experimentCode(r.number)} ${r.title}`, planned: r.status === 'planned' });
+  }
+
   const key = monthKey(month);
   const selected = day ?? today;
   const inMonth = (day: string) => day.startsWith(key);
@@ -69,7 +75,7 @@ export default async function CalendarPage(
 
   return (
     <>
-      <PageHeader title="Calendar" description="Lab events, and every task deadline on the day it is due." />
+      <PageHeader title="Calendar" description="Lab events, experiments and task deadlines, on their day." />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-4">
@@ -176,6 +182,9 @@ export default async function CalendarPage(
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-sm bg-warn/70" /> Task deadline
             </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-teal/70" /> Experiment
+            </span>
           </p>
         </div>
 
@@ -202,6 +211,17 @@ function MonthLink({ href, label, children }: { href: string; label: string; chi
 }
 
 function Chip({ item }: { item: Item }) {
+  if (item.kind === 'run') {
+    return (
+      <Link
+        href={`/experiments/${item.id}`}
+        title={`${item.planned ? 'Planned run' : 'Run'}: ${item.title}`}
+        className="block truncate rounded-md bg-teal/15 px-1.5 py-0.5 text-[11px] font-medium text-fg hover:opacity-80"
+      >
+        {item.title}
+      </Link>
+    );
+  }
   if (item.kind === 'deadline') {
     return (
       <Link
@@ -245,7 +265,14 @@ function DayDetail({ day, items }: { day: string; items: Item[] }) {
           {items.map((item) => (
             <li key={`${item.kind}-${item.id}`} className="flex items-start gap-3 px-5 py-3">
               <div className="min-w-0 flex-1">
-                {item.kind === 'event' ? (
+                {item.kind === 'run' ? (
+                  <>
+                    <Link href={`/experiments/${item.id}`} className="text-sm font-medium hover:underline">
+                      {item.title}
+                    </Link>
+                    <p className="text-xs text-muted">{item.planned ? 'Planned experiment' : 'Experiment'}</p>
+                  </>
+                ) : item.kind === 'event' ? (
                   <>
                     <p className="text-sm font-medium">{item.title}</p>
                     <p className="text-xs text-muted">

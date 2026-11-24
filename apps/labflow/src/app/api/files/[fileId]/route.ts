@@ -27,7 +27,7 @@ const RENDERABLE = new Set([
  * Files are served through the app, never from a public bucket URL, so
  * workspace membership is checked on every download.
  */
-export async function GET(_request: Request, props: { params: Promise<{ fileId: string }> }) {
+export async function GET(request: Request, props: { params: Promise<{ fileId: string }> }) {
   const params = await props.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -65,7 +65,7 @@ export async function GET(_request: Request, props: { params: Promise<{ fileId: 
         // place, and only when the stored type is exactly one of them: a file
         // named .mp4 carrying HTML still arrives as a download.
         'Content-Disposition': `${
-          RENDERABLE.has(type) ? 'inline' : 'attachment'
+          RENDERABLE.has(type) && !new URL(request.url).searchParams.has('download') ? 'inline' : 'attachment'
         }; filename="${headerSafeFilename(file.filename)}"`,
         'Cache-Control': 'private, no-store',
         'X-Content-Type-Options': 'nosniff',

@@ -134,6 +134,10 @@ function labbotPlan(prompt) {
       { title: 'LabBot task: book the TEM', dueOn: '2026-12-04' },
     ],
     samples: [{ codes: ['LB-1', 'LB-2', 'LB-3'], description: 'Soil from site B', projectId: '' }],
+    events: [
+      { title: 'LabBot event: group meeting', onDate: '2026-12-03', atTime: '14:00', notes: 'Room 204' },
+      { title: 'LabBot event: seminar', onDate: '', atTime: '', notes: '' },
+    ],
   };
 }
 

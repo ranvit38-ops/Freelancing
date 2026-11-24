@@ -38,8 +38,12 @@ function setFieldValue(el: Field, value: string) {
  */
 export function DictationDock() {
   const target = useRef<Field | null>(null);
+  const dock = useRef<HTMLDivElement>(null);
   const base = useRef<{ before: string; after: string }>({ before: '', after: '' });
   const [name, setName] = useState('');
+  // Shown only while a text box has the cursor (or while listening), so it is
+  // not one more thing on every screen.
+  const [focused, setFocused] = useState(false);
   const dictation = useDictation((heard) => {
     const el = target.current;
     if (!el || !el.isConnected) return;
@@ -54,12 +58,21 @@ export function DictationDock() {
       if (!dictatable(el) || el.id === 'labbot-question') return;
       target.current = el;
       setName(fieldName(el));
+      setFocused(true);
+    }
+    function onBlur(event: FocusEvent) {
+      // Tabbing from the box to the Speak button keeps it shown.
+      if (event.target === target.current && !dock.current?.contains(event.relatedTarget as Node | null)) setFocused(false);
     }
     document.addEventListener('focusin', onFocus);
-    return () => document.removeEventListener('focusin', onFocus);
+    document.addEventListener('focusout', onBlur);
+    return () => {
+      document.removeEventListener('focusin', onFocus);
+      document.removeEventListener('focusout', onBlur);
+    };
   }, []);
 
-  if (!dictation.supported) return null;
+  if (!dictation.supported || (!focused && !dictation.listening)) return null;
 
   function toggle() {
     if (dictation.listening) {
@@ -76,7 +89,7 @@ export function DictationDock() {
 
   const ready = Boolean(name);
   return (
-    <div className="fixed bottom-5 left-4 z-30 flex max-w-[calc(100vw-10rem)] flex-col items-start gap-1 lg:left-[16rem]">
+    <div ref={dock} onBlur={(e) => !dock.current?.contains(e.relatedTarget as Node | null) && e.relatedTarget !== target.current && setFocused(false)} className="fixed bottom-5 left-4 z-30 flex max-w-[calc(100vw-10rem)] flex-col items-start gap-1 lg:left-[16rem]">
       <button
         type="button"
         // Keeps the cursor in the box: a click on the button would otherwise move focus off it.

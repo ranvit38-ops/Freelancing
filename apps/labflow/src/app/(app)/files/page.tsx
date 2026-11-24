@@ -1,3 +1,4 @@
+import { FileLink, FileThumb } from '@/components/file-link';
 import Link from 'next/link';
 import { ConfirmSubmit } from '@/components/file-upload';
 import { FileDrop } from '@/components/file-drop';
@@ -38,7 +39,7 @@ const PROTOCOL_LIKE = /\.(pdf|docx?|odt|rtf)$/i;
  */
 export default async function FilesPage(
   props: {
-    searchParams: Promise<{ q?: string; view?: string }>;
+    searchParams: Promise<{ q?: string; view?: string; kept?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -94,8 +95,13 @@ export default async function FilesPage(
     <>
       <PageHeader
         title="Files"
-        description="Everything the lab has uploaded or written, and your own files. A protocol PDF or Word file becomes a protocol with “Use as a protocol”. Data from a run belongs on that experiment’s page."
+        description="Hover a file to peek inside. Click to open it in a new tab."
       />
+      {searchParams.kept === 'protocol' ? (
+        <p role="status" className="mb-4 rounded-lg border border-warn/25 bg-warn/5 px-3 py-2 text-sm text-warn">
+          That file was kept, not deleted: it is the method of a protocol version, and experiments point at that version.
+        </p>
+      ) : null}
       {storage ? (
         <p
           className={cx(
@@ -161,21 +167,10 @@ export default async function FilesPage(
                 {files.map((f) => (
                   <li key={`${f.id}:${f.experimentId ?? 'none'}`} className="px-5 py-3.5">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                      {f.isDocument ? (
-                        <Link
-                          href={`/docs/${f.id}`}
-                          className="min-w-0 flex-1 truncate text-sm font-medium underline-offset-2 hover:underline"
-                        >
-                          {f.filename.replace(/\.md$/i, '')}
-                        </Link>
-                      ) : (
-                        <a
-                          href={f.sourceUrl ?? `/api/files/${f.id}`}
-                          className="min-w-0 flex-1 truncate text-sm font-medium underline-offset-2 hover:underline"
-                        >
-                          {f.filename}
-                        </a>
-                      )}
+                      <FileThumb id={f.id} filename={f.filename} isDocument={f.isDocument} sourceUrl={f.sourceUrl} />
+                      <FileLink id={f.id} filename={f.filename} isDocument={f.isDocument} sourceUrl={f.sourceUrl} className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {f.isDocument ? f.filename.replace(/\.md$/i, '') : f.filename}
+                      </FileLink>
                       {f.isDocument ? <Badge tone="accent">Document</Badge> : null}
                       {f.private && f.uploadedById === session.userId ? (
                         <Badge>{shares.get(f.id)?.length ? `Shared with ${shares.get(f.id)!.map((p) => p.name).join(', ')}` : 'Only you'}</Badge>

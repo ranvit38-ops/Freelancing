@@ -57,29 +57,25 @@ export default async function SettingsPage() {
       <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
         <Card id="notifications" className="scroll-mt-6 p-5 lg:row-span-2">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">Notifications</h2>
-          <p className="mb-4 text-sm text-muted">
-            Yours, in every lab you belong to. See them all on the{' '}
+          <p className="mb-4 text-xs text-muted">
+            For every lab you are in.{' '}
             <Link href="/notifications" className="underline underline-offset-2 hover:text-fg">
-              Notifications
-            </Link>{' '}
-            page.
+              See them all
+            </Link>
           </p>
           <NotifyPrefs pace={prefs.pace} kinds={prefs.kinds} mailReady={mailConfigured()} />
         </Card>
 
         <Card id="appearance" className="scroll-mt-6 p-5">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">Appearance</h2>
-          <p className="mb-4 text-sm text-muted">
-            Kept in this browser and never sent to us. System follows your operating system.
-          </p>
+          <p className="mb-4 text-xs text-muted">Saved in this browser.</p>
           <ThemeToggle />
         </Card>
 
         <Card id="account" className="scroll-mt-6 p-5">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">Your account</h2>
-          <p className="mb-4 text-sm text-muted">
-            Signed in as {session.userEmail}. Signing out deletes this session on the server, not
-            only the cookie in your browser.
+          <p className="mb-4 text-xs text-muted">
+            Signed in as {session.userEmail}.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <form action={logoutAction}>
@@ -181,9 +177,8 @@ export default async function SettingsPage() {
 
         <Card id="ai" className="scroll-mt-6 p-5 lg:col-span-2">
           <h2 className="mb-1 text-sm font-semibold tracking-tight">AI</h2>
-          <p className="text-sm text-muted">
-            LabBot and the other AI features send the parts of your records a request needs to Anthropic&rsquo;s
-            Claude, never the whole database. Research records are never used to train models.
+          <p className="text-xs text-muted">
+            Only the records a request needs go to Anthropic&rsquo;s Claude. They are never used to train models.
           </p>
           <p className="mt-3 text-sm" data-ai-usage>
             {aiKey?.readable ? (
@@ -213,10 +208,8 @@ export default async function SettingsPage() {
           {canInvite ? (
             <div className="mt-5 max-w-xl border-t border-line pt-5">
               <h3 className="text-sm font-medium">Use your lab&rsquo;s own Claude key</h3>
-              <p className="mt-1 text-sm text-muted">
-                With a key from your lab&rsquo;s Anthropic account, every AI request in this lab runs on it, without the
-                plan&rsquo;s monthly limit, and Anthropic bills your lab directly. It is checked with Anthropic before
-                it is saved, stored encrypted, and never shown again.
+              <p className="mt-1 text-xs text-muted">
+                No monthly limit; Anthropic bills your lab. Checked before saving, stored encrypted, never shown again.
               </p>
               <div className="mt-4">
                 <LabAiKeyForm hint={aiKey?.hint ?? null} readable={aiKey?.readable ?? false} />

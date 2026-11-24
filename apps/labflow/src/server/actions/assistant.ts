@@ -151,6 +151,40 @@ export async function saveTasksAction(input: unknown): Promise<SaveResult> {
   return { ok: true, message: `Added ${pluralise(parsed.data.tasks.length, 'task')}.`, href: '/tasks' };
 }
 
+const eventsInput = z.object({
+  events: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        onDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        atTime: z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/),
+        notes: z.string().trim().max(2000),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+
+/** LabBot's calendar cards: each becomes a lab event on its day. */
+export async function saveEventsAction(input: unknown): Promise<SaveResult> {
+  const session = await requireSession();
+  const blocked = await blockedReason(session);
+  if (blocked) return { ok: false, error: blocked };
+  const parsed = eventsInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: 'Every event needs a name and a day.' };
+  for (const e of parsed.data.events) {
+    await q.createEvent(session, { title: e.title, onDate: e.onDate, atTime: e.atTime || null, notes: e.notes || null });
+  }
+  revalidatePath('/calendar');
+  revalidatePath('/dashboard');
+  const first = parsed.data.events[0]!.onDate;
+  return {
+    ok: true,
+    message: `Added ${pluralise(parsed.data.events.length, 'event')} to the calendar.`,
+    href: `/calendar?m=${first.slice(0, 7)}&d=${first}`,
+  };
+}
+
 const samplesInput = z.object({
   codes: z.array(z.string().trim().min(1).max(64)).min(1).max(200),
   description: z.string().trim().max(2000),

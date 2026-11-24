@@ -91,7 +91,7 @@ export default async function StartPage(props: { searchParams: Promise<{ joined?
       <PageHeader
         eyebrow={searchParams.joined === '1' ? 'You’re in' : 'Start here'}
         title={searchParams.joined === '1' ? `Welcome to ${session.workspaceName}, ${firstName}` : `Getting up to speed in ${session.workspaceName}`}
-        description="Everything the lab has recorded, in the order that makes sense. Work down the list and you will know what is going on without having to ask."
+        description="Work down the list and you will know what is going on."
       />
 
       <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -150,12 +150,12 @@ export default async function StartPage(props: { searchParams: Promise<{ joined?
             </Card>
           ) : null}
           <Card>
-            <CardHeader title="Catch me up" description="The whole lab on one page, in plain language." />
+            <CardHeader title="Catch me up" />
             <CatchUp configured={await labAiReady(session)} />
           </Card>
 
           <Card>
-            <CardHeader title="Read these, in this order" description="Tick each one off as you go. Clicking one ticks it too." />
+            <CardHeader title="Read these, in this order" />
             {steps.length === 0 ? (
               <p className="px-5 pb-5 text-sm text-muted">
                 The lab has not recorded anything yet. Once there are projects, experiments or shared files,
@@ -257,22 +257,21 @@ export default async function StartPage(props: { searchParams: Promise<{ joined?
             <CardHeader title="Stuck on something?" />
             <ul className="space-y-2 px-5 pb-5 text-sm">
               <li>
-                Ask <b>LabBot</b> (bottom right) about any project. It answers from the lab’s records and shows
-                which ones.
+                Ask <b>LabBot</b>, bottom right.
               </li>
               <li>
                 Ask the lab in{' '}
                 <Link href="/chat" className="font-medium text-accent underline-offset-2 hover:underline">
                   #lab
                 </Link>
-                . Someone has probably wondered the same thing.
+                .
               </li>
               <li>
-                See what needs doing in{' '}
+                Pick up a task in{' '}
                 <Link href="/tasks" className="font-medium text-accent underline-offset-2 hover:underline">
                   Tasks
                 </Link>
-                . “Up for grabs” is a good place to start helping.
+                .
               </li>
             </ul>
           </Card>

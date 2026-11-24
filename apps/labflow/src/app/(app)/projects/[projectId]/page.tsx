@@ -1,3 +1,4 @@
+import { FileLink, FileThumb } from '@/components/file-link';
 import { deleteProjectAction, removeProjectFileAction } from '@/server/actions/records';
 import { ProjectFolderDrop } from '@/components/file-under';
 import { ConfirmSubmit } from '@/components/file-upload';
@@ -165,12 +166,8 @@ export default async function ProjectOverviewPage(props: { params: Promise<{ pro
                       .filter((f) => (f.folder ?? '') === folder)
                       .map((f) => (
                         <li key={f.id} className="flex items-center gap-3 text-sm">
-                          <a
-                            href={f.isDocument ? `/docs/${f.id}` : (f.sourceUrl ?? `/api/files/${f.id}`)}
-                            className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
-                          >
-                            {f.filename}
-                          </a>
+                          <FileThumb id={f.id} filename={f.filename} isDocument={f.isDocument} sourceUrl={f.sourceUrl} />
+                          <FileLink id={f.id} filename={f.filename} isDocument={f.isDocument} sourceUrl={f.sourceUrl} className="min-w-0 flex-1 truncate" />
                           <span className="shrink-0 text-xs text-subtle">
                             {f.sourceUrl ? 'Link' : formatBytes(f.byteSize)}
                           </span>

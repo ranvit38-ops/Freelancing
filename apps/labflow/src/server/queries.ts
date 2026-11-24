@@ -2959,7 +2959,22 @@ export async function listCalendar(s: SessionContext, from: string, to: string) 
         ),
       ),
   ]);
-  return { events: eventRows, deadlines: taskRows };
+  // Runs on the day they were (or are planned to be) done, so the calendar is
+  // the lab's whole week: meetings, deadlines and bench work together.
+  const runDay = sql<string>`to_char(${experiments.performedOn} at time zone 'UTC', 'YYYY-MM-DD')`;
+  const runRows = await db
+    .select({ id: experiments.id, number: experiments.number, title: experiments.title, status: experiments.status, onDate: runDay })
+    .from(experiments)
+    .where(
+      and(
+        eq(experiments.workspaceId, s.workspaceId),
+        sql`(${experiments.performedOn} at time zone 'UTC')::date >= ${from}::date`,
+        sql`(${experiments.performedOn} at time zone 'UTC')::date <= ${to}::date`,
+      ),
+    )
+    .orderBy(experiments.performedOn)
+    .limit(300);
+  return { events: eventRows, deadlines: taskRows, runs: runRows };
 }
 
 export async function createEvent(
@@ -3705,6 +3720,17 @@ export async function deleteSample(s: SessionContext, sampleId: string) {
  */
 export async function deleteFile(s: SessionContext, fileId: string) {
   assertId(fileId, 'File');
+  // A protocol version's file is its method: experiments point at that exact
+  // version, so the file outlives anyone's tidying up.
+  const [pinned] = await db
+    .select({ name: protocols.name, version: protocolVersions.version })
+    .from(protocolVersions)
+    .innerJoin(protocols, eq(protocols.id, protocolVersions.protocolId))
+    .where(and(eq(protocolVersions.fileId, fileId), eq(protocols.workspaceId, s.workspaceId)))
+    .limit(1);
+  if (pinned) {
+    throw new InUseError(`Kept: it is the file for ${pinned.name} v${pinned.version}, and experiments rely on that version.`);
+  }
   const rows = await db
     .delete(files)
     .where(and(eq(files.id, fileId), fileVisibleTo(s)))

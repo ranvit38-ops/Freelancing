@@ -253,9 +253,11 @@ function SeeAll({ href, label = 'See all' }: { href: string; label?: string }) {
 
 /** First steps for a brand-new lab, in setup order. Gone once the lab is in use. */
 function GettingStarted({ steps }: { steps: { done: boolean; href: string; title: string; text: string }[] }) {
+  // Only the next step explains itself; the rest are a title each.
+  const next = steps.findIndex((step) => !step.done);
   return (
     <section aria-label="Getting started" className="mb-5 rounded-xl border border-accent/20 bg-accent/5 p-5">
-      <h2 className="text-sm font-semibold">Set up your lab, in this order</h2>
+      <h2 className="text-sm font-semibold">Set up your lab</h2>
       <ol className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((step, i) => (
           <li key={step.href}>
@@ -273,8 +275,8 @@ function GettingStarted({ steps }: { steps: { done: boolean; href: string; title
                 {step.done ? '✓' : i + 1}
               </span>
               <span>
-                <span className="block text-sm font-medium">{step.title}</span>
-                <span className="mt-0.5 block text-xs text-muted">{step.text}</span>
+                <span className={cx('block text-sm font-medium', step.done && 'text-muted line-through decoration-ok/50')}>{step.title}</span>
+                {i === next ? <span className="mt-0.5 block text-xs text-muted">{step.text}</span> : null}
               </span>
             </Link>
           </li>

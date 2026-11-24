@@ -53,3 +53,15 @@ describe('googleAuthUrl', () => {
     expect(url.searchParams.get('code_verifier')).toBeNull();
   });
 });
+
+describe('googleAuthUrl login hint', () => {
+  const base = { clientId: 'c', redirectUri: 'https://x/cb', state: 's', verifier: 'v'.repeat(43) };
+  it('skips the chooser for a remembered address, and ignores anything that is not one', () => {
+    const hinted = new URL(googleAuthUrl({ ...base, loginHint: 'me@gmail.com' }));
+    expect(hinted.searchParams.get('login_hint')).toBe('me@gmail.com');
+    expect(hinted.searchParams.get('prompt')).toBeNull();
+    const junk = new URL(googleAuthUrl({ ...base, loginHint: 'not an email' }));
+    expect(junk.searchParams.get('login_hint')).toBeNull();
+    expect(junk.searchParams.get('prompt')).toBe('select_account');
+  });
+});

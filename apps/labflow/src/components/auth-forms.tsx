@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
+import { markPasswordSignIn, useLastSignIn } from './remember-sign-in';
 import { Field, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import {
@@ -15,17 +16,27 @@ import { noState } from '@/server/actions/types';
 
 export function LoginForm({ inviteToken, joinCode, next }: { inviteToken?: string; joinCode?: string; next?: string }) {
   const [state, action] = useActionState(loginAction, noState);
+  const last = useLastSignIn();
+  const email = useRef<HTMLInputElement>(null);
+  const password = useRef<HTMLInputElement>(null);
+  // Remembered from last time on this browser: fill the address, put the
+  // cursor on the password, where the browser's saved one drops in.
+  useEffect(() => {
+    if (!last || !email.current || email.current.value) return;
+    email.current.value = last.email;
+    password.current?.focus();
+  }, [last]);
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} onSubmit={() => markPasswordSignIn(email.current?.value ?? '')} className="space-y-4">
       {next ? <input type="hidden" name="next" value={next} /> : null}
       {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
       {joinCode ? <input type="hidden" name="joinCode" value={joinCode} /> : null}
       <FormError>{state.error}</FormError>
       <Field label="Email" htmlFor="email" error={state.fieldErrors?.email}>
-        <Input id="email" name="email" type="email" autoComplete="email" required autoFocus />
+        <Input ref={email} id="email" name="email" type="email" autoComplete="username" required autoFocus />
       </Field>
       <Field label="Password" htmlFor="password" error={state.fieldErrors?.password}>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required />
+        <Input ref={password} id="password" name="password" type="password" autoComplete="current-password" required />
       </Field>
       <SubmitButton className="w-full" pendingLabel="Logging in…">
         Log in

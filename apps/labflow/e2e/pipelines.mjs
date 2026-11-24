@@ -446,7 +446,9 @@ await step('create a protocol with its Word/PDF file', async () => {
 });
 await step('the protocol file downloads', async () => {
   const href = await P.getByRole('link', { name: 'Open ring-method.pdf' }).getAttribute('href');
-  const r = await browserFetch(P, href);
+  assert(/^\/files\/[0-9a-f-]{36}$/.test(href), `opens ${href}, not the file page`);
+  assert((await P.getByRole('link', { name: 'Open ring-method.pdf' }).getAttribute('target')) === '_blank', 'does not open in a new tab');
+  const r = await browserFetch(P, href.replace('/files/', '/api/files/'));
   assert(r.status === 200, `status ${r.status}`);
   assert(r.head.startsWith('%PDF'), 'not the uploaded PDF');
 });
@@ -457,6 +459,7 @@ await step('add a photo to the protocol folder', async () => {
   await expectText(P, 'ring-setup.png');
 });
 await step('save a new protocol version', async () => {
+  await P.locator('[data-update-protocol] summary').click();
   await P.fill('#changeNote', 'Read five times, not three');
   await P.fill('#body', '1. Flame the ring.\n2. Zero the balance.\n3. Read five times.');
   await P.getByRole('button', { name: 'Save new version' }).click();
@@ -476,6 +479,39 @@ await step('upload a revised protocol file straight into a new version', async (
   // The dropdown now offers the new file as the current one.
   const chosen = await P.locator('#fileId option:checked').textContent();
   assert(chosen.includes('ring-method-rev2.pdf'), `current file shown as ${chosen}`);
+});
+await step('a revised text file becomes the method, and the change is shown', async () => {
+  await P.fill('#changeNote', 'Department SOP, typed up');
+  const sop = '1. Flame the ring.\n2. Zero the balance.\n3. Read five times.\n4. Rinse with 10 mL ethanol.';
+  await P.setInputFiles('#protocolFile', file('ring-method-rev4.txt', 'text/plain', Buffer.from(sop)));
+  await P.getByRole('button', { name: 'Save new version' }).click();
+  await expectText(P, 'The method now reads from the file');
+  const diff = P.locator('[data-version-diff]').first();
+  await diff.locator('summary').click();
+  await expectText(diff, 'Rinse with 10 mL ethanol');
+  assert((await diff.locator('.text-ok').count()) >= 1, 'the added line is not marked');
+});
+await step('a protocol version’s file cannot be deleted out from under it', async () => {
+  await P.goto(`${BASE}/files`);
+  const row = P.locator('li', { has: P.locator('a[data-file-link]', { hasText: 'ring-method-rev4.txt' }) });
+  P.once('dialog', (d) => d.accept());
+  await row.getByRole('button', { name: 'Delete' }).click();
+  await expectText(P, 'That file was kept, not deleted');
+  await expectText(P, 'ring-method-rev4.txt');
+});
+await step('every file previews on hover and opens in its own tab', async () => {
+  await P.goto(`${BASE}/files`);
+  const link = P.locator('a[data-file-link]', { hasText: 'ring-setup.png' }).first();
+  await link.hover();
+  await P.locator('[data-file-preview] img').waitFor({ timeout: 5000 });
+  const text = P.locator('a[data-file-link]', { hasText: 'ring-method-rev4.txt' }).first();
+  await text.hover();
+  await expectText(P.locator('[data-file-preview]'), 'Rinse with 10 mL ethanol');
+  const [tab] = await Promise.all([P.context().waitForEvent('page'), link.click()]);
+  await tab.waitForLoadState();
+  assert(/\/files\/[0-9a-f-]{36}$/.test(tab.url()), `opened ${tab.url()}`);
+  await tab.locator('#main img[alt="ring-setup.png"]').waitFor({ timeout: 10_000 });
+  await tab.close();
 });
 await step('record an experiment with conditions and a protocol', async () => {
   await P.goto(`${BASE}/projects/${ids.project}/experiments/new`);
@@ -591,7 +627,9 @@ await step('disguised and damaged files are refused by what is inside them, not 
     assert(!(await P.locator('main a', { hasText: fake.name }).count()), `${fake.name} was accepted`);
   }
   // A genuine file comes back typed by its contents, and sandboxed.
-  const href = await P.locator('main a', { hasText: 'cuvette.png' }).first().getAttribute('href');
+  const page = await P.locator('main a', { hasText: 'cuvette.png' }).first().getAttribute('href');
+  assert(/^\/files\/[0-9a-f-]{36}$/.test(page), `cuvette.png opens ${page}`);
+  const href = page.replace('/files/', '/api/files/');
   const headers = await P.evaluate(async (url) => Object.fromEntries((await fetch(url)).headers), href);
   assert(headers['content-type'] === 'image/png', `served as ${headers['content-type']}`);
   assert(headers['x-content-type-options'] === 'nosniff', 'no nosniff');
@@ -794,6 +832,10 @@ await step('add a calendar event and subscribe to the calendar feed', async () =
   assert(text.includes('Calibrate the tensiometer'), 'feed has no task deadline');
   ids.feed = path;
 });
+await step('experiments show on the calendar on the day they were run', async () => {
+  await P.goto(`${BASE}/calendar?m=2026-10&d=2026-10-20`);
+  await P.locator('#main a[href^="/experiments/"]', { hasText: 'Extract batch 1 at 25 C' }).first().waitFor({ timeout: 10_000 });
+});
 await step('a made-up calendar feed address is refused', async () => {
   const r = await fetch(`${BASE}/api/calendar/not-a-real-token`);
   assert(r.status === 404, `status ${r.status}`);
@@ -941,6 +983,12 @@ await step('LabBot fills things in: nothing saved until each card is saved, a ru
   await expectText(P, 'Added 2 tasks.');
   await panel.getByRole('button', { name: 'Create 3 samples' }).click();
   await expectText(P, 'Created 3 samples.');
+  // Events: one with no day waits for one to be picked.
+  const add = panel.getByRole('button', { name: 'Add to calendar' });
+  assert(await add.isDisabled(), 'an event with no day could be added');
+  await panel.getByLabel('Day for LabBot event: seminar').fill('2026-12-05');
+  await add.click();
+  await expectText(P, 'Added 2 events to the calendar.');
   await panel.getByRole('button', { name: 'Open in the form to check and save' }).click();
   await P.waitForURL(/\/experiments\/new$/, { timeout: 20_000 });
   await expectText(P, 'LabBot filled in');
@@ -953,6 +1001,9 @@ await step('LabBot fills things in: nothing saved until each card is saved, a ru
   await expectText(P, 'LabBot task: book the TEM');
   await P.goto(`${BASE}/samples`);
   await expectText(P, 'LB-2');
+  await P.goto(`${BASE}/calendar?m=2026-12&d=2026-12-03`);
+  await expectText(P, 'LabBot event: group meeting');
+  await expectText(P, 'LabBot event: seminar');
 });
 await step('LabBot reads a photo of notes: shrunk in the browser, sent as a picture, nothing typed', async () => {
   await clearFake(MODEL);
@@ -1279,6 +1330,7 @@ await step('an outsider signs up with their own lab', async () => {
 });
 await step('every page of the first lab is a 404 for the outsider', async () => {
   const leaks = [];
+  await P.goto(`${BASE}/files`);
   const paths = [
     `/projects/${ids.project}`, `/projects/${ids.project}/edit`, `/projects/${ids.project}/timeline`,
     `/projects/${ids.project}/memory`, `/projects/${ids.project}/assistant`, `/projects/${ids.project}/updates`,
@@ -1287,6 +1339,7 @@ await step('every page of the first lab is a 404 for the outsider', async () => 
     `/protocols/${ids.protocol}`, `/samples/${ids.sample}`, `/inventory/${ids.item}`, `/tasks/${ids.task}`,
     `/datasets/${ids.dataset}`, `/docs/${ids.doc}`, `/updates/${ids.update}`,
     `/projects/${ids.project}/experiments/new`, `/projects/${ids.project}/literature`,
+    ...(await P.locator('a[data-file-link][href^="/files/"]').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).slice(0, 3),
   ];
   for (const path of paths) {
     if (path.includes('undefined')) continue;
@@ -1302,9 +1355,10 @@ await step('every page of the first lab is a 404 for the outsider', async () => 
 });
 await step('the first lab’s files and APIs refuse the outsider', async () => {
   const leaks = [];
-  const fileIds = await P.locator('a[href^="/api/files/"]').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
+  const fileHrefs = (loc) => loc.evaluateAll((as) => as.map((a) => a.getAttribute('href')).filter((h) => /^\/(api\/)?files\/[0-9a-f-]{36}$/.test(h)).flatMap((h) => [h.replace(/^\/files\//, '/api/files/'), `${h.replace(/^\/files\//, '/api/files/')}/preview`]));
+  const fileIds = await fileHrefs(P.locator('a[href^="/api/files/"], a[data-file-link]'));
   await P.goto(`${BASE}/experiments/${ids.experiment}`);
-  const more = await P.locator('a[href^="/api/files/"]').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
+  const more = await fileHrefs(P.locator('a[href^="/api/files/"], a[data-file-link]'));
   const probes = [
     ...new Set([...fileIds, ...more]).values(),
     `/api/docs/${ids.doc}`, `/api/docs/${ids.doc}/docx`, `/api/updates/${ids.update}/pptx`,

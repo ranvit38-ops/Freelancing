@@ -1,3 +1,4 @@
+import { FileLink, FileThumb } from '@/components/file-link';
 import Link from 'next/link';
 import { StoredImage } from '@/components/stored-image';
 import { SheetLink, SheetRefresh } from '@/components/sheet-link';
@@ -348,14 +349,8 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
                   return (
                     <li key={f.id} className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <a
-                          href={f.sourceUrl ?? `/api/files/${f.id}`}
-                          target={f.sourceUrl ? '_blank' : undefined}
-                          rel={f.sourceUrl ? 'noreferrer noopener' : undefined}
-                          className="min-w-0 flex-1 truncate text-sm underline underline-offset-2"
-                        >
-                          {f.filename}
-                        </a>
+                        <FileThumb id={f.id} filename={f.filename} sourceUrl={f.sourceUrl} />
+                        <FileLink id={f.id} filename={f.filename} sourceUrl={f.sourceUrl} className="min-w-0 flex-1 truncate text-sm" />
                         <span className="shrink-0 text-xs text-subtle">
                           {f.sourceUrl
                             ? providerLabel[f.provider ?? 'web']

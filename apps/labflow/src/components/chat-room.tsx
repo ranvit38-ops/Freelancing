@@ -1,5 +1,6 @@
 'use client';
 
+import { FileLink } from './file-link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscussionMessage } from '@/server/queries';
 import { formatBytes } from '@/lib/display';
@@ -695,7 +696,7 @@ function Message({
             <LinkedText text={message.body} records={records} projectId={projectId} />
           </p>
           {message.fileId && isImage(message.fileName) ? (
-            <a href={`/api/files/${message.fileId}`} target="_blank" rel="noreferrer" className="mt-1 block w-fit">
+            <a href={`/files/${message.fileId}`} target="_blank" rel="noopener" className="mt-1 block w-fit">
               <StoredImage
                 src={`/api/files/${message.fileId}`}
                 alt={message.fileName ?? 'Shared image'}
@@ -704,13 +705,14 @@ function Message({
               />
             </a>
           ) : message.fileId ? (
-            <a
-              href={`/api/files/${message.fileId}`}
-              className="mt-1 inline-flex max-w-full items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs hover:bg-raised"
+            <FileLink
+              id={message.fileId}
+              filename={message.fileName ?? 'File'}
+              className="mt-1 inline-flex max-w-full items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs no-underline hover:bg-raised"
             >
               <span className="truncate font-medium">{message.fileName ?? 'File'}</span>
               {message.fileSize ? <span className="shrink-0 text-subtle">{formatBytes(message.fileSize)}</span> : null}
-            </a>
+            </FileLink>
           ) : null}
 
           {message.replies.length > 0 ? (
@@ -732,9 +734,9 @@ function Message({
                     <LinkedText text={r.body} records={records} projectId={projectId} />
                   </p>
                   {r.fileId ? (
-                    <a href={`/api/files/${r.fileId}`} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+                    <FileLink id={r.fileId} filename={r.fileName ?? 'File'} className="inline-flex items-center gap-1 text-xs font-medium text-accent">
                       <PaperclipIcon /> {r.fileName ?? 'File'}
-                    </a>
+                    </FileLink>
                   ) : null}
                 </div>
               ))}

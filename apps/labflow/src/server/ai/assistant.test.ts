@@ -36,6 +36,7 @@ describe('clean', () => {
         ],
         tasks: [],
         samples: [{ codes: ['S-1', 'S-1', ' ', 'S-2'], description: '', projectId: FOREIGN }],
+        events: [],
       },
       lab,
     );
@@ -47,7 +48,7 @@ describe('clean', () => {
   });
 
   it('uses the only project when the lab has one', () => {
-    const plan = clean({ reply: '', experiments: [experiment('')], notes: [], tasks: [], samples: [] }, {
+    const plan = clean({ reply: '', experiments: [experiment('')], notes: [], tasks: [], samples: [], events: [] }, {
       ...lab,
       projects: [{ id: P1 }],
     });
@@ -65,12 +66,22 @@ describe('clean', () => {
           { title: '  ', dueOn: '' },
         ],
         samples: [],
+        events: [
+          { title: ' Group meeting ', onDate: '2026-11-26', atTime: '14:00', notes: 'Room 204' },
+          { title: 'Seminar', onDate: 'Thursday', atTime: '2pm', notes: '' },
+          { title: ' ', onDate: '2026-11-26', atTime: '', notes: '' },
+        ],
       },
       lab,
     );
     expect(plan.experiments[0]!.performedOn).toBe('');
     expect(plan.experiments[0]!.conditions).toEqual([]);
     expect(plan.tasks).toEqual([{ title: 'Order tips', dueOn: '' }]);
+    // A day or time the model could not pin down is left for the person to pick.
+    expect(plan.events).toEqual([
+      { title: 'Group meeting', onDate: '2026-11-26', atTime: '14:00', notes: 'Room 204' },
+      { title: 'Seminar', onDate: '', atTime: '', notes: '' },
+    ]);
   });
 });
 
@@ -79,7 +90,7 @@ describe('planFromText', () => {
     const sent: Record<string, unknown>[] = [];
     const transport = (async (_url: unknown, init: unknown) => {
       sent.push(JSON.parse((init as { body: string }).body));
-      const answer: Plan = { reply: 'Ok.', experiments: [experiment(FOREIGN)], notes: [], tasks: [], samples: [] };
+      const answer: Plan = { reply: 'Ok.', experiments: [experiment(FOREIGN)], notes: [], tasks: [], samples: [], events: [] };
       return { ok: true, json: async () => ({ content: [{ type: 'text', text: JSON.stringify(answer) }], stop_reason: 'end_turn' }) };
     }) as unknown as typeof fetch;
 
@@ -109,7 +120,7 @@ describe('planFromText', () => {
     const sent: Record<string, unknown>[] = [];
     const transport = (async (_url: unknown, init: unknown) => {
       sent.push(JSON.parse((init as { body: string }).body));
-      const answer: Plan = { reply: 'Read it.', experiments: [], notes: [], tasks: [{ title: 'Relabel box 4', dueOn: '' }], samples: [] };
+      const answer: Plan = { reply: 'Read it.', experiments: [], notes: [], tasks: [{ title: 'Relabel box 4', dueOn: '' }], samples: [], events: [] };
       return { ok: true, json: async () => ({ content: [{ type: 'text', text: JSON.stringify(answer) }], stop_reason: 'end_turn' }) };
     }) as unknown as typeof fetch;
 

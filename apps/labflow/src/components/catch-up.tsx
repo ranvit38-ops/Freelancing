@@ -24,8 +24,7 @@ export function CatchUp({ configured }: { configured: boolean }) {
         <div className="whitespace-pre-wrap rounded-lg bg-raised px-4 py-3 text-sm leading-6">{state.briefing}</div>
       ) : (
         <p className="text-sm text-muted">
-          A one-page briefing on what the lab works on, the words you will hear, what has been done, and who
-          to ask. Written only from what the lab has recorded.
+          The whole lab on one page, written from what it has recorded.
         </p>
       )}
       {state.error ? <p className="text-sm text-danger">{state.error}</p> : null}

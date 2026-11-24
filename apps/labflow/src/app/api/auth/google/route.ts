@@ -43,6 +43,7 @@ export async function GET(request: Request) {
       redirectUri: googleRedirectUri(),
       state,
       verifier,
+      loginHint: params.get('hint') ?? undefined,
     }),
   );
 }

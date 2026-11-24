@@ -1,3 +1,4 @@
+import { FileLink, FileThumb } from '@/components/file-link';
 import { notFound } from 'next/navigation';
 import { ProtocolVersionForm } from '@/components/simple-forms';
 import { Badge, Card, CardHeader, PageHeader, Prose } from '@/components/ui';
@@ -11,6 +12,8 @@ import {
   protocolVersionUsage,
 } from '@/server/queries';
 import { FileDrop } from '@/components/file-drop';
+import { diffCounts, foldDiff, lineDiff } from '@/lib/line-diff';
+import { cx } from '@/components/ui';
 import { removeProtocolFileAction } from '@/server/actions/records';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +38,29 @@ export default async function ProtocolPage(props: { params: Promise<{ protocolId
         />
         <div className="space-y-5">
           <Card>
+            <details className="group" data-update-protocol>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+                <span>
+                  <span className="block text-sm font-semibold">Update this protocol</span>
+                  <span className="block text-xs text-muted">Upload the revised file, or edit the method. The old version is kept.</span>
+                </span>
+                <span aria-hidden className="text-muted transition-transform group-open:rotate-180">⌄</span>
+              </summary>
+            <ProtocolVersionForm
+              protocolId={protocol.id}
+              files={
+                // The current file is always offered, even when it is older
+                // than the newest fifty, or the form would silently drop it.
+                versions[0]?.fileId && !fileOptions.some((f) => f.id === versions[0]!.fileId)
+                  ? [{ id: versions[0].fileId, filename: versions[0].filename ?? 'Current file' }, ...fileOptions]
+                  : fileOptions
+              }
+              current={{ body: versions[0]?.body ?? null, fileId: versions[0]?.fileId ?? null }}
+            />
+            </details>
+          </Card>
+
+          <Card>
             <CardHeader
               title="Everything that goes with it"
               description="Photos of the steps, instrument settings, the manual, blank tables for recording by hand. Anyone running it finds them here."
@@ -43,12 +69,8 @@ export default async function ProtocolPage(props: { params: Promise<{ protocolId
               <ul className="divide-y divide-line border-b border-line">
                 {folder.map((f) => (
                   <li key={f.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
-                    <a
-                      href={f.isDocument ? `/docs/${f.id}` : (f.sourceUrl ?? `/api/files/${f.id}`)}
-                      className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
-                    >
-                      {f.filename}
-                    </a>
+                    <FileThumb id={f.id} filename={f.filename} isDocument={f.isDocument} sourceUrl={f.sourceUrl} />
+                    <FileLink id={f.id} filename={f.filename} isDocument={f.isDocument} sourceUrl={f.sourceUrl} className="min-w-0 flex-1 truncate" />
                     <span className="shrink-0 text-xs text-subtle">{f.sourceUrl ? 'Link' : formatBytes(f.byteSize)}</span>
                     {f.uploadedById === session.userId || session.role !== 'member' ? (
                       <form action={removeProtocolFileAction} className="shrink-0">
@@ -69,27 +91,9 @@ export default async function ProtocolPage(props: { params: Promise<{ protocolId
           </Card>
 
           <Card>
-            <CardHeader
-              title="Add a version"
-              description="Never edit an old version, experiments point at it."
-            />
-            <ProtocolVersionForm
-              protocolId={protocol.id}
-              files={
-                // The current file is always offered, even when it is older
-                // than the newest fifty, or the form would silently drop it.
-                versions[0]?.fileId && !fileOptions.some((f) => f.id === versions[0]!.fileId)
-                  ? [{ id: versions[0].fileId, filename: versions[0].filename ?? 'Current file' }, ...fileOptions]
-                  : fileOptions
-              }
-              current={{ body: versions[0]?.body ?? null, fileId: versions[0]?.fileId ?? null }}
-            />
-          </Card>
-
-          <Card>
             <CardHeader title="Version history" description={`${versions.length} versions`} />
             <ol className="divide-y divide-line">
-              {versions.map((v) => (
+              {versions.map((v, k) => (
                 <li key={v.id} className="px-5 py-4">
                   <div className="flex flex-wrap items-center gap-3">
                     <Badge tone="accent">v{v.version}</Badge>
@@ -101,12 +105,14 @@ export default async function ProtocolPage(props: { params: Promise<{ protocolId
                     {v.changeNote ?? 'No change note recorded'}
                   </p>
                   {v.fileId ? (
-                    <a
-                      href={v.fileIsDocument ? `/docs/${v.fileId}` : `/api/files/${v.fileId}`}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-line bg-raised px-2.5 py-1 text-sm hover:border-accent/40"
+                    <FileLink
+                      id={v.fileId}
+                      filename={v.filename ?? 'file'}
+                      isDocument={v.fileIsDocument ?? false}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-line bg-raised px-2.5 py-1 text-sm no-underline hover:border-accent/40"
                     >
                       Open {v.filename}
-                    </a>
+                    </FileLink>
                   ) : null}
                   {(() => {
                     const used = usage.filter((u) => u.versionId === v.id && u.experimentId);
@@ -134,6 +140,10 @@ export default async function ProtocolPage(props: { params: Promise<{ protocolId
                       </div>
                     );
                   })()}
+                  <VersionChanges
+                    before={versions[k + 1] ?? null}
+                    after={v}
+                  />
                   {v.body ? (
                     <details className="mt-2">
                       <summary className="cursor-pointer text-sm text-muted hover:text-fg">
@@ -155,4 +165,54 @@ export default async function ProtocolPage(props: { params: Promise<{ protocolId
     if (error instanceof NotFoundInWorkspaceError) notFound();
     throw error;
   }
+}
+
+type VersionRow = { body: string | null; fileId: string | null; filename: string | null };
+
+/** "See what changed": the lines added and removed since the version before, and a new file. */
+function VersionChanges({ before, after }: { before: VersionRow | null; after: VersionRow }) {
+  if (!before) return null;
+  const diff = lineDiff(before.body ?? '', after.body ?? '');
+  const { added, removed } = diffCounts(diff);
+  const fileChanged = before.fileId !== after.fileId;
+  if (!added && !removed && !fileChanged) {
+    return <p className="mt-2 text-xs text-subtle">Same method and file as the version before.</p>;
+  }
+  return (
+    <details className="mt-2" data-version-diff>
+      <summary className="cursor-pointer text-sm font-medium text-accent hover:underline">
+        See what changed
+        <span className="ml-2 font-normal text-muted">
+          {[added ? `+${added}` : '', removed ? `−${removed}` : '', fileChanged ? 'new file' : ''].filter(Boolean).join(' · ')}
+        </span>
+      </summary>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-raised p-2 font-mono text-xs leading-5">
+        {fileChanged ? (
+          <p className="px-2 pb-1 font-sans text-muted">
+            File: {before.filename ?? 'none'} → {after.filename ?? 'none'}
+          </p>
+        ) : null}
+        {foldDiff(diff).map((c, i) =>
+          c.type === 'skip' ? (
+            <p key={i} className="px-2 text-subtle">
+              … {c.count} unchanged {c.count === 1 ? 'line' : 'lines'}
+            </p>
+          ) : (
+            <p
+              key={i}
+              className={cx(
+                'whitespace-pre-wrap px-2',
+                c.type === 'add' && 'bg-ok/10 text-ok',
+                c.type === 'del' && 'bg-danger/10 text-danger line-through decoration-danger/40',
+              )}
+            >
+              <span aria-hidden className="mr-2 select-none">{c.type === 'add' ? '+' : c.type === 'del' ? '−' : ' '}</span>
+              <span className="sr-only">{c.type === 'add' ? 'Added: ' : c.type === 'del' ? 'Removed: ' : ''}</span>
+              {c.text || ' '}
+            </p>
+          ),
+        )}
+      </div>
+    </details>
+  );
 }

@@ -21,6 +21,30 @@ function money(amount: number): string {
   return `$${amount.toLocaleString('en-US')}`;
 }
 
+/**
+ * On `npm run dev` only: why this account is not the owner. A deployment
+ * still answers "not found", so a stranger learns nothing about the page.
+ */
+function WhyNotOwner({ email, verified }: { email: string; verified: boolean }) {
+  const owner = process.env.LABFLOW_OWNER_EMAIL?.trim();
+  const reason = !owner
+    ? 'LABFLOW_OWNER_EMAIL is not set in .env.local. Add LABFLOW_OWNER_EMAIL="your@gmail.com", then stop and restart npm run dev.'
+    : owner.toLowerCase() !== email.toLowerCase()
+      ? `You are signed in as ${email}, and the owner address is ${owner}. Sign out and sign in as ${owner}.`
+      : !verified
+        ? 'This is the owner address, but it has not been proven yours yet. Sign out, then press "Continue with Google" with that Gmail account (or reset the password from the email link).'
+        : '';
+  return (
+    <>
+      <PageHeader title="Owner" description="Only shown on npm run dev. A deployment shows not found here." />
+      <Card className="p-5 text-sm">
+        <p className="font-medium">This account is not the owner yet.</p>
+        <p className="mt-2 text-muted">{reason}</p>
+      </Card>
+    </>
+  );
+}
+
 export default async function OwnerPage() {
   const session = await requireSession();
 
@@ -36,7 +60,10 @@ export default async function OwnerPage() {
   } catch (error) {
     // Anyone who is not the owner is told this page does not exist, rather
     // than that it exists and they cannot see it.
-    if (error instanceof NotTheOwnerError) notFound();
+    if (error instanceof NotTheOwnerError) {
+      if (process.env.NODE_ENV !== 'production') return <WhyNotOwner email={session.userEmail} verified={session.emailVerified} />;
+      notFound();
+    }
     throw error;
   }
 

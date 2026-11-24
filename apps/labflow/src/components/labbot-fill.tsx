@@ -2,8 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import type { PlannedExperiment, PlannedNote, PlannedSamples, PlannedTask } from '@/server/ai/assistant';
-import { saveNoteAction, saveSamplesAction, saveTasksAction, type PlanState, type SaveResult } from '@/server/actions/assistant';
+import type { PlannedEvent, PlannedExperiment, PlannedNote, PlannedSamples, PlannedTask } from '@/server/ai/assistant';
+import { saveEventsAction, saveNoteAction, saveSamplesAction, saveTasksAction, type PlanState, type SaveResult } from '@/server/actions/assistant';
 import { stashPrefill } from '@/lib/labbot-prefill';
 import { Button } from './ui';
 
@@ -17,7 +17,8 @@ export function FillResult({ state }: { state: PlanState }) {
   const plan = state.plan;
   if (!plan) return null;
   const projects = state.projects ?? [];
-  const empty = !plan.experiments.length && !plan.notes.length && !plan.tasks.length && !plan.samples.length;
+  const events = plan.events ?? [];
+  const empty = !plan.experiments.length && !plan.notes.length && !plan.tasks.length && !plan.samples.length && !events.length;
   return (
     <div className="space-y-3">
       {plan.reply ? <p className="text-sm">{plan.reply}</p> : null}
@@ -28,6 +29,7 @@ export function FillResult({ state }: { state: PlanState }) {
         <NoteCard key={`n${i}`} note={n} label={state.labels?.[n.experimentId] ?? 'the experiment'} />
       ))}
       {plan.tasks.length ? <TasksCard tasks={plan.tasks} /> : null}
+      {events.length ? <EventsCard events={events} /> : null}
       {plan.samples.map((g, i) => (
         <SamplesCard key={`s${i}`} group={g} projects={projects} />
       ))}
@@ -182,6 +184,68 @@ function TasksCard({ tasks }: { tasks: PlannedTask[] }) {
           onClick={() => void save.run(() => saveTasksAction({ tasks: chosen }))}
         >
           {save.busy ? 'Saving…' : chosen.length === 1 ? 'Add this task' : `Add ${chosen.length} tasks`}
+        </Button>
+      )}
+      {save.result ? <Done result={save.result} /> : null}
+    </Card>
+  );
+}
+
+/** Calendar cards: the day and time can be fixed here before adding. */
+function EventsCard({ events }: { events: PlannedEvent[] }) {
+  const save = useSave();
+  const [rows, setRows] = useState(() => events.map((e) => ({ ...e, keep: true })));
+  const chosen = rows.filter((r) => r.keep);
+  const missingDay = chosen.some((r) => !r.onDate);
+  const set = (i: number, patch: Partial<(typeof rows)[number]>) => setRows((all) => all.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return (
+    <Card title={events.length === 1 ? 'Calendar' : `${events.length} calendar events`}>
+      <ul className="space-y-2" data-labbot-events>
+        {rows.map((r, i) => (
+          <li key={i} className="space-y-1">
+            <label className="flex items-start gap-2">
+              <input type="checkbox" checked={r.keep} disabled={save.saved} onChange={(e) => set(i, { keep: e.target.checked })} className="mt-1" />
+              <span>
+                {r.title}
+                {r.notes ? <span className="block text-xs text-muted">{r.notes}</span> : null}
+              </span>
+            </label>
+            <div className="flex gap-2 pl-6">
+              <label className="sr-only" htmlFor={`ev-day-${i}`}>
+                Day for {r.title}
+              </label>
+              <input
+                id={`ev-day-${i}`}
+                type="date"
+                value={r.onDate}
+                disabled={save.saved}
+                onChange={(e) => set(i, { onDate: e.target.value })}
+                className="h-8 rounded-md border border-line bg-surface px-2 text-xs"
+              />
+              <label className="sr-only" htmlFor={`ev-time-${i}`}>
+                Time for {r.title}
+              </label>
+              <input
+                id={`ev-time-${i}`}
+                type="time"
+                value={r.atTime}
+                disabled={save.saved}
+                onChange={(e) => set(i, { atTime: e.target.value })}
+                className="h-8 rounded-md border border-line bg-surface px-2 text-xs"
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+      {missingDay && !save.saved ? <p className="text-xs text-warn">Pick a day for each one first.</p> : null}
+      {save.saved ? null : (
+        <Button
+          type="button"
+          size="sm"
+          disabled={save.busy || chosen.length === 0 || missingDay}
+          onClick={() => void save.run(() => saveEventsAction({ events: chosen.map(({ keep: _keep, ...e }) => e) }))}
+        >
+          {save.busy ? 'Adding…' : 'Add to calendar'}
         </Button>
       )}
       {save.result ? <Done result={save.result} /> : null}

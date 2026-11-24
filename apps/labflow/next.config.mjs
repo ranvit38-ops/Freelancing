@@ -71,6 +71,10 @@ const deployed = (() => {
 
 const nextConfig = {
   reactStrictMode: true,
+  // `npm run dev` refuses its own live-reload connection from any host but
+  // localhost, so opened at 127.0.0.1 or through Codespaces the page never
+  // hears about changes and the dev overlay fills with errors. Development only.
+  allowedDevOrigins: ['127.0.0.1', '*.app.github.dev', '*.github.dev', '*.gitpod.io', ...codespace],
   poweredByHeader: false,
   async headers() {
     return [

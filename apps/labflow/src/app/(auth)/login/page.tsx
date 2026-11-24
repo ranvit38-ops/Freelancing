@@ -4,6 +4,8 @@ import { LoginForm } from '@/components/auth-forms';
 import { GoogleButton } from '@/components/google-button';
 import { Card } from '@/components/ui';
 import { getSession } from '@/server/auth';
+import { googleConfigured } from '@/server/google';
+import { WelcomeBack } from '@/components/remember-sign-in';
 
 export const metadata = { title: 'Log in' };
 
@@ -19,6 +21,7 @@ export default async function LoginPage(
       <h1 className="text-xl font-semibold tracking-tight">Log in to Labquill</h1>
       <p className="mt-1.5 text-sm text-muted">Pick up where your lab left off.</p>
       <Card className="mt-6 space-y-4 p-6">
+        <WelcomeBack googleOn={googleConfigured()} />
         <GoogleButton
           error={searchParams.error}
           invite={searchParams.invite}

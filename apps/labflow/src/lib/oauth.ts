@@ -30,6 +30,8 @@ export function googleAuthUrl(input: {
   redirectUri: string;
   state: string;
   verifier: string;
+  /** The address this browser signed in with last time: Google can skip its account chooser. */
+  loginHint?: string;
 }): string {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id', input.clientId);
@@ -39,7 +41,10 @@ export function googleAuthUrl(input: {
   url.searchParams.set('state', input.state);
   url.searchParams.set('code_challenge', codeChallenge(input.verifier));
   url.searchParams.set('code_challenge_method', 'S256');
-  // Ask for a fresh consent screen rather than silently reusing an account.
-  url.searchParams.set('prompt', 'select_account');
+  // Returning from "Continue as you@…": go straight to that account. Otherwise
+  // show the chooser rather than silently reusing whichever one is signed in.
+  const hint = input.loginHint?.trim();
+  if (hint && hint.length <= 254 && /^[^\s@]+@[^\s@]+$/.test(hint)) url.searchParams.set('login_hint', hint);
+  else url.searchParams.set('prompt', 'select_account');
   return url.toString();
 }

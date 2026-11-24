@@ -30,6 +30,7 @@ export type PlannedExperiment = {
 export type PlannedNote = { experimentId: string; body: string };
 export type PlannedTask = { title: string; dueOn: string };
 export type PlannedSamples = { codes: string[]; description: string; projectId: string };
+export type PlannedEvent = { title: string; onDate: string; atTime: string; notes: string };
 
 export type Plan = {
   reply: string;
@@ -37,6 +38,7 @@ export type Plan = {
   notes: PlannedNote[];
   tasks: PlannedTask[];
   samples: PlannedSamples[];
+  events: PlannedEvent[];
 };
 
 const text = (description: string) => ({ type: 'string', description });
@@ -118,8 +120,23 @@ const SCHEMA = {
         additionalProperties: false,
       },
     },
+    events: {
+      type: 'array',
+      description: 'Things happening on a day, for the lab calendar: meetings, instrument bookings, a planned run, a seminar. Empty if none.',
+      items: {
+        type: 'object',
+        properties: {
+          title: text('What is happening, short.'),
+          onDate: text('YYYY-MM-DD, or empty when no day was given.'),
+          atTime: text('HH:MM in 24-hour time, or empty for all day or when no time was given.'),
+          notes: text('Where, who, or what to bring, in their words, or empty.'),
+        },
+        required: ['title', 'onDate', 'atTime', 'notes'],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ['reply', 'experiments', 'notes', 'tasks', 'samples'],
+  required: ['reply', 'experiments', 'notes', 'tasks', 'samples', 'events'],
   additionalProperties: false,
 } as const;
 
@@ -142,6 +159,7 @@ const shape = z.object({
   notes: z.array(z.object({ experimentId: z.string(), body: z.string() })),
   tasks: z.array(z.object({ title: z.string(), dueOn: z.string() })),
   samples: z.array(z.object({ codes: z.array(z.string()), description: z.string(), projectId: z.string() })),
+  events: z.array(z.object({ title: z.string(), onDate: z.string(), atTime: z.string(), notes: z.string() })).default([]),
 });
 
 const SYSTEM = `You help a researcher record their lab work. From what they write, prepare records for them to check and save:
@@ -149,6 +167,7 @@ const SYSTEM = `You help a researcher record their lab work. From what they writ
 - notes: something to add to a run that is already in the experiment list (they name it, e.g. EXP-002, or describe it unmistakably).
 - tasks: things they say need doing.
 - samples: new sample IDs they want registered.
+- events: anything happening on a day that belongs on the lab calendar (a meeting, an instrument booking, a run planned for a date). Something they must do is a task; something scheduled for a day and time is an event. A task with a deadline can be both only if they say so.
 
 Copy what they said. Never add a value, number, unit, date, ID or step they did not state: leave the field empty instead. An invented temperature in a lab record is worse than a blank one.
 - conditions: only variables they set, each as name, value and unit. Leave unit empty if none was given.
@@ -247,5 +266,14 @@ export function clean(
       }))
       .filter((g) => g.codes.length > 0)
       .slice(0, 5),
+    events: (plan.events ?? [])
+      .filter((e) => e.title.trim())
+      .slice(0, 20)
+      .map((e) => ({
+        title: e.title.trim().slice(0, 200),
+        onDate: date(e.onDate),
+        atTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(e.atTime.trim()) ? e.atTime.trim() : '',
+        notes: e.notes.trim().slice(0, 2000),
+      })),
   };
 }

@@ -1,3 +1,4 @@
+import { RememberSignedIn } from '@/components/remember-sign-in';
 import Link from 'next/link';
 import { labAiReady } from '@/server/ai/access';
 import { NavList, type NavItem } from '@/components/nav';
@@ -133,6 +134,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg lg:flex-row">
+      <RememberSignedIn email={session.userEmail} name={session.userName} />
       {/* Mobile: a native disclosure, so navigation works without client JS. */}
       <details className="group border-b border-line bg-surface lg:hidden">
         <summary className="flex h-14 cursor-pointer list-none items-center justify-between px-4">
