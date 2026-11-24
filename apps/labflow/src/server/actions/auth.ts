@@ -194,7 +194,18 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     welcomeEmail({ name: parsed.data.name, labName, joined, link }),
   );
   await createSession(userId);
-  redirect(joined ? '/start?joined=1' : '/dashboard');
+  return signedIn(formData, joined ? '/start?joined=1' : '/dashboard');
+}
+
+/**
+ * After a sign-in or sign-up. With the page's script running, the browser is
+ * told where to go instead of being redirected, so it can first hand the
+ * address and password to its password manager ("Save password?") while the
+ * form is still on screen. Without script, an ordinary redirect.
+ */
+function signedIn(formData: FormData, to: string): ActionState {
+  if (formData.get('savePassword') === '1') return { ok: true, redirectTo: to };
+  redirect(to);
 }
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -266,7 +277,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   // another host, so the login page cannot be used to send people elsewhere.
   const next = String(formData.get('next') ?? '');
   const safeNext = /^\/(?![/\\])[A-Za-z0-9\-._~/?=&%]*$/.test(next) ? next : null;
-  redirect(joined ? '/start?joined=1' : (safeNext ?? '/dashboard'));
+  return signedIn(formData, joined ? '/start?joined=1' : (safeNext ?? '/dashboard'));
 }
 
 /**

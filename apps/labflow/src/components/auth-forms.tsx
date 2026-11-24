@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useActionState, useEffect, useRef } from 'react';
-import { markPasswordSignIn, useLastSignIn } from './remember-sign-in';
+import { SavePasswordFlag, markPasswordSignIn, useLastSignIn, withPasswordSave } from './remember-sign-in';
 import { Field, FormError, Input } from './ui';
 import { SubmitButton } from './submit-button';
 import {
@@ -14,8 +14,12 @@ import {
 } from '@/server/actions/auth';
 import { noState } from '@/server/actions/types';
 
+// Signing in or up offers the password to the browser's password manager first.
+const loginWithSave = withPasswordSave(loginAction);
+const signupWithSave = withPasswordSave(signupAction);
+
 export function LoginForm({ inviteToken, joinCode, next }: { inviteToken?: string; joinCode?: string; next?: string }) {
-  const [state, action] = useActionState(loginAction, noState);
+  const [state, action] = useActionState(loginWithSave, noState);
   const last = useLastSignIn();
   const email = useRef<HTMLInputElement>(null);
   const password = useRef<HTMLInputElement>(null);
@@ -28,6 +32,7 @@ export function LoginForm({ inviteToken, joinCode, next }: { inviteToken?: strin
   }, [last]);
   return (
     <form action={action} onSubmit={() => markPasswordSignIn(email.current?.value ?? '')} className="space-y-4">
+      <SavePasswordFlag />
       {next ? <input type="hidden" name="next" value={next} /> : null}
       {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
       {joinCode ? <input type="hidden" name="joinCode" value={joinCode} /> : null}
@@ -59,12 +64,13 @@ export function SignupForm({
   invitedEmail?: string;
   joinCode?: string;
 }) {
-  const [state, action] = useActionState(signupAction, noState);
+  const [state, action] = useActionState(signupWithSave, noState);
   // Either one means they are joining a lab that already exists, so the form
   // must not ask them to name one.
   const joining = Boolean(inviteToken || joinCode);
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} onSubmit={(e) => markPasswordSignIn((e.currentTarget.elements.namedItem('email') as HTMLInputElement).value)} className="space-y-4">
+      <SavePasswordFlag />
       {inviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
       {joinCode ? <input type="hidden" name="joinCode" value={joinCode} /> : null}
       <FormError>{state.error}</FormError>
@@ -76,7 +82,7 @@ export function SignupForm({
           id="email"
           name="email"
           type="email"
-          autoComplete="email"
+          autoComplete="username"
           defaultValue={invitedEmail}
           required
         />

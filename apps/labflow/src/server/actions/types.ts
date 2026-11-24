@@ -4,6 +4,8 @@ export type ActionState = {
   fieldErrors?: Record<string, string>;
   ok?: true;
   message?: string;
+  /** Signed in: where the browser goes next, once it has offered to save the password. */
+  redirectTo?: string;
 };
 
 export const noState: ActionState = {};

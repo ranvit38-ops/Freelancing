@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useSyncExternalStore } from 'react';
+import type { ActionState } from '@/server/actions/types';
 
 /**
  * Remembers who signed in on this browser, so next time is one click.
@@ -142,4 +143,44 @@ export function WelcomeBack({ googleOn }: { googleOn: boolean }) {
       </button>
     </div>
   );
+}
+
+type PasswordCredentialCtor = new (data: { id: string; password: string; name?: string }) => Credential;
+
+/**
+ * Signed in or signed up: offer the password to the browser's own password
+ * manager, then go on into the app. Chrome and Edge show their "Save
+ * password?" prompt from this call; Safari and Firefox notice the form was
+ * submitted and offer by themselves. The password is never kept anywhere
+ * else: not in this page's storage, not on our server in plain text.
+ *
+ * Wraps the form's action rather than reacting after it, because signing in
+ * sets the session cookie and the page re-renders without the form at once.
+ */
+export function withPasswordSave(
+  action: (prev: ActionState, formData: FormData) => Promise<ActionState>,
+): (prev: ActionState, formData: FormData) => Promise<ActionState> {
+  return async (prev, formData) => {
+    const result = await action(prev, formData);
+    const to = result.redirectTo;
+    if (!to || !to.startsWith('/') || to.startsWith('//')) return result;
+    const email = String(formData.get('email') ?? '');
+    const password = String(formData.get('password') ?? '');
+    const name = String(formData.get('name') ?? '') || undefined;
+    const Ctor = (window as unknown as { PasswordCredential?: PasswordCredentialCtor }).PasswordCredential;
+    if (Ctor && email && password && navigator.credentials?.store) {
+      // Never stuck here: go on after a moment whatever the browser does.
+      await Promise.race([
+        navigator.credentials.store(new Ctor({ id: email, password, name })).catch(() => undefined),
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+    }
+    window.location.assign(to);
+    return result;
+  };
+}
+
+/** Tells the server this page can save the password before moving on. */
+export function SavePasswordFlag() {
+  return <input type="hidden" name="savePassword" value="1" />;
 }
