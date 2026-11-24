@@ -11,6 +11,7 @@ import { CompletenessPanel } from '@/components/completeness-panel';
 import { AttachLink } from '@/components/attach-link';
 import { PasteDataset } from '@/components/paste-dataset';
 import { Discussion } from '@/components/discussion';
+import { ExperimentAccess } from '@/components/experiment-access';
 import { LocalDateTime } from '@/components/local-date-time';
 import { NoteForm } from '@/components/note-form';
 import { ConfirmSubmit, FileUpload } from '@/components/file-upload';
@@ -39,7 +40,7 @@ import {
 } from '@/server/actions/records';
 import { NotFoundInWorkspaceError, requireSession } from '@/server/authz';
 import { markNotificationsReadFor } from '@/server/queries';
-import { getExperimentRecord, listDiscussion,
+import { getExperimentAccess, getExperimentRecord, listDiscussion, listWorkspaceMembers,
   lotsForExperiment,
   lotOptions,
 } from '@/server/queries';
@@ -86,9 +87,11 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
   ].filter((section) => section.value?.trim());
   const canModerate = session.role === 'owner' || session.role === 'admin';
   const messages = await listDiscussion(session, { experimentId: experiment.id });
-  const [lotsUsed, availableLots] = await Promise.all([
+  const [lotsUsed, availableLots, access, labPeople] = await Promise.all([
     lotsForExperiment(session, experiment.id),
     lotOptions(session),
+    getExperimentAccess(session, experiment.id),
+    listWorkspaceMembers(session),
   ]);
 
   const report = checkCompleteness({
@@ -142,6 +145,11 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
 
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <StatusBadge status={experiment.status} />
+        {access.restricted ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber/15 px-2.5 py-0.5 text-xs font-medium text-fg" data-private-badge>
+            🔒 Private: {access.memberIds.length} {access.memberIds.length === 1 ? 'person' : 'people'}
+          </span>
+        ) : null}
         {experiment.repeatsExperimentId ? (
           <Link
             href={`/experiments/${experiment.repeatsExperimentId}`}
@@ -449,6 +457,14 @@ export default async function ExperimentPage(props: { params: Promise<{ experime
         </div>
 
         <div className="space-y-5">
+          <ExperimentAccess
+            experimentId={experiment.id}
+            restricted={access.restricted}
+            memberIds={access.memberIds}
+            people={labPeople.map((p) => ({ id: p.id, name: p.name, role: p.role }))}
+            canManage={access.canManage}
+            currentUserId={session.userId}
+          />
           <CompletenessPanel report={report} />
 
           {/* Only older runs recorded sample IDs; new runs keep them in their sheet. */}

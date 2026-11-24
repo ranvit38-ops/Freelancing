@@ -41,6 +41,7 @@ import {
   notifications,
   projectFiles,
   protocolFiles,
+  experimentMembers,
 } from '@/db/schema';
 import type { SessionContext } from './auth';
 import { dmParticipants } from '@/lib/dm';
@@ -210,6 +211,82 @@ async function logActivity(s: SessionContext, entry: ActivityEntry) {
   });
 }
 
+
+/* ── restricted experiments ─────────────────────────────────────────────── */
+
+/**
+ * The one rule for who sees an experiment: everyone in the lab, unless it is
+ * restricted, when only the people added to it (and the lab's owners and
+ * admins, who could add themselves anyway) see it. Every read of experiments
+ * goes through experimentScope, and every table hanging off an experiment
+ * (notes, files, data, messages) through experimentIdVisible, so a restricted
+ * run is absent from lists, search, the calendar and LabBot alike, and its
+ * address answers "not found".
+ */
+function seesEverything(s: SessionContext): boolean {
+  return s.role === 'owner' || s.role === 'admin';
+}
+
+function experimentVisible(s: SessionContext) {
+  if (seesEverything(s)) return sql`true`;
+  return sql`(not ${experiments.restricted} or exists (select 1 from ${experimentMembers} em where em.experiment_id = ${experiments.id} and em.user_id = ${s.userId}))`;
+}
+
+export function experimentScope(s: SessionContext) {
+  return and(eq(experiments.workspaceId, s.workspaceId), experimentVisible(s))!;
+}
+
+/** The restricted experiments this person may not see, as SQL: `id in (…)`. */
+function hiddenExperiments(s: SessionContext) {
+  return sql`(select e.id from ${experiments} e where e.workspace_id = ${s.workspaceId} and e.restricted and not exists (select 1 from ${experimentMembers} em where em.experiment_id = e.id and em.user_id = ${s.userId}))`;
+}
+
+/** For a column that points at an experiment (or is empty): true unless it points at one hidden from this person. */
+/** A research update drawn from an experiment hidden from this person carries its content, so it is hidden too. */
+function updateVisible(s: SessionContext) {
+  if (seesEverything(s)) return sql`true`;
+  return sql`not (${researchUpdates.experimentIds} && array(${hiddenExperiments(s)}))`;
+}
+
+export function experimentIdVisible(s: SessionContext, column: Parameters<typeof eq>[0]) {
+  if (seesEverything(s)) return sql`true`;
+  return sql`(${column} is null or ${column} not in ${hiddenExperiments(s)})`;
+}
+
+/** A link (activity, notification) that does not lead into an experiment hidden from this person. */
+export function hrefVisible(s: SessionContext, column: Parameters<typeof eq>[0]) {
+  if (seesEverything(s)) return sql`true`;
+  return sql`(${column} is null or not exists (select 1 from ${experiments} hx where hx.id in ${hiddenExperiments(s)} and ${column} like '/experiments/' || hx.id || '%'))`;
+}
+
+/**
+ * Who may see one experiment: null when it is open to the whole lab,
+ * otherwise the people added to it plus the lab's owners and admins.
+ */
+export async function experimentAudience(workspaceId: string, experimentId: string): Promise<Set<string> | null> {
+  const [e] = await db
+    .select({ restricted: experiments.restricted })
+    .from(experiments)
+    .where(and(eq(experiments.id, experimentId), eq(experiments.workspaceId, workspaceId)))
+    .limit(1);
+  if (!e?.restricted) return null;
+  const [people, leads] = await Promise.all([
+    db.select({ id: experimentMembers.userId }).from(experimentMembers).where(eq(experimentMembers.experimentId, experimentId)),
+    db
+      .select({ id: workspaceMembers.userId })
+      .from(workspaceMembers)
+      .where(and(eq(workspaceMembers.workspaceId, workspaceId), inArray(workspaceMembers.role, ['owner', 'admin']))),
+  ]);
+  return new Set([...people, ...leads].map((r) => r.id));
+}
+
+/** Ids of the experiments hidden from this person, for filtering rows that only mention them (activity, notifications). */
+export async function hiddenExperimentIds(s: SessionContext): Promise<Set<string>> {
+  if (seesEverything(s)) return new Set();
+  const rows = await db.execute<{ id: string }>(sql`${hiddenExperiments(s)}`);
+  return new Set(rows.rows.map((r) => r.id));
+}
+
 /**
  * The lab's activity, newest first: who put in or changed what. For whoever
  * runs the lab. Private files and direct messages are never logged, so this
@@ -237,7 +314,7 @@ export async function listActivity(
     })
     .from(activity)
     .leftJoin(users, eq(users.id, activity.actorId))
-    .where(and(...where))
+    .where(and(...where, experimentIdVisible(s, activity.subjectId), hrefVisible(s, activity.href)))
     .orderBy(desc(activity.createdAt))
     .limit(Math.min(opts.limit ?? 200, 5000));
 }
@@ -274,14 +351,15 @@ export async function listExperiments(
   opts: { projectId?: string; limit?: number } = {},
 ) {
   const where = opts.projectId
-    ? and(eq(experiments.workspaceId, s.workspaceId), eq(experiments.projectId, opts.projectId))
-    : eq(experiments.workspaceId, s.workspaceId);
+    ? and(experimentScope(s), eq(experiments.projectId, opts.projectId))
+    : experimentScope(s);
 
   const q = db
     .select({
       id: experiments.id,
       number: experiments.number,
       title: experiments.title,
+      restricted: experiments.restricted,
       status: experiments.status,
       objective: experiments.objective,
       performedOn: experiments.performedOn,
@@ -310,7 +388,7 @@ export async function nextExperimentNumber(s: SessionContext, projectId: string)
   const rows = await db
     .select({ max: sql<number | null>`max(${experiments.number})` })
     .from(experiments)
-    .where(and(eq(experiments.projectId, projectId), eq(experiments.workspaceId, s.workspaceId)));
+    .where(and(eq(experiments.projectId, projectId), eq(experiments.workspaceId, s.workspaceId) /* every run, hidden ones too: numbers are unique per project */));
   return (rows[0]?.max ?? 0) + 1;
 }
 
@@ -331,6 +409,7 @@ export async function getExperiment(s: SessionContext, experimentId: string) {
       protocolVersion: protocolVersions.version,
       protocolId: protocols.id,
       protocolName: protocols.name,
+      restricted: experiments.restricted,
       repeatsExperimentId: experiments.repeatsExperimentId,
       researcherId: experiments.researcherId,
       researcherName: users.name,
@@ -346,9 +425,62 @@ export async function getExperiment(s: SessionContext, experimentId: string) {
     .leftJoin(users, eq(users.id, experiments.researcherId))
     .leftJoin(protocolVersions, eq(protocolVersions.id, experiments.protocolVersionId))
     .leftJoin(protocols, eq(protocols.id, protocolVersions.protocolId))
-    .where(and(eq(experiments.id, experimentId), eq(experiments.workspaceId, s.workspaceId)))
+    .where(and(eq(experiments.id, experimentId), experimentScope(s)))
     .limit(1);
   return assertFound(rows[0], 'Experiment');
+}
+
+/** Raised when someone who may not change who sees an experiment tries to. */
+export class ExperimentAccessError extends Error {
+  constructor() {
+    super('Only the person who ran this experiment, or the lab\'s owners and admins, can change who sees it.');
+    this.name = 'ExperimentAccessError';
+  }
+}
+
+/** Who can see this experiment, and whether this person may change it. */
+export async function getExperimentAccess(s: SessionContext, experimentId: string) {
+  const experiment = await getExperiment(s, experimentId);
+  const people = await db
+    .select({ id: experimentMembers.userId })
+    .from(experimentMembers)
+    .where(eq(experimentMembers.experimentId, experiment.id));
+  return {
+    restricted: experiment.restricted,
+    memberIds: people.map((p) => p.id),
+    canManage: seesEverything(s) || experiment.researcherId === s.userId,
+  };
+}
+
+/**
+ * Opens an experiment to the whole lab, or limits it to chosen people. The
+ * person making it private always stays on it, so nobody locks themselves
+ * out; owners and admins see it regardless. Only lab members can be added.
+ */
+export async function setExperimentAccess(
+  s: SessionContext,
+  experimentId: string,
+  input: { restricted: boolean; userIds: string[] },
+) {
+  const experiment = await getExperiment(s, experimentId);
+  if (!(seesEverything(s) || experiment.researcherId === s.userId)) throw new ExperimentAccessError();
+  const people = await labMembersAmong(s, [...input.userIds, s.userId, ...(experiment.researcherId ? [experiment.researcherId] : [])]);
+  await db.transaction(async (tx) => {
+    await tx.update(experiments).set({ restricted: input.restricted }).where(eq(experiments.id, experiment.id));
+    await tx.delete(experimentMembers).where(eq(experimentMembers.experimentId, experiment.id));
+    if (input.restricted && people.length) {
+      await tx.insert(experimentMembers).values(people.map((userId) => ({ experimentId: experiment.id, userId })));
+    }
+  });
+  await logActivity(s, {
+    action: 'changed',
+    subjectType: 'experiment',
+    subjectId: experiment.id,
+    label: experimentLabel(experiment),
+    detail: input.restricted ? `Now only ${people.length} ${people.length === 1 ? 'person' : 'people'} can see it` : 'Now open to the whole lab',
+    href: `/experiments/${experiment.id}`,
+  });
+  return { restricted: input.restricted, people: input.restricted ? people : [] };
 }
 
 /** Everything the detail page, the checker and the comparison view need. */
@@ -480,7 +612,7 @@ export async function updateExperiment(
   const rows = await db
     .update(experiments)
     .set({ ...input, updatedAt: new Date() })
-    .where(and(eq(experiments.id, experimentId), eq(experiments.workspaceId, s.workspaceId)))
+    .where(and(eq(experiments.id, experimentId), experimentScope(s)))
     .returning({ id: experiments.id });
   assertFound(rows[0], 'Experiment');
   const changed = changedFields(before, input, EXPERIMENT_FIELDS).map((field) =>
@@ -504,7 +636,7 @@ export async function deleteExperiment(s: SessionContext, experimentId: string) 
   assertId(experimentId, 'Experiment');
   const rows = await db
     .delete(experiments)
-    .where(and(eq(experiments.id, experimentId), eq(experiments.workspaceId, s.workspaceId)))
+    .where(and(eq(experiments.id, experimentId), experimentScope(s)))
     .returning({ id: experiments.id, number: experiments.number, title: experiments.title });
   const row = assertFound(rows[0], 'Experiment');
   await logActivity(s, { action: 'deleted', subjectType: 'experiment', subjectId: row.id, label: experimentLabel(row) });
@@ -775,7 +907,7 @@ export async function experimentsForSample(s: SessionContext, sampleId: string) 
     .innerJoin(experiments, eq(experiments.id, experimentSamples.experimentId))
     .innerJoin(projects, eq(projects.id, experiments.projectId))
     .where(
-      and(eq(experimentSamples.sampleId, sampleId), eq(experiments.workspaceId, s.workspaceId)),
+      and(eq(experimentSamples.sampleId, sampleId), experimentScope(s)),
     )
     .orderBy(desc(experiments.number));
 }
@@ -1095,6 +1227,19 @@ export async function listProtocolFileOptions(s: SessionContext) {
 function fileVisibleTo(s: SessionContext) {
   return and(
     eq(files.workspaceId, s.workspaceId),
+    // A file that belongs only to experiments this person may not see is
+    // their material, and goes with them. One also filed with a run they can
+    // see, a project or a protocol stays: restricting one run must not take
+    // the lab's shared protocol PDF away from everyone else.
+    seesEverything(s)
+      ? sql`true`
+      : sql`not (
+          exists (select 1 from ${experimentFiles} ef where ef.file_id = ${files.id} and ef.experiment_id in ${hiddenExperiments(s)})
+          and not exists (select 1 from ${experimentFiles} ef2 where ef2.file_id = ${files.id} and ef2.experiment_id not in ${hiddenExperiments(s)})
+          and not exists (select 1 from ${projectFiles} pf where pf.file_id = ${files.id})
+          and not exists (select 1 from ${protocolFiles} rf where rf.file_id = ${files.id})
+          and not exists (select 1 from ${protocolVersions} rv where rv.file_id = ${files.id})
+        )`,
     or(
       eq(files.private, false),
       eq(files.uploadedById, s.userId),
@@ -1481,7 +1626,7 @@ export async function getDataset(s: SessionContext, datasetId: string) {
   const rows = await db
     .select()
     .from(datasets)
-    .where(and(eq(datasets.id, datasetId), eq(datasets.workspaceId, s.workspaceId)))
+    .where(and(eq(datasets.id, datasetId), eq(datasets.workspaceId, s.workspaceId), experimentIdVisible(s, datasets.experimentId)))
     .limit(1);
   const dataset = assertFound(rows[0], 'Dataset');
   const columns = await db
@@ -1510,7 +1655,7 @@ export async function listRecentDatasets(s: SessionContext, limit = 6) {
     .from(datasets)
     .innerJoin(experiments, eq(experiments.id, datasets.experimentId))
     .innerJoin(projects, eq(projects.id, experiments.projectId))
-    .where(eq(datasets.workspaceId, s.workspaceId))
+    .where(and(eq(datasets.workspaceId, s.workspaceId), experimentVisible(s)))
     .orderBy(desc(datasets.createdAt))
     .limit(limit);
   if (!found.length) return [];
@@ -1730,7 +1875,7 @@ export async function search(s: SessionContext, rawQuery: string): Promise<Searc
         .innerJoin(projects, eq(projects.id, experiments.projectId))
         .where(
           and(
-            eq(experiments.workspaceId, s.workspaceId),
+            experimentScope(s),
             or(
               allTerms(experiments.title),
               allTerms(experiments.objective),
@@ -1770,7 +1915,7 @@ export async function search(s: SessionContext, rawQuery: string): Promise<Searc
         })
         .from(experimentNotes)
         .innerJoin(experiments, eq(experiments.id, experimentNotes.experimentId))
-        .where(and(eq(experiments.workspaceId, s.workspaceId), allTerms(experimentNotes.body)))
+        .where(and(experimentScope(s), allTerms(experimentNotes.body)))
         .limit(10),
       db
         .select({ id: files.id, filename: files.filename, isDocument: files.isDocument })
@@ -1845,7 +1990,7 @@ export async function dashboardData(s: SessionContext) {
       })
       .from(experiments)
       .innerJoin(projects, eq(projects.id, experiments.projectId))
-      .where(and(eq(experiments.workspaceId, s.workspaceId), eq(experiments.status, 'planned')))
+      .where(and(experimentScope(s), eq(experiments.status, 'planned')))
       .orderBy(experiments.performedOn)
       .limit(5),
     db
@@ -1860,7 +2005,7 @@ export async function dashboardData(s: SessionContext) {
       .innerJoin(projects, eq(projects.id, experiments.projectId))
       .where(
         and(
-          eq(experiments.workspaceId, s.workspaceId),
+          experimentScope(s),
           eq(experiments.status, 'needs_investigation'),
         ),
       )
@@ -1869,7 +2014,7 @@ export async function dashboardData(s: SessionContext) {
     db
       .select({ experiments: count() })
       .from(experiments)
-      .where(eq(experiments.workspaceId, s.workspaceId)),
+      .where(experimentScope(s)),
   ]);
 
   // Completed experiments with no recorded conclusion, the documentation gap
@@ -1886,7 +2031,7 @@ export async function dashboardData(s: SessionContext) {
     .leftJoin(experimentResults, eq(experimentResults.experimentId, experiments.id))
     .where(
       and(
-        eq(experiments.workspaceId, s.workspaceId),
+        experimentScope(s),
         eq(experiments.status, 'completed'),
         or(isNull(experimentResults.id), isNull(experimentResults.conclusion)),
       ),
@@ -1935,7 +2080,7 @@ export async function getComparableExperiments(s: SessionContext, ids: string[])
     .leftJoin(protocolVersions, eq(protocolVersions.id, experiments.protocolVersionId))
     .leftJoin(protocols, eq(protocols.id, protocolVersions.protocolId))
     .leftJoin(experimentResults, eq(experimentResults.experimentId, experiments.id))
-    .where(and(eq(experiments.workspaceId, s.workspaceId), inArray(experiments.id, ids)));
+    .where(and(experimentScope(s), inArray(experiments.id, ids)));
 
   const [conditionRows, sampleRows, lotRows] = await Promise.all([
     db
@@ -2006,7 +2151,7 @@ export async function memoryInputs(s: SessionContext, projectId: string) {
       .leftJoin(experimentResults, eq(experimentResults.experimentId, experiments.id))
       .leftJoin(protocolVersions, eq(protocolVersions.id, experiments.protocolVersionId))
       .leftJoin(protocols, eq(protocols.id, protocolVersions.protocolId))
-      .where(and(eq(experiments.workspaceId, s.workspaceId), eq(experiments.projectId, projectId)))
+      .where(and(experimentScope(s), eq(experiments.projectId, projectId)))
       .orderBy(experiments.number),
     db
       .select({
@@ -2047,7 +2192,7 @@ export async function listResearchUpdates(s: SessionContext, opts: { projectId?:
     })
     .from(researchUpdates)
     .innerJoin(projects, eq(projects.id, researchUpdates.projectId))
-    .where(where)
+    .where(and(where, updateVisible(s)))
     .orderBy(desc(researchUpdates.updatedAt));
 }
 
@@ -2066,7 +2211,7 @@ export async function getResearchUpdate(s: SessionContext, updateId: string) {
     })
     .from(researchUpdates)
     .innerJoin(projects, eq(projects.id, researchUpdates.projectId))
-    .where(and(eq(researchUpdates.id, updateId), eq(researchUpdates.workspaceId, s.workspaceId)))
+    .where(and(eq(researchUpdates.id, updateId), eq(researchUpdates.workspaceId, s.workspaceId), updateVisible(s)))
     .limit(1);
   return assertFound(rows[0], 'Research update');
 }
@@ -2101,7 +2246,7 @@ export async function saveResearchUpdate(
   const rows = await db
     .update(researchUpdates)
     .set({ ...input, updatedAt: new Date() })
-    .where(and(eq(researchUpdates.id, updateId), eq(researchUpdates.workspaceId, s.workspaceId)))
+    .where(and(eq(researchUpdates.id, updateId), eq(researchUpdates.workspaceId, s.workspaceId), updateVisible(s)))
     .returning({ id: researchUpdates.id });
   assertFound(rows[0], 'Research update');
 }
@@ -2110,7 +2255,7 @@ export async function deleteResearchUpdate(s: SessionContext, updateId: string) 
   assertId(updateId, 'Update');
   const rows = await db
     .delete(researchUpdates)
-    .where(and(eq(researchUpdates.id, updateId), eq(researchUpdates.workspaceId, s.workspaceId)))
+    .where(and(eq(researchUpdates.id, updateId), eq(researchUpdates.workspaceId, s.workspaceId), updateVisible(s)))
     .returning({ id: researchUpdates.id });
   assertFound(rows[0], 'Research update');
 }
@@ -2167,7 +2312,7 @@ export async function listRecordChecks(s: SessionContext) {
     .leftJoin(experimentResults, eq(experimentResults.experimentId, experiments.id))
     .where(
       and(
-        eq(experiments.workspaceId, s.workspaceId),
+        experimentScope(s),
         ne(experiments.status, 'planned'),
         eq(projects.isExample, false),
       ),
@@ -2178,8 +2323,8 @@ export async function listRecordChecks(s: SessionContext) {
 /** Signals the deterministic next-actions engine runs on. */
 export async function nextActionSignals(s: SessionContext, opts: { projectId?: string } = {}) {
   const where = opts.projectId
-    ? and(eq(experiments.workspaceId, s.workspaceId), eq(experiments.projectId, opts.projectId))
-    : eq(experiments.workspaceId, s.workspaceId);
+    ? and(experimentScope(s), eq(experiments.projectId, opts.projectId))
+    : experimentScope(s);
 
   const [experimentRows, protocolRows] = await Promise.all([
     db
@@ -2280,7 +2425,7 @@ export async function listFiles(s: SessionContext) {
     })
     .from(files)
     .leftJoin(users, eq(users.id, files.uploadedById))
-    .leftJoin(experimentFiles, eq(experimentFiles.fileId, files.id))
+    .leftJoin(experimentFiles, and(eq(experimentFiles.fileId, files.id), experimentIdVisible(s, experimentFiles.experimentId)))
     .leftJoin(experiments, eq(experiments.id, experimentFiles.experimentId))
     .leftJoin(projects, eq(projects.id, experiments.projectId))
     .leftJoin(datasets, eq(datasets.fileId, files.id))
@@ -2302,7 +2447,7 @@ export async function protocolVersionUsage(s: SessionContext, protocolId: string
     })
     .from(protocolVersions)
     .innerJoin(protocols, eq(protocols.id, protocolVersions.protocolId))
-    .leftJoin(experiments, eq(experiments.protocolVersionId, protocolVersions.id))
+    .leftJoin(experiments, and(eq(experiments.protocolVersionId, protocolVersions.id), experimentVisible(s)))
     .leftJoin(projects, eq(projects.id, experiments.projectId))
     .where(
       and(eq(protocolVersions.protocolId, protocolId), eq(protocols.workspaceId, s.workspaceId)),
@@ -2329,7 +2474,7 @@ export async function firstPlottableDataset(s: SessionContext, experimentIds: st
     .from(datasets)
     .innerJoin(experiments, eq(experiments.id, datasets.experimentId))
     .where(
-      and(eq(datasets.workspaceId, s.workspaceId), inArray(datasets.experimentId, experimentIds)),
+      and(eq(datasets.workspaceId, s.workspaceId), inArray(datasets.experimentId, experimentIds), experimentVisible(s)),
     )
     .orderBy(experiments.number, datasets.createdAt);
 
@@ -2445,7 +2590,7 @@ export async function listDiscussion(
     .leftJoin(users, eq(users.id, discussions.authorId))
     // A deleted file leaves the message standing, so this join has to be left.
     .leftJoin(files, eq(files.id, discussions.fileId))
-    .where(and(eq(discussions.workspaceId, s.workspaceId), target))
+    .where(and(eq(discussions.workspaceId, s.workspaceId), target, experimentIdVisible(s, discussions.experimentId)))
     .orderBy(discussions.createdAt);
 
   const byId = new Map<string, DiscussionMessage>();
@@ -2489,6 +2634,7 @@ export async function messagesVisibleTo(s: SessionContext, limit = 400) {
       and(
         eq(discussions.workspaceId, s.workspaceId),
         or(isNull(discussions.dmKey), sql`position(${s.userId} in ${discussions.dmKey}) > 0`),
+        experimentIdVisible(s, discussions.experimentId),
       ),
     )
     .orderBy(desc(discussions.createdAt))
@@ -2609,7 +2755,7 @@ export async function getMessageForRecord(s: SessionContext, messageId: string) 
     .from(discussions)
     .leftJoin(users, eq(users.id, discussions.authorId))
     .leftJoin(projects, and(eq(projects.id, discussions.projectId), eq(projects.workspaceId, discussions.workspaceId)))
-    .where(and(eq(discussions.id, messageId), eq(discussions.workspaceId, s.workspaceId)))
+    .where(and(eq(discussions.id, messageId), eq(discussions.workspaceId, s.workspaceId), experimentIdVisible(s, discussions.experimentId)))
     .limit(1);
   const message = assertFound(rows[0], 'Message');
   if (message.dmKey && !dmParticipants(message.dmKey)?.includes(s.userId)) {
@@ -2967,7 +3113,7 @@ export async function listCalendar(s: SessionContext, from: string, to: string) 
     .from(experiments)
     .where(
       and(
-        eq(experiments.workspaceId, s.workspaceId),
+        experimentScope(s),
         sql`(${experiments.performedOn} at time zone 'UTC')::date >= ${from}::date`,
         sql`(${experiments.performedOn} at time zone 'UTC')::date <= ${to}::date`,
       ),
@@ -3357,7 +3503,7 @@ export async function usageCounts(s: SessionContext) {
       .select({ n: count() })
       .from(experiments)
       .innerJoin(projects, eq(projects.id, experiments.projectId))
-      .where(and(eq(experiments.workspaceId, s.workspaceId), eq(projects.isExample, false))),
+      .where(and(eq(experiments.workspaceId, s.workspaceId) /* the plan counts every run */, eq(projects.isExample, false))),
     db
       .select({ bytes: sql<number>`coalesce(sum(byte_size), 0)::bigint` })
       .from(files)
@@ -3468,7 +3614,7 @@ export async function getInventoryItem(s: SessionContext, itemId: string) {
     .innerJoin(inventoryLots, eq(inventoryLots.id, experimentLots.lotId))
     .innerJoin(experiments, eq(experiments.id, experimentLots.experimentId))
     .leftJoin(projects, eq(projects.id, experiments.projectId))
-    .where(and(eq(inventoryLots.itemId, itemId), eq(experimentLots.workspaceId, s.workspaceId)))
+    .where(and(eq(inventoryLots.itemId, itemId), eq(experimentLots.workspaceId, s.workspaceId), experimentVisible(s)))
     .orderBy(desc(experiments.number));
 
   return { item, lots, usage };
@@ -3614,6 +3760,7 @@ export async function lotsForExperiment(s: SessionContext, experimentId: string)
       and(
         eq(experimentLots.experimentId, experimentId),
         eq(experimentLots.workspaceId, s.workspaceId),
+        experimentIdVisible(s, experimentLots.experimentId),
       ),
     )
     .orderBy(inventoryItems.name);
@@ -3632,7 +3779,7 @@ export async function recordLotUse(
     db
       .select({ id: experiments.id })
       .from(experiments)
-      .where(and(eq(experiments.id, experimentId), eq(experiments.workspaceId, s.workspaceId)))
+      .where(and(eq(experiments.id, experimentId), experimentScope(s)))
       .limit(1),
     db
       .select({ id: inventoryLots.id })
@@ -3662,6 +3809,7 @@ export async function removeLotUse(s: SessionContext, experimentId: string, lotI
         eq(experimentLots.experimentId, experimentId),
         eq(experimentLots.lotId, lotId),
         eq(experimentLots.workspaceId, s.workspaceId),
+        experimentIdVisible(s, experimentLots.experimentId),
       ),
     );
 }
@@ -3881,7 +4029,7 @@ async function notifyForMessage(
     const [e] = await db
       .select({ number: experiments.number, title: experiments.title, researcherId: experiments.researcherId })
       .from(experiments)
-      .where(and(eq(experiments.id, input.experimentId), eq(experiments.workspaceId, s.workspaceId)))
+      .where(and(eq(experiments.id, input.experimentId), experimentScope(s)))
       .limit(1);
     if (e) {
       where = `EXP-${String(e.number).padStart(3, '0')}: ${e.title}`;
@@ -3920,6 +4068,12 @@ async function notifyForMessage(
     task: `${actor} gave you a task`,
   };
   const recipients = messageRecipients({ authorId: s.userId, dmPeople, mentioned, parentAuthorId, ownerId });
+  // A restricted experiment's thread only reaches the people on it: a notice
+  // to anyone else would carry its title and the message.
+  if (input.experimentId) {
+    const allowed = await experimentAudience(s.workspaceId, input.experimentId);
+    if (allowed) for (const id of [...recipients.keys()]) if (!allowed.has(id)) recipients.delete(id);
+  }
   await notify(
     s,
     [...recipients].map(([userId, kind]) => ({ userId, kind, title: titleFor[kind], body: notifyExcerpt(input.body), href })),
@@ -3941,7 +4095,7 @@ export async function listNotifications(s: SessionContext, limit = 100) {
     })
     .from(notifications)
     .leftJoin(users, eq(users.id, notifications.actorId))
-    .where(and(eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId)))
+    .where(and(eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId), hrefVisible(s, notifications.href)))
     .orderBy(desc(notifications.createdAt))
     .limit(limit);
 }
@@ -3950,7 +4104,7 @@ export async function unreadNotificationCount(s: SessionContext): Promise<number
   const [row] = await db
     .select({ n: count() })
     .from(notifications)
-    .where(and(eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId), isNull(notifications.readAt)));
+    .where(and(eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId), isNull(notifications.readAt), hrefVisible(s, notifications.href)));
   return row?.n ?? 0;
 }
 
@@ -3960,7 +4114,7 @@ export async function openNotification(s: SessionContext, id: string): Promise<s
   const [row] = await db
     .update(notifications)
     .set({ readAt: sql`coalesce(${notifications.readAt}, now())` })
-    .where(and(eq(notifications.id, id), eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId)))
+    .where(and(eq(notifications.id, id), eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId), hrefVisible(s, notifications.href)))
     .returning({ href: notifications.href });
   return row?.href ?? null;
 }
@@ -3969,7 +4123,7 @@ export async function markAllNotificationsRead(s: SessionContext) {
   await db
     .update(notifications)
     .set({ readAt: new Date() })
-    .where(and(eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId), isNull(notifications.readAt)));
+    .where(and(eq(notifications.userId, s.userId), eq(notifications.workspaceId, s.workspaceId), isNull(notifications.readAt), hrefVisible(s, notifications.href)));
 }
 
 /**

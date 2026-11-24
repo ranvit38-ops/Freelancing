@@ -253,6 +253,8 @@ export const experiments = pgTable(
     protocolNotes: text('protocol_notes'),
     /** Set when this run repeats an earlier experiment, drives the timeline. */
     repeatsExperimentId: uuid('repeats_experiment_id'),
+    /** Only the people in experiment_members (and owners and admins) see it. See migration 0028. */
+    restricted: boolean('restricted').notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -261,6 +263,21 @@ export const experiments = pgTable(
     wsIdx: index('experiments_workspace_id_idx').on(t.workspaceId),
     numberUniq: uniqueIndex('experiments_project_number_key').on(t.projectId, t.number),
   }),
+);
+
+/** Who may see a restricted experiment. See migration 0028. */
+export const experimentMembers = pgTable(
+  'experiment_members',
+  {
+    experimentId: uuid('experiment_id')
+      .notNull()
+      .references(() => experiments.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.experimentId, t.userId] }) }),
 );
 
 export const experimentConditions = pgTable(

@@ -2,7 +2,8 @@
 
 import { requireSession } from '../authz';
 import { NotFoundInWorkspaceError } from '../not-found';
-import { getFileForDownload } from '../queries';
+import { ExperimentAccessError, getFileForDownload, setExperimentAccess } from '../queries';
+import { revalidatePath } from 'next/cache';
 import { audienceFrom, shareFile } from '../sharing';
 import type { ActionState } from './types';
 
@@ -30,6 +31,31 @@ export async function shareFileAction(_prev: ActionState, formData: FormData): P
     };
   } catch (error) {
     if (error instanceof NotFoundInWorkspaceError) return { error: 'Only the person who uploaded a file can change who sees it.' };
+    throw error;
+  }
+}
+
+/**
+ * Who sees one experiment: the whole lab, or only chosen people. Its notes,
+ * files, data and discussion go with it.
+ */
+export async function setExperimentAccessAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireSession();
+  const experimentId = String(formData.get('experimentId') ?? '');
+  const restricted = formData.get('access') === 'people';
+  const userIds = formData.getAll('people').map(String);
+  try {
+    const result = await setExperimentAccess(session, experimentId, { restricted, userIds });
+    revalidatePath(`/experiments/${experimentId}`);
+    revalidatePath('/experiments');
+    return {
+      ok: true,
+      message: result.restricted
+        ? `Now only ${result.people.length === 1 ? 'you' : `${result.people.length} people`} (and the lab's owners and admins) can see this experiment, its files and its discussion.`
+        : 'Open to the whole lab again.',
+    };
+  } catch (error) {
+    if (error instanceof ExperimentAccessError || error instanceof NotFoundInWorkspaceError) return { error: error.message };
     throw error;
   }
 }

@@ -1202,6 +1202,36 @@ await step('a member cannot open owner-only pages or change roles', async () => 
   await S.goto(`${BASE}/team`);
   assert(!(await S.locator('select[name=role]').count()), 'a member sees role controls');
 });
+await step('a private experiment: only the people on it see it, its notes and its files', async () => {
+  const access = P.locator('[data-experiment-access]');
+  await P.goto(`${BASE}/experiments/${ids.experiment}`);
+  await access.getByLabel('Only the people I choose').check();
+  await access.getByRole('button', { name: 'Save' }).click();
+  await expectText(access, 'Now only you');
+  await expectText(P, 'Private: 1 person');
+  // The student is in the lab but not on it: the page, the list, search and the calendar all leave it out.
+  await S.goto(`${BASE}/experiments/${ids.experiment}`);
+  await expectText(S, NOT_FOUND);
+  await S.goto(`${BASE}/search?q=bubble`);
+  assert(!(await bodyText(S)).includes('bubble on the ring'), 'search shows a note on a private experiment');
+  await S.goto(`${BASE}/calendar?m=2026-10&d=2026-10-20`);
+  assert(!(await S.locator(`#main a[href="/experiments/${ids.experiment}"]`).count()), 'the calendar shows a private experiment');
+  await S.goto(`${BASE}/files`);
+  assert(!(await bodyText(S)).includes('cuvette.png'), 'its files show in Files');
+  // Added to it, the student sees it all.
+  await P.reload();
+  await access.getByLabel('Only the people I choose').check();
+  await access.getByLabel(/Sam Student|Student/).first().check();
+  await access.getByRole('button', { name: 'Save' }).click();
+  await expectText(access, 'Now only 2 people');
+  await S.goto(`${BASE}/experiments/${ids.experiment}`);
+  await expectText(S, 'bubble on the ring');
+  // Back to the whole lab, for the steps after this one.
+  await P.reload();
+  await access.getByLabel('Everyone in the lab').check();
+  await access.getByRole('button', { name: 'Save' }).click();
+  await expectText(access, 'Open to the whole lab again');
+});
 await step('invite by email; the invitee signs up from the emailed link', async () => {
   await clearFake(MAIL);
   await P.goto(`${BASE}/team`);

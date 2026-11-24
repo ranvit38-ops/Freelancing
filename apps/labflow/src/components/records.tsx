@@ -16,6 +16,7 @@ export type ExperimentRowData = {
   id: string;
   number: number;
   title: string;
+  restricted?: boolean;
   status: ExperimentStatus;
   objective: string | null;
   performedOn: Date | string | null;
@@ -48,7 +49,10 @@ export function ExperimentList({
               {experimentCode(e.number)}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{e.title}</span>
+              <span className="block truncate text-sm font-medium">
+                {e.restricted ? <span title="Private: only some people can see it" aria-label="Private" className="mr-1">🔒</span> : null}
+                {e.title}
+              </span>
               <span className="mt-0.5 block truncate text-xs text-muted">
                 {[
                   showProject ? e.projectName : null,

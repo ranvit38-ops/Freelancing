@@ -1074,3 +1074,101 @@ suite('billing notices are sent once', () => {
     expect((await ctx.q.claimDueRenewalReminders()).map((r) => r.workspaceId)).not.toContain(ctx.wsB.id);
   });
 });
+
+suite('private experiments: only the people on them', () => {
+  let ctx: Ctx;
+  type Member = typeof ctx.sessionA;
+  let ivy: Member; // on the experiment
+  let otto: Member; // in the lab, not on it
+  let projectId: string;
+  let secret: string;
+  let fileId: string;
+
+  beforeAll(async () => {
+    ctx = await setup();
+    const { randomUUID } = await import('node:crypto');
+    const member = async (name: string) => {
+      const [user] = await ctx.db
+        .insert(ctx.schema.users)
+        .values({ email: `${name.toLowerCase()}-${randomUUID().slice(0, 8)}@test.local`, name, passwordHash: 'x' })
+        .returning({ id: ctx.schema.users.id, email: ctx.schema.users.email });
+      await ctx.db.insert(ctx.schema.workspaceMembers).values({ workspaceId: ctx.wsA.id, userId: user!.id, role: 'member' });
+      return { ...ctx.sessionA, userId: user!.id, userName: name, userEmail: user!.email, role: 'member' as 'owner' };
+    };
+    ivy = await member('Ivy');
+    otto = await member('Otto');
+    otto.role = 'member' as 'owner';
+    ivy.role = 'member' as 'owner';
+    projectId = await ctx.q.createProject(ctx.sessionA, { name: 'Shared project', description: null, researchQuestion: null, status: 'active', tags: [] });
+    secret = await ctx.q.createExperiment(ctx.sessionA, projectId, {
+      title: 'Embargoed binding assay',
+      objective: 'Confidential collaborator samples',
+      hypothesis: null,
+      performedOn: new Date('2026-11-10T00:00:00Z'),
+      status: 'completed',
+      protocolVersionId: null,
+      protocolNotes: null,
+      repeatsExperimentId: null,
+    });
+    await ctx.q.setExperimentAccess(ctx.sessionA, secret, { restricted: true, userIds: [ivy.userId] });
+    await ctx.q.addNote(ctx.sessionA, secret, 'Kd of 4 nM, keep quiet until the paper');
+    fileId = await ctx.q.recordFile(ctx.sessionA, { filename: 'embargo-plate.csv', contentType: 'text/csv', byteSize: 1, storageKey: `k-${randomUUID()}` });
+    await ctx.q.attachFileToExperiment(ctx.sessionA, secret, fileId);
+    await ctx.q.postMessage(ivy, { experimentId: secret, parentId: null, body: '@Otto look at this binding curve' });
+  });
+
+  afterAll(async () => {
+    const { inArray } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.schema.workspaces).where(inArray(ctx.schema.workspaces.id, [ctx.wsA.id, ctx.wsB.id]));
+    await ctx.db.delete(ctx.schema.users).where(inArray(ctx.schema.users.id, [ctx.sessionA.userId, ctx.sessionB.userId, ivy.userId, otto.userId]));
+  });
+
+  it('is invisible to a lab member who is not on it: lists, the record, search, files, chat, calendar', async () => {
+    expect((await ctx.q.listExperiments(otto)).map((e) => e.id)).not.toContain(secret);
+    await expect(ctx.q.getExperiment(otto, secret)).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+    await expect(ctx.q.getExperimentRecord(otto, secret)).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+    expect(await ctx.q.search(otto, 'Embargoed')).toEqual([]);
+    expect(await ctx.q.search(otto, 'keep quiet')).toEqual([]);
+    expect((await ctx.q.listFiles(otto)).map((f) => f.id)).not.toContain(fileId);
+    await expect(ctx.q.getFileForDownload(otto, fileId)).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+    expect(await ctx.q.listDiscussion(otto, { experimentId: secret })).toEqual([]);
+    expect((await ctx.q.messagesVisibleTo(otto)).map((m) => m.body).join(' ')).not.toContain('binding curve');
+    const { runs } = await ctx.q.listCalendar(otto, '2026-11-01', '2026-11-30');
+    expect(runs.map((r) => r.id)).not.toContain(secret);
+  });
+
+  it('does not notify someone outside it, even when they are @mentioned', async () => {
+    expect(await ctx.q.listNotifications(otto)).toEqual([]);
+  });
+
+  it('refuses writes from someone outside it, and they cannot let themselves in', async () => {
+    await expect(ctx.q.addNote(otto, secret, 'sneaking in')).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+    await expect(ctx.q.setExperimentAccess(otto, secret, { restricted: false, userIds: [] })).rejects.toBeInstanceOf(ctx.NotFoundInWorkspaceError);
+  });
+
+  it('shows everything to the people on it, and to the lab owner', async () => {
+    for (const who of [ivy, ctx.sessionA]) {
+      expect((await ctx.q.listExperiments(who)).map((e) => e.id)).toContain(secret);
+      const record = await ctx.q.getExperimentRecord(who, secret);
+      expect(record.notes.map((n) => n.body).join(' ')).toContain('Kd of 4 nM');
+      expect((await ctx.q.listFiles(who)).map((f) => f.id)).toContain(fileId);
+      expect((await ctx.q.listDiscussion(who, { experimentId: secret })).length).toBe(1);
+    }
+    // Someone on it may work in it, but only its owner or the lab's leads decide who sees it.
+    await ctx.q.addNote(ivy, secret, 'Replicate 2 agrees');
+    await expect(ctx.q.setExperimentAccess(ivy, secret, { restricted: false, userIds: [] })).rejects.toBeInstanceOf(ctx.q.ExperimentAccessError);
+  });
+
+  it('still numbers new runs past the hidden one', async () => {
+    const next = await ctx.q.createExperiment(otto, projectId, {
+      title: 'Otto run', objective: null, hypothesis: null, performedOn: null, status: 'planned', protocolVersionId: null, protocolNotes: null, repeatsExperimentId: null,
+    });
+    expect((await ctx.q.getExperiment(otto, next)).number).toBe(2);
+  });
+
+  it('opens to the whole lab again', async () => {
+    await ctx.q.setExperimentAccess(ctx.sessionA, secret, { restricted: false, userIds: [] });
+    expect((await ctx.q.getExperiment(otto, secret)).title).toBe('Embargoed binding assay');
+    expect((await ctx.q.listFiles(otto)).map((f) => f.id)).toContain(fileId);
+  });
+});

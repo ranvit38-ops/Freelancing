@@ -88,7 +88,7 @@ export async function buildExperimentContext(s: SessionContext, experimentId: st
     .from(experiments)
     .where(
       and(
-        eq(experiments.workspaceId, s.workspaceId),
+        q.experimentScope(s),
         eq(experiments.projectId, experiment.projectId),
         ne(experiments.id, experimentId),
       ),
