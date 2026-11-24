@@ -78,6 +78,12 @@ LABFLOW_OWNER_EMAIL="you@gmail.com"
 
 4. Restart `npm run dev`.
 
+In GitHub Codespaces the address is not localhost. Use the forwarded one in
+both places, for example
+`https://YOUR-CODESPACE-3001.app.github.dev/api/auth/google/callback` as the
+redirect URI and `NEXT_PUBLIC_APP_URL="https://YOUR-CODESPACE-3001.app.github.dev"`.
+Make port 3001 Public in the Ports tab, or Google cannot send you back.
+
 `LABFLOW_OWNER_EMAIL` is the owner account. Every time that address signs in
 with Google, its workspace is comped onto the Department plan, so it works
 whether the account was made with Google or with a password first. It is an

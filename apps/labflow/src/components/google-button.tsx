@@ -26,6 +26,16 @@ export function GoogleButton({
   const message = error ? ERRORS[error] : undefined;
 
   if (!googleConfigured()) {
+    // On npm run dev only: say why the button is missing. A deployment shows
+    // nothing, since visitors cannot fix it.
+    if (!message && process.env.NODE_ENV !== 'production') {
+      return (
+        <p className="rounded-lg border border-dashed border-line px-3 py-2 text-xs text-muted" data-google-off>
+          <b>Continue with Google</b> appears here once GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are in .env.local
+          (see RUNNING.md). Only shown on npm run dev.
+        </p>
+      );
+    }
     return message ? (
       <p role="alert" className="rounded-lg border border-warn/25 bg-warn/5 px-3 py-2 text-sm text-warn">
         {message}
