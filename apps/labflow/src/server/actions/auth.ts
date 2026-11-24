@@ -199,7 +199,8 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const attempted = normaliseEmail(String(formData.get('email') ?? ''));
-  const limited = await throttle('login', { perAccount: 10, perIp: 60, account: attempted });
+  // 10 a minute stops a burst; 30 an hour stops a slow, patient guesser.
+  const limited = await throttle('login', { perAccount: 10, perAccountHourly: 30, perIp: 60, account: attempted });
   if (limited) return limited;
 
   const parsed = loginSchema.safeParse(formObject(formData));

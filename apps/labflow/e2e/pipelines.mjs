@@ -1478,6 +1478,64 @@ await step('pilot billing page takes feedback', async () => {
     await expectText(P, /thank|got it|received/i);
   }
 });
+await step('security: script in a message, /admin, another lab’s notification, secrets in the browser, password guessing', async () => {
+  // 1. A script typed into chat is shown as text and never runs.
+  await O.goto(`${BASE}/chat`);
+  const payload = '<img src=x onerror="window.__xss=1"><script>window.__xss=1</script>';
+  await O.fill('#chat-box', payload);
+  await O.locator('#main').getByRole('button', { name: 'Send' }).click();
+  await expectText(O, 'onerror=');
+  await O.reload();
+  await expectText(O, 'onerror=');
+  assert(!(await O.evaluate(() => window.__xss)), 'a script in a chat message ran');
+
+  // 3. There is no /admin, and the owner page is closed to everyone else.
+  for (const path of ['/admin', '/owner']) {
+    const r = await O.goto(BASE + path);
+    await settled(O);
+    const text = await bodyText(O);
+    assert(r.status() === 404 || text.includes('This page isn’t here'), `${path} opened for an outsider`);
+    assert(!text.includes('Every workspace'), `${path} shows the owner dashboard`);
+  }
+
+  // 2. Another person's notification, by its id: nothing of theirs opens.
+  await S.goto(`${BASE}/notifications`);
+  const theirs = await S.locator('a[href^="/notifications/"]').first().getAttribute('href');
+  assert(theirs, 'the student has no notification to test with');
+  await O.goto(BASE + theirs);
+  await O.waitForURL(/\/notifications$/, { timeout: 10_000 });
+  assert(!(await bodyText(O)).includes('Image the gel'), 'another lab’s notification was shown');
+
+  // 4. No server secret is in what the browser downloads.
+  const scripts = await O.evaluate(() => [...document.scripts].map((s) => s.src).filter(Boolean));
+  const secrets = ['sk-ant-fake', 're_fake', 'e2e-only-not-a-secret', 'e2e-cron-secret-0123456789'];
+  for (const src of scripts) {
+    const body = await (await fetch(src)).text();
+    const found = secrets.filter((secret) => body.includes(secret));
+    assert(!found.length, `${src} contains ${found.join(', ')}`);
+  }
+
+  // 11. Guessing a password: the account is locked out after a few tries.
+  const guesser = await browser.newContext();
+  try {
+    const g = await guesser.newPage();
+    const target = `guess-target-${stamp}@labquill.test`;
+    let blocked = false;
+    for (let i = 0; i < 12 && !blocked; i++) {
+      await g.goto(`${BASE}/login`);
+      await g.fill('#email', target);
+      await g.fill('#password', `wrong-password-${i}`);
+      await g.click('form:has(#password) button[type=submit]');
+      // Wait for the server's own answer to this attempt before the next one.
+      const answer = g.getByRole('alert').filter({ hasText: /incorrect|Too many attempts/ });
+      await answer.waitFor({ timeout: 10_000 });
+      blocked = (await answer.innerText()).includes('Too many attempts');
+    }
+    assert(blocked, 'twelve wrong passwords in a row were all accepted for checking');
+  } finally {
+    await guesser.close();
+  }
+});
 await step('PayPal webhook refuses unsigned events', async () => {
   const r = await fetch(`${BASE}/api/paypal/webhook`, { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } });
   // 400 with PayPal configured; 503 "not configured" without it. Never 2xx.
