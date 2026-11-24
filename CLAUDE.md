@@ -2,6 +2,25 @@
 
 Guidance for working in this repository.
 
+## Repository layout
+
+Two independent products live here. They share nothing but a stack.
+
+- **`/` (repo root)** — the re-skinnable business website template. Everything
+  below describes *this* product.
+- **`apps/labflow/`** — LabFlow, a research workflow SaaS for university labs.
+  Separate `package.json`, database, CI job and rules. See
+  `apps/labflow/README.md`. The golden rule below does **not** apply there:
+  LabFlow is one product with real state, not a template. Its equivalent rule is
+  that every read and write of *workspace* data goes through
+  `src/server/queries.ts`, scoped by `session.workspaceId`. The only direct
+  writes outside it are identity — users, workspaces, memberships, sessions and
+  password-reset tokens in `src/server/auth.ts` and `src/server/actions/auth.ts`
+  — which by definition run before a workspace context exists.
+
+Root `tsconfig.json`, `.eslintignore` and `.github/workflows/ci.yml` all exclude
+`apps/` so the two never interfere.
+
 ## What this is
 
 A **re-skinnable** business website template (Next.js 14 App Router + TypeScript
@@ -60,3 +79,11 @@ vars). Keep business logic in pure, testable functions where practical.
 Pinned to the latest stable **Next 14.2.x**. Remaining `npm audit` advisories
 require a **Next 16 major upgrade** (React 19, breaking changes) — do not bump
 without a deliberate migration.
+
+## Installed tooling (session plugins)
+
+- **rtk** (`/usr/local/bin/rtk`) — compresses verbose command output before it
+  reaches an agent's context. Prefix noisy commands: `rtk npm run build`,
+  `rtk git status`. The global hook is not installed; invoke it explicitly.
+- **ponytail** (`.claude/skills/ponytail*`) — skills that push for the simplest
+  solution that works. `/ponytail`, `/ponytail-review`, `/ponytail-audit`.
