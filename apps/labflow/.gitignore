@@ -7,3 +7,6 @@ node_modules
 next-env.d.ts
 e2e/.tmp-upload.xlsx
 public/third-party-notices.txt
+
+# Written by `next dev` on every start.
+AGENTS.md
