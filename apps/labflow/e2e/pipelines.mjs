@@ -779,6 +779,9 @@ await step('project subpages render', async () => {
   for (const sub of ['', '/timeline', '/memory', '/samples', '/updates', '/literature', '/discussion']) {
     const r = await P.goto(`${BASE}/projects/${ids.project}${sub}`);
     assert(!r || r.status() === 200, `${sub || '/'} status ${r?.status()}`);
+    // The old discussion address forwards to the project's chat channel once
+    // the page has streamed; wait for it, or it cuts off the next navigation.
+    if (sub === '/discussion') await P.waitForURL(/\/chat\?c=/, { timeout: 15_000, waitUntil: 'commit' });
   }
   const r = await P.goto(`${BASE}/projects/${ids.project}/compare?ids=${ids.experiment},${ids.repeat}`);
   assert(!r || r.status() === 200, `compare status ${r?.status()}`);
